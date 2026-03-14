@@ -22,7 +22,13 @@
 
 ## 🏗️ 1. Kiến trúc hệ thống
 
-Dự án được xây dựng theo mô hình **Client-Server** kết hợp kiến trúc **Phân lớp (Layered Architecture)**.
+Dự án được phát triển theo phương pháp **Agile/Scrum** với 5 Sprint, kết hợp kiến trúc phần mềm **Client-Server** và mô hình **Phân lớp (Layered Architecture)**.
+
+| Khía cạnh | Mô tả |
+|-----------|-------|
+| **Quy trình phát triển** | Agile/Scrum — chia thành 5 Sprint, mỗi Sprint có Sprint Planning, Daily Standup, Sprint Review và Retrospective |
+| **Kiến trúc phần mềm** | Client-Server — Frontend (React) giao tiếp với Backend (Node.js) qua REST API và Socket.IO |
+| **Tổ chức mã nguồn** | Layered Architecture — tách biệt rõ ràng giữa Routes, Controllers, Services, Models |
 
 ---
 
