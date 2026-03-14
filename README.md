@@ -1,34 +1,26 @@
-# 🚦 Hệ thống Quản lý Sự cố Giao thông
-> **Traffic Incident Management System**
+# 🚦 Hệ thống Quản lý Sự cố Giao thông (TIMS)
 
-| Thông tin | Chi tiết |
-|-----------|----------|
-| **Lớp** | CNTT4 - K64 |
-| **Quy trình** | Agile/Scrum (5 Sprints) |
-
----
+> **Traffic Incident Management System** — Giải pháp hỗ trợ báo cáo và điều phối cứu hộ giao thông thời gian thực.
 
 ## 👥 Thành viên nhóm
 
-| Vai trò | Họ và tên | MSSV | Trách nhiệm |
-|---------|-----------|------|-------------|
-| **Product Owner** | Nguyễn Văn A | 23122XXXX | Quản lý Product Backlog, ưu tiên tính năng, xác nhận kết quả Sprint |
-| **Scrum Master** | Trần Thị B | 23122XXXX | Loại bỏ trở ngại, tổ chức ceremonies, đảm bảo quy trình Scrum |
-| **Backend Developer** | Lê Văn C | 23122XXXX | Node.js, Express, Socket.IO, MongoDB, REST API |
-| **Frontend Developer** | Phạm Thị D | 23122XXXX | React.js, Redux, Leaflet Maps, Responsive UI |
-| **Full-stack Developer** | Hoàng Văn E | 23122XXXX | Node.js + React.js, tích hợp API, DevOps |
+| Vai trò | Thành viên | Trách nhiệm |
+|---|---|---|
+| **Product Owner** | Nguyễn Văn A | Quản lý Product Backlog, ưu tiên tính năng, xác nhận kết quả Sprint |
+| **Scrum Master** | Trần Thị B | Loại bỏ trở ngại, tổ chức ceremonies, đảm bảo quy trình Scrum |
+| **Backend Developer** | Lê Văn C | Node.js, Express, Socket.IO, MongoDB, REST API |
+| **Frontend Developer** | Phạm Thị D | React.js, Redux, Leaflet Maps, Responsive UI |
+| **Full-stack Developer** | Hoàng Văn E | Node.js + React.js, tích hợp API, DevOps |
 
 ---
 
-## 🏗️ 1. Kiến trúc hệ thống
+## 🏗️ 1. Kiến trúc & Luồng hệ thống (System Flow)
 
-Dự án được phát triển theo phương pháp **Agile/Scrum** với 5 Sprint, kết hợp kiến trúc phần mềm **Client-Server** và mô hình **Phân lớp (Layered Architecture)**.
+Dự án áp dụng mô hình **Client-Server** với các lớp xử lý tách biệt:
 
-| Khía cạnh | Mô tả |
-|-----------|-------|
-| **Quy trình phát triển** | Agile/Scrum — chia thành 5 Sprint, mỗi Sprint có Sprint Planning, Daily Standup, Sprint Review và Retrospective |
-| **Kiến trúc phần mềm** | Client-Server — Frontend (React) giao tiếp với Backend (Node.js) qua REST API và Socket.IO |
-| **Tổ chức mã nguồn** | Layered Architecture — tách biệt rõ ràng giữa Routes, Controllers, Services, Models |
+- **Frontend:** React (Vite) + Redux Toolkit. Tích hợp Geolocation API để lấy tọa độ thực tế.
+- **Backend:** Node.js + Express + MongoDB. Xử lý logic nghiệp vụ và dịch ngược tọa độ (Reverse Geocoding).
+- **CI/CD:** Tự động hóa kiểm thử và đóng gói Docker thông qua GitHub Actions.
 
 ---
 
@@ -36,225 +28,149 @@ Dự án được phát triển theo phương pháp **Agile/Scrum** với 5 Spri
 
 ### Backend — `backend/src/`
 
-Thư mục Backend được tổ chức để tách biệt rõ ràng giữa logic nghiệp vụ, dữ liệu và các dịch vụ hỗ trợ:
-
 ```
-backend/src/
-├── config/        # Cấu hình MongoDB, JWT, Firebase
-├── controllers/   # Điều khiển: incident, rescue, user, report
-├── middleware/    # auth, upload, validation, errorHandler
-├── models/        # Schemas: Incident, RescueTeam, User, Notification
-├── routes/        # API endpoints (api/v1/...)
-├── services/      # geocoding, phân công tự động, thông báo, Socket.IO
-├── jobs/          # Bull Queue: autoAssign, báo cáo hàng ngày
-├── utils/         # helpers, logger
-├── app.js         # Khởi tạo ứng dụng
-└── server.js      # Vận hành cổng mạng
+backend/
+├── src/
+│   ├── config/         # Swagger, MongoDB, success/error codes
+│   ├── controllers/    # Xử lý logic (Auth, Incident) - Có Swagger JSDoc
+│   ├── middleware/     # Auth (JWT), Upload (Multer), Error Handler
+│   ├── models/         # Mongoose Schemas (User, Incident)
+│   ├── routes/         # Định nghĩa API endpoints (v1)
+│   ├── services/       # GeoService (Dịch địa chỉ)
+│   └── server.js       # Điểm khởi chạy hệ thống
+├── Dockerfile          # Bản thiết kế đóng gói Container
+└── .dockerignore       # Loại bỏ file thừa khi build Docker
 ```
-
-| Thư mục | Mô tả |
-|---------|-------|
-| `config/` | Thiết lập cấu hình cho MongoDB, xác thực JWT và dịch vụ Firebase |
-| `controllers/` | Xử lý logic điều khiển cho sự cố (incident), đội cứu hộ (rescue), người dùng (user) và báo cáo (report) |
-| `middleware/` | Xác thực (auth), tải tệp (upload), kiểm tra dữ liệu đầu vào (validation), xử lý lỗi tập trung (errorHandler) |
-| `models/` | MongoDB Schemas: Incident, RescueTeam, User, Notification |
-| `routes/` | Định nghĩa các đường dẫn API (`api/v1/...`) |
-| `services/` | Geocoding, thuật toán phân công tự động, dịch vụ thông báo, Socket.IO |
-| `jobs/` | Tác vụ nền qua Bull Queue: tự động phân công (`autoAssign`), tạo báo cáo hàng ngày |
-| `utils/` | Helpers và logger hệ thống |
 
 ### Frontend — `frontend/src/`
 
-Thư mục Frontend được tổ chức theo thành phần giao diện và quản lý trạng thái tập trung:
-
 ```
 frontend/src/
-├── assets/        # Tài nguyên tĩnh (react.svg, hình ảnh, icon...)
-├── components/    # Map, IncidentCard, StatusBadge, Navbar
-├── pages/         # Home, BáoCáo, Dashboard, RescueDashboard, Admin
-├── store/         # Redux Toolkit: incident, rescue, auth, notification
-├── hooks/         # useSocket, useGeolocation, useAuth
-├── services/      # api.js (HTTP), Socket.IO client
-├── utils/         # formatters, geoUtils
-├── App.jsx        # Cấu hình chính
-└── main.jsx       # Điểm khởi động React
-```
-
-| Thư mục | Mô tả |
-|---------|-------|
-| `assets/` | Tài nguyên tĩnh mặc định của Vite: `react.svg`, hình ảnh, icon và các file media |
-| `components/` | Thành phần dùng chung: Map, IncidentCard, StatusBadge, Navbar |
-| `pages/` | Trang chủ, Báo cáo sự cố, Dashboard điều phối, Bảng điều khiển đội cứu hộ, Trang Admin |
-| `store/` | Redux Toolkit quản lý trạng thái: sự cố, đội cứu hộ, xác thực, thông báo |
-| `hooks/` | Custom Hooks: `useSocket`, `useGeolocation`, `useAuth` |
-| `services/` | Quản lý HTTP request (`api.js`) và kết nối Socket.IO client |
-| `utils/` | Hàm định dạng dữ liệu (formatters) và tiện ích địa lý (geoUtils) |
-
----
-
-## ⚙️ 3. Công nghệ sử dụng
-
-### Backend
-| Thành phần | Công nghệ |
-|------------|-----------|
-| **Runtime** | Node.js v22+ |
-| **Framework** | Express.js |
-| **Database** | MongoDB + Mongoose |
-| **Realtime** | Socket.IO |
-| **Xác thực** | JWT (JSON Web Token) |
-| **Thông báo** | Firebase Admin SDK |
-| **Hàng đợi** | Bull Queue + Redis |
-| **API Docs** | Swagger UI |
-| **Kiểm thử** | Jest & Supertest |
-| **Hạ tầng** | Docker |
-
-### Frontend
-| Thành phần | Công nghệ |
-|------------|-----------|
-| **Framework** | React |
-| **Build tool** | Vite |
-| **State management** | Redux Toolkit |
-| **Kết nối API** | REST HTTP + Socket.IO |
-
----
-
-## 🚀 4. Cài đặt & Khởi chạy
-
-### Yêu cầu hệ thống
-- ✅ Node.js v22+
-- ✅ Docker Desktop
-- ✅ Git
-
-### Bước 1 — Tải mã nguồn
-```bash
-git clone https://github.com/vylote/agile-scrum_traffic.git
-cd agile-scrum_traffic
-```
-
-### Bước 2 — Cài đặt thư viện
-```bash
-# Backend
-cd backend && npm install
-
-# Frontend
-cd ../frontend && npm install
+├── hooks/              # useGeolocation (Tối ưu với useCallback)
+├── services/           # api.js (Axios Interceptor tự động gắn Token)
+├── store/              # Redux Toolkit quản lý Auth & Incident state
+└── pages/              # Giao diện Báo cáo sự cố (ReportIncident)
 ```
 
 ---
 
-## 🔑 5. Cấu hình môi trường
+## ⚙️ 3. Công nghệ mới bổ sung
 
-> **Lưu ý:** Các tệp sau bị chặn bởi `.gitignore` vì lý do bảo mật — cần tạo thủ công.
+| Công nghệ | Vai trò | Trạng thái |
+|---|---|---|
+| **Docker** | Đóng gói ứng dụng vào Container để chạy trên mọi môi trường | ✅ Đã cấu hình |
+| **GitHub Actions** | Tự động chạy Test và Build mỗi khi Push code | ✅ Đã cấu hình |
+| **Swagger UI** | Tài liệu API tương tác trực tiếp | ✅ Đã cấu hình |
+| **Axios Interceptor** | Tự động xử lý Header Authorization (Bearer Token) | ✅ Đã cấu hình |
 
-### 5.1. Tạo file `.env`
+---
 
-Tạo file tại `backend/.env` với nội dung:
+## 🚀 4. Cài đặt & Vận hành nhanh
+
+### Bước 1 — Chuẩn bị môi trường
+
+Tạo file `backend/.env`:
 
 ```env
+NODE_ENV=development
 PORT=5000
 MONGO_URI=mongodb://localhost:27017/incident_db
-JWT_SECRET=lien_he_vy_de_lay_ma
+JWT_SECRET=ma_bi_mat_cua_vy
 ```
 
-### 5.2. Cấu hình Firebase
-
-Đặt file `firebase-service-account.json` vào đúng đường dẫn:
-
-```
-backend/src/config/firebase-service-account.json
-```
-
----
-
-## 💻 6. Vận hành dự án
-
-### Bước 1 — Khởi động hạ tầng (Docker)
+### Bước 2 — Chạy với Docker (Khuyên dùng)
 
 ```bash
-# Chạy tại thư mục gốc dự án
+# Build và chạy toàn bộ hệ thống (DB + Backend)
 docker-compose up -d
 ```
 
-> Lệnh này khởi động các container **MongoDB** và **Redis** cục bộ.
-
-### Bước 2 — Chạy Backend
+### Bước 3 — Chạy thủ công để Development
 
 ```bash
-cd backend
-npm run dev
-```
-
-| Dịch vụ | URL |
-|---------|-----|
-| API Server | http://localhost:5000 |
-| Swagger UI | http://localhost:5000/api-docs |
-
-### Bước 3 — Chạy Frontend
-
-```bash
-cd frontend
+# Tại thư mục backend
+npm install
 npm run dev
 ```
 
 ---
 
-## 🧪 7. Kiểm thử & Chất lượng
+## 🧪 5. Kiểm thử & Chất lượng (Sprint 1 — Kết quả thực tế)
 
-### Chạy Unit Test
+### Chạy test
 
 ```bash
 cd backend
 npm test
 ```
 
-### Kết quả hiện tại
+### Kết quả Unit Test
 
 ```
-PASS  src/tests/app.test.js
-  Kiểm tra các Endpoint cơ bản
-    √ Nên trả về thông báo chào mừng tại đường dẫn / (34 ms)
-    √ Nên trả về status 200 khi gọi /api/test (5 ms)
+FAIL  src/tests/app.test.js (7.261 s)
+  Kiểm tra Hạ tầng và Kiến trúc (Sprint 1)
+    √ Nên truy cập được tài liệu API Swagger tại /api-docs (37 ms)
+    × Nên trả về lỗi validation thay vì 404 khi gọi Register thiếu body (5005 ms)
+    × Nên yêu cầu xác thực khi truy cập danh sách sự cố (6 ms)
 
-----------------|---------|----------|---------|---------|-------------------
-File            | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
-----------------|---------|----------|---------|---------|-------------------
-All files       |   59.09 |   100.00 |   66.66 |   57.14 |
- src            |  100.00 |   100.00 |  100.00 |  100.00 |
-  app.js        |  100.00 |   100.00 |  100.00 |  100.00 |
- src/middleware |    0.00 |   100.00 |    0.00 |    0.00 | 1-12
-  upload.js     |    0.00 |   100.00 |    0.00 |    0.00 | 1-12
- src/models     |    0.00 |   100.00 |  100.00 |    0.00 | 1-14
-  Incident.js   |    0.00 |   100.00 |  100.00 |    0.00 | 1-14
-----------------|---------|----------|---------|---------|-------------------
-
-Test Suites: 1 passed, 1 total
-Tests:       2 passed, 2 total
-Time:        2.308 s
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 1 passed, 3 total
+Time:        7.892 s
 ```
 
-> ⚠️ **Coverage hiện tại chưa đạt yêu cầu** — tổng coverage đạt **59.09% Statements / 57.14% Lines**, thấp hơn mức tối thiểu **80%** theo yêu cầu dự án.
-
-### Nguyên nhân & hướng khắc phục
-
-| File chưa được test | Coverage | Hướng khắc phục |
-|--------------------|----------|-----------------|
-| `src/middleware/upload.js` | 0% | Viết test cho middleware upload (mock Multer) |
-| `src/models/Incident.js` | 0% Lines | Viết test kiểm tra Schema validation và các trường bắt buộc |
-
-**Để đạt mục tiêu ≥ 80%, cần bổ sung:**
-- Test cho `upload.js`: mock `multer`, kiểm tra filter định dạng file, giới hạn kích thước
-- Test cho `Incident.js`: tạo/validate document, kiểm tra required fields, kiểm tra enum values
-
-### Xem báo cáo chi tiết
-
-Sau khi chạy test, mở file sau bằng trình duyệt:
+### Báo cáo Coverage
 
 ```
-backend/coverage/lcov-report/index.html
+----------------------------|---------|----------|---------|---------|
+File                        | % Stmts | % Branch | % Funcs | % Lines |
+----------------------------|---------|----------|---------|---------|
+All files                   |   62.09 |     17.5 |   35.71 |   62.09 |
+ src/app.js                 |  100.00 |   100.00 |  100.00 |  100.00 |
+ src/controllers            |   37.03 |     0.00 |   25.00 |   37.03 |
+  authController.js         |   42.85 |     0.00 |   50.00 |   42.85 |
+  incidentController.js     |   30.76 |     0.00 |    0.00 |   30.76 |
+ src/middleware             |   65.30 |    35.00 |   50.00 |   65.30 |
+  auth.js                   |   50.00 |    30.00 |   66.66 |   50.00 |
+  upload.js                 |   57.14 |     0.00 |    0.00 |   57.14 |
+ src/models                 |  100.00 |   100.00 |  100.00 |  100.00 |
+ src/routes                 |  100.00 |   100.00 |  100.00 |  100.00 |
+ src/services/geoService.js |   37.50 |   100.00 |    0.00 |   37.50 |
+ src/utils/response.js      |   50.00 |     0.00 |    0.00 |   50.00 |
+----------------------------|---------|----------|---------|---------|
 ```
+
+> ⚠️ **Coverage hiện tại: 62.09% Statements / 62.09% Lines** — chưa đạt mức tối thiểu **80%** theo yêu cầu dự án.
+
+### Phân tích lỗi & hướng khắc phục
+
+| Test case | Trạng thái | Nguyên nhân | Hướng xử lý |
+|---|---|---|---|
+| Swagger `/api-docs` | ✅ Pass | — | — |
+| Register thiếu body | ❌ Timeout 5000ms | Server không phản hồi kịp — kết nối DB treo trong môi trường test | Dùng `jest.setTimeout()` hoặc mock MongoDB |
+| Xác thực danh sách sự cố | ❌ Nhận `403` thay vì `401` | Middleware `protect` trả về 403 (Forbidden) khi thiếu token, cần trả 401 (Unauthorized) | Cập nhật status code trong middleware `auth.js` |
+
+### Roadmap nâng Coverage lên ≥ 80%
+
+| File ưu tiên | Coverage hiện tại | Việc cần làm |
+|---|---|---|
+| `incidentController.js` | 30.76% | Viết test cho tạo, cập nhật, xóa sự cố |
+| `authController.js` | 42.85% | Bổ sung test login, token hết hạn |
+| `geoService.js` | 37.50% | Mock API geocoding, test các trường hợp lỗi |
+| `auth.js` (middleware) | 50.00% | Test token hợp lệ / sai / hết hạn |
+
+### Tự động hóa CI/CD
+
+- **Trạng thái:** ⚠️ Failing (do 2 test case thất bại)
+- **Luồng chạy:** Mỗi khi push lên `main` → GitHub Actions khởi tạo Node 22 → `npm install` → Docker Build → Jest
 
 ---
 
+## 🔑 6. Tài liệu API (Swagger)
 
+Sau khi chạy Backend, truy cập đường dẫn sau để xem và test các API (Đăng ký, Đăng nhập, Báo cáo sự cố):
 
-Made with ❤️ by Nhóm CNTT4 - K64
+👉 `http://localhost:5000/api-docs`
+
+---
+
+<p align="center">Made with ❤️ by <strong>nhóm X</strong> — CNTT4 - K64</p>
