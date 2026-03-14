@@ -257,8 +257,4 @@ backend/coverage/lcov-report/index.html
 
 
 
-<<<<<<< HEAD
 Made with ❤️ by Nhóm CNTT4 - K64
-=======
-Made with ❤️ by Nhóm CNTT4 - K64
->>>>>>> e15aac099783ff7c4bcae3230c9ef7f9fb1f8f69
