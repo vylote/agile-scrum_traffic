@@ -1,23 +1,30 @@
 const express = require('express');
 const cors = require('cors');
-const swaggerUi = require('swagger-ui-express');
-const swaggerDocs = require('./config/swagger'); // Import cấu hình Swagger
+const path = require('path');
+const authRoutes = require('./routes/authRoutes');
+const incidentRoutes = require('./routes/incidentRoutes.js'); // Kết nối cho US-01
+const globalExceptionHandler = require('./middleware/globalExceptionHandler');
+const { swaggerUi, specs } = require('./config/swagger'); // Tài liệu API
 
 const app = express();
 
-// Middleware cơ bản
+// 1. Cấu hình Middleware cơ bản
 app.use(cors());
 app.use(express.json());
 
-// Cấu hình Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+// 2. Cấu hình thư mục Static (Cực kỳ quan trọng cho US-01)
+// Giúp Frontend có thể hiển thị ảnh sự cố qua URL: http://localhost:5000/uploads/ten-anh.jpg
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Các Endpoint API
-app.get('/api/test', (req, res) => {
-    res.status(200).json({ message: "API Swagger hoạt động!" });
-});
+// 3. Tài liệu API (Swagger Docs)
+// Giúp bạn hoàn thành Task "Swagger docs" trong phần Technical (8 SP)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-app.get('/', (req, res) => res.send("Backend API is running"));
+// 4. Định tuyến (Routes)
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/incidents', incidentRoutes); // Luồng báo cáo sự cố
 
-// Export app để dùng cho server.js và chạy Unit Test (Jest)
+// 5. Phễu hứng lỗi cuối cùng (Global Exception Handler)
+app.use(globalExceptionHandler);
+
 module.exports = app;

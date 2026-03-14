@@ -1,24 +1,28 @@
-const swaggerJsDoc = require('swagger-jsdoc');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 
-const swaggerOptions = {
-    swaggerDefinition: {
-        openapi: '3.0.0',
-        info: {
-            title: 'Hệ thống Quản lý Sự cố API', //
-            version: '1.0.0',
-            description: 'Tài liệu hướng dẫn sử dụng các endpoint API cho hệ thống cứu hộ giao thông'
-        },
-        servers: [
-            {
-                url: `http://localhost:${process.env.PORT || 5000}`,
-                description: 'Development Server'
-            }
-        ]
+const options = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Hệ thống Cứu hộ Giao thông API',
+      version: '1.0.0',
+      description: 'Tài liệu API cho đồ án Agile/Scrum - Sprint 1',
     },
-    // LƯU Ý: Đường dẫn phải trỏ vào thư mục src vì chúng ta đã di chuyển code
-    apis: ['./src/app.js', './src/routes/*.js', './src/server.js'] 
+    servers: [{ url: 'http://localhost:5000' }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  // Đường dẫn đến các file chứa chú thích @swagger
+  apis: ['./src/routes/*.js', './src/controllers/*.js'], 
 };
 
-const swaggerDocs = swaggerJsDoc(swaggerOptions);
-
-module.exports = swaggerDocs;
+const specs = swaggerJsdoc(options);
+module.exports = { swaggerUi, specs };

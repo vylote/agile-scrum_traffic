@@ -1,0 +1,23 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+      - name: Install & Test Backend
+        run: |
+          cd backend
+          npm install
+          # Sau này Vy viết test thì dùng: npm test
+      - name: Build Docker Image (Dry Run)
+        run: |
+          docker build -t traffic-incident-backend ./backend

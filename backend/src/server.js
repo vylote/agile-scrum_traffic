@@ -1,31 +1,39 @@
-const http = require('http');
-const { Server } = require('socket.io');
-const app = require('./app'); // Import ứng dụng từ app.js
-const connectDB = require('./config/db'); // Import cấu hình DB
+// 1. PHẢI LÀ DÒNG ĐẦU TIÊN: Nạp biến môi trường trước khi nạp bất kỳ file nào khác
 require('dotenv').config();
 
-// 1. Kết nối Cơ sở dữ liệu (MongoDB/Docker)
+const http = require('http');
+const { Server } = require('socket.io');
+const app = require('./app'); 
+const connectDB = require('./config/db');
+
+// 2. Kết nối Database
 connectDB();
 
 const server = http.createServer(app);
 
-// 2. Cấu hình Socket.io cho các tính năng thời gian thực
+// 3. Cấu hình Socket.io
 const io = new Server(server, { 
-    cors: { origin: "*" } 
+    cors: { 
+        origin: process.env.NODE_ENV === 'development' ? "*" : "https://yourdomain.com",
+        methods: ["GET", "POST"]
+    } 
 });
 
+// Mẹo Pro: Gắn io vào app để Vy có thể dùng req.app.get('io') trong Controller (ví dụ báo cáo sự cố xong thì phát tin ngay)
+app.set('io', io);
+
 io.on('connection', (socket) => {
-    console.log('⚡ Người dùng kết nối:', socket.id);
+    console.log(`⚡ User connected: ${socket.id}`);
     
-    // Bạn có thể tách logic socket vào thư mục services/ sau này
     socket.on('disconnect', () => {
-        console.log('🔥 Người dùng ngắt kết nối');
+        console.log('🔥 User disconnected');
     });
 });
 
-// 3. Khởi động Server
+// 4. Khởi động Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-    console.log(`🚀 Server đang chạy tại: http://localhost:${PORT}`);
-    console.log(`📖 Tài liệu API: http://localhost:${PORT}/api-docs`);
+    console.log(`🚀 Server is running in ${process.env.NODE_ENV} mode`);
+    console.log(`📡 Listening on: http://localhost:${PORT}`);
+    console.log(`📖 API Docs: http://localhost:${PORT}/api-docs`);
 });
