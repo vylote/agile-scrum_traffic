@@ -2,7 +2,7 @@
 //ở đây dùng để gọi lên server của OpenStreetMap 
 const axios = require('axios');
 
-const getAddressFromCoords = async (lat, lon) => {
+const reverseGeocode = async (lat, lon) => {
   try {
     //gọi API OpenStreetMap
     const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
@@ -23,4 +23,4 @@ const getAddressFromCoords = async (lat, lon) => {
   }
 };
 
-module.exports = { getAddressFromCoords };
+module.exports = { reverseGeocode };

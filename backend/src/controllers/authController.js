@@ -6,6 +6,51 @@ const ErrorCodes = require('../config/errorCodes');
 const SuccessCodes = require('../config/successCodes');
 const { sendSuccess } = require('../utils/response');
 
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Các API liên quan đến Xác thực người dùng
+ */
+
+/**
+ * @swagger
+ * /api/v1/auth/register:
+ *   post:
+ *     summary: Đăng ký tài khoản người dùng mới
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *               - fullName
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "vy_le_2026"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "SecurePass123"
+ *               fullName:
+ *                 type: string
+ *                 example: "Le Thanh Vy"
+ *               role:
+ *                 type: string
+ *                 enum: [Citizen, Dispatcher, Admin]
+ *                 default: Citizen
+ *                 example: "Citizen"
+ *     responses:
+ *       201:
+ *         description: Đăng ký thành công
+ *       400:
+ *         description: Tên đăng nhập đã tồn tại (Mã lỗi 1001)
+ */
 exports.register = async (req, res, next) => {
     try {
         const { username, password, role, fullName } = req.body;
@@ -31,10 +76,41 @@ exports.register = async (req, res, next) => {
         });
 
     } catch (err) {
+        /* Trong JS thuần túy, k hề tồn tại hàm next(), đây là do vy khai báo
+        khi có một request tới, express(framework) sẽ tạo ra nó   */
         next(err); // Đẩy vào phễu Global Error Handler
     }
 };
 
+/**
+ * @swagger
+ * /api/v1/auth/login:
+ *   post:
+ *     summary: Đăng nhập để lấy Token JWT
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "vy_le_2026"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "SecurePass123"
+ *     responses:
+ *       200:
+ *         description: Đăng nhập thành công, trả về Token và thông tin cơ bản
+ *       401:
+ *         description: Tài khoản hoặc mật khẩu không chính xác (Mã lỗi 1002)
+ */
 exports.login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
@@ -47,6 +123,8 @@ exports.login = async (req, res, next) => {
             return next(new AppError(ErrorCodes.AUTH_INVALID_CREDENTIALS));
         }
 
+        /* tự tạo header mặc định 
+        { "alg": "HS256", "typ": "JWT" } */
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
@@ -61,7 +139,9 @@ exports.login = async (req, res, next) => {
             }
         });
 
-    } catch (err) {
+    } catch (err) { 
+        /* Lệnh next(something): Khi gọi next và truyền vào bất cứ thứ gì (ngoại trừ chữ 'route'),
+        Express sẽ mặc định coi cái "something" đó là một lỗi (Error) */
         next(err);
     }
 };

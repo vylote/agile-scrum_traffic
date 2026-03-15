@@ -16,13 +16,14 @@ exports.protect = async (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-        const currentUser = await User.findById(jwt.decoded.id)
+        const currentUser = await User.findById(decoded.id)
         if (!currentUser)
             return next(new AppError(ErrorCodes.AUTH_UNAUTHORIZED))
 
         req.user = currentUser
         next()
     } catch (err) {
+        console.log(err)
         return next(new AppError(ErrorCodes.AUTH_TOKEN_EXPIRED))
     }
 }
