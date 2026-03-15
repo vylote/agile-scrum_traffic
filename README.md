@@ -2,6 +2,14 @@
 
 > **Traffic Incident Management System** — Giải pháp hỗ trợ báo cáo và điều phối cứu hộ giao thông thời gian thực.
 
+| Thông tin | Chi tiết |
+|---|---|
+| **Sinh viên thực hiện** | Lê Thanh Vy (231220965) |
+| **Lớp** | CNTT4 - K64 |
+| **Quy trình** | Agile/Scrum (Sprint 1: Cấu trúc hạ tầng & Báo cáo sự cố) |
+
+---
+
 ## 👥 Thành viên nhóm
 
 | Vai trò | Thành viên | Trách nhiệm |
@@ -54,7 +62,7 @@ frontend/src/
 
 ---
 
-## ⚙️ 3. Công nghệ mới bổ sung
+## ⚙️ 3. Công nghệ sử dụng
 
 | Công nghệ | Vai trò | Trạng thái |
 |---|---|---|
@@ -95,7 +103,66 @@ npm run dev
 
 ---
 
-## 🧪 5. Kiểm thử & Chất lượng (Sprint 1 — Kết quả thực tế)
+## 🏆 5. Điểm nổi bật kiến trúc (Sprint 1 — Cải tiến kỹ thuật)
+
+### 1. Hệ thống xử lý lỗi tập trung (Error Handling Pipeline)
+
+Thay vì viết `try-catch` và `res.status()` rải rác khắp nơi, hệ thống áp dụng mô hình **"Phễu lỗi"** tập trung:
+
+| Thành phần | Vai trò |
+|---|---|
+| **`AppError`** | Đóng gói lỗi thành chuẩn: mã nghiệp vụ (`1001`, `1002`...) + mã HTTP (`400`, `401`...) |
+| **`Error.captureStackTrace`** | Dọn Stack Trace — chỉ thẳng vào Controller, loại bỏ code rác của framework |
+| **`globalExceptionHandler(err, req, res, next)`** | Bắt buộc đủ 4 tham số để Express nhận diện đây là Error Middleware, không phải Route |
+
+```js
+// Controller chỉ cần ném lỗi — không cần xử lý
+return next(new AppError(ErrorCodes.AUTH_USER_EXISTS));
+
+// globalExceptionHandler lo phần còn lại
+app.use((err, req, res, next) => { ... });
+```
+
+### 2. Bảo mật & Cấu hình môi trường
+
+- **Dotenv** được nạp ở **dòng đầu tiên** của `server.js` — đảm bảo mọi biến môi trường (`JWT_SECRET`, `MONGO_URI`) sẵn sàng trước khi bất kỳ module nào khởi động.
+- **Swagger Authorize** — hỗ trợ dán JWT Token trực tiếp lên Swagger UI để test các endpoint yêu cầu xác thực mà không cần Postman.
+
+### 3. Tách biệt Service — Controller
+
+```
+Request → Route → Controller → Service → Model
+                      ↑             ↑
+               Chỉ điều hướng   Logic nghiệp vụ
+                                & gọi API ngoài
+```
+
+- **Controller** chỉ nhận Request, gọi Service, trả Response — không chứa logic phức tạp.
+- **GeoService** tự động dịch ngược tọa độ thành địa chỉ (Reverse Geocoding) qua Axios → OpenStreetMap, tích hợp thực tiễn cho bài toán cứu hộ giao thông.
+
+### 4. Quy trình DevOps & Testing
+
+- **Git conflict** được xử lý bằng `git pull --rebase` trước khi push, đồng bộ local và remote.
+- **Test Suite tự động** kiểm tra toàn bộ luồng nghiệp vụ theo thứ tự:
+
+```
+Đăng ký tài khoản → Đăng nhập lấy Token → Dùng Token tạo sự cố
+```
+
+- Dùng `Date.now()` để sinh username ngẫu nhiên, tránh trùng lặp giữa các lần chạy test.
+
+### 📊 Trước & Sau Sprint 1
+
+| Đặc điểm | Trước | Sau |
+|---|---|---|
+| **Xử lý lỗi** | `try-catch` + `res.status()` rải rác | `AppError` + `globalExceptionHandler` tập trung |
+| **Tài liệu API** | Ghi chú tay / Postman | Swagger UI tự động, có sẵn JSON example |
+| **Cấu trúc code** | Logic gọi API ngoài nằm trong Controller | Tách Service riêng, Controller chỉ điều hướng |
+| **Testing** | Test thủ công từng endpoint | Test Suite tự động kiểm tra cả luồng |
+
+---
+
+## 🧪 6. Kiểm thử & Chất lượng (Sprint 1 — Kết quả thực tế)
 
 ### Chạy test
 
@@ -107,15 +174,24 @@ npm test
 ### Kết quả Unit Test
 
 ```
-FAIL  src/tests/app.test.js (7.261 s)
-  Kiểm tra Hạ tầng và Kiến trúc (Sprint 1)
-    √ Nên truy cập được tài liệu API Swagger tại /api-docs (37 ms)
-    × Nên trả về lỗi validation thay vì 404 khi gọi Register thiếu body (5005 ms)
-    × Nên yêu cầu xác thực khi truy cập danh sách sự cố (6 ms)
+FAIL  src/tests/app.test.js (22.655 s)
+  🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)
+    📁 Hạ tầng & Tài liệu
+      √ Swagger UI: Nên truy cập được trang tài liệu API (52 ms)
+      × Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (12 ms)
+    🔐 Xác thực (US-15)
+      × Register: Nên đăng ký tài khoản thành công (5012 ms)
+      × Register: Nên báo lỗi 1001 nếu trùng username (5008 ms)
+      × Login: Nên trả về Token khi đăng nhập đúng (5002 ms)
+      × Login: Nên từ chối (401) nếu sai mật khẩu (5016 ms)
+    🚨 Quản lý sự cố (US-01)
+      × Security: Không có Token thì không được lấy danh sách sự cố (6 ms)
+      × Create Incident: Nên tạo sự cố thành công khi có Token (6 ms)
+      × Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon) (6 ms)
 
 Test Suites: 1 failed, 1 total
-Tests:       2 failed, 1 passed, 3 total
-Time:        7.892 s
+Tests:       8 failed, 1 passed, 9 total
+Time:        23.192 s
 ```
 
 ### Báo cáo Coverage
@@ -124,48 +200,51 @@ Time:        7.892 s
 ----------------------------|---------|----------|---------|---------|
 File                        | % Stmts | % Branch | % Funcs | % Lines |
 ----------------------------|---------|----------|---------|---------|
-All files                   |   62.09 |     17.5 |   35.71 |   62.09 |
+All files                   |   65.80 |    26.82 |   42.85 |   65.80 |
  src/app.js                 |  100.00 |   100.00 |  100.00 |  100.00 |
- src/controllers            |   37.03 |     0.00 |   25.00 |   37.03 |
-  authController.js         |   42.85 |     0.00 |   50.00 |   42.85 |
+ src/controllers            |   46.29 |     0.00 |   50.00 |   46.29 |
+  authController.js         |   60.71 |     0.00 |  100.00 |   60.71 |
   incidentController.js     |   30.76 |     0.00 |    0.00 |   30.76 |
- src/middleware             |   65.30 |    35.00 |   50.00 |   65.30 |
-  auth.js                   |   50.00 |    30.00 |   66.66 |   50.00 |
+ src/middleware             |   66.00 |    52.38 |   50.00 |   66.00 |
+  auth.js                   |   52.17 |    50.00 |   66.66 |   52.17 |
   upload.js                 |   57.14 |     0.00 |    0.00 |   57.14 |
  src/models                 |  100.00 |   100.00 |  100.00 |  100.00 |
  src/routes                 |  100.00 |   100.00 |  100.00 |  100.00 |
  src/services/geoService.js |   37.50 |   100.00 |    0.00 |   37.50 |
- src/utils/response.js      |   50.00 |     0.00 |    0.00 |   50.00 |
+ src/utils/response.js      |   60.00 |     0.00 |    0.00 |   60.00 |
 ----------------------------|---------|----------|---------|---------|
 ```
 
-> ⚠️ **Coverage hiện tại: 62.09% Statements / 62.09% Lines** — chưa đạt mức tối thiểu **80%** theo yêu cầu dự án.
+> ⚠️ **Coverage hiện tại: 65.80% Statements / 65.80% Lines** — chưa đạt mức tối thiểu **80%** theo yêu cầu dự án.
 
 ### Phân tích lỗi & hướng khắc phục
 
 | Test case | Trạng thái | Nguyên nhân | Hướng xử lý |
 |---|---|---|---|
 | Swagger `/api-docs` | ✅ Pass | — | — |
-| Register thiếu body | ❌ Timeout 5000ms | Server không phản hồi kịp — kết nối DB treo trong môi trường test | Dùng `jest.setTimeout()` hoặc mock MongoDB |
-| Xác thực danh sách sự cố | ❌ Nhận `403` thay vì `401` | Middleware `protect` trả về 403 (Forbidden) khi thiếu token, cần trả 401 (Unauthorized) | Cập nhật status code trong middleware `auth.js` |
+| 404 JSON chuẩn khi sai URL | ❌ Body rỗng | `globalExceptionHandler` chưa bắt route không tồn tại | Thêm `404 handler` trước `globalExceptionHandler` trong `app.js` |
+| Register / Login (4 test) | ❌ Timeout 5000ms | Kết nối MongoDB thật bị treo trong môi trường test | Dùng `mongodb-memory-server` hoặc `jest.setTimeout(15000)` |
+| Security danh sách sự cố | ❌ Nhận `403` thay vì `401` | Middleware `auth.js` trả Forbidden thay vì Unauthorized | Sửa status code về `401` trong `auth.js` |
+| Create Incident có Token | ❌ `success: false` | Token không hợp lệ do test Register bị timeout trước | Sửa timeout → test này sẽ pass theo |
+| Validation thiếu tọa độ | ❌ Nhận `403` thay vì `400` | Middleware auth chặn trước khi đến bước validation | Sửa `401` ở `auth.js` hoặc dùng token hợp lệ trong test |
 
 ### Roadmap nâng Coverage lên ≥ 80%
 
 | File ưu tiên | Coverage hiện tại | Việc cần làm |
 |---|---|---|
 | `incidentController.js` | 30.76% | Viết test cho tạo, cập nhật, xóa sự cố |
-| `authController.js` | 42.85% | Bổ sung test login, token hết hạn |
-| `geoService.js` | 37.50% | Mock API geocoding, test các trường hợp lỗi |
-| `auth.js` (middleware) | 50.00% | Test token hợp lệ / sai / hết hạn |
+| `authController.js` | 60.71% | Bổ sung test login thất bại, token hết hạn |
+| `geoService.js` | 37.50% | Mock Axios, test Reverse Geocoding & lỗi mạng |
+| `auth.js` (middleware) | 52.17% | Test token hợp lệ / sai / hết hạn |
 
 ### Tự động hóa CI/CD
 
-- **Trạng thái:** ⚠️ Failing (do 2 test case thất bại)
+- **Trạng thái:** ⚠️ Failing (do 8/9 test case thất bại)
 - **Luồng chạy:** Mỗi khi push lên `main` → GitHub Actions khởi tạo Node 22 → `npm install` → Docker Build → Jest
 
 ---
 
-## 🔑 6. Tài liệu API (Swagger)
+## 🔑 7. Tài liệu API (Swagger)
 
 Sau khi chạy Backend, truy cập đường dẫn sau để xem và test các API (Đăng ký, Đăng nhập, Báo cáo sự cố):
 
@@ -173,4 +252,4 @@ Sau khi chạy Backend, truy cập đường dẫn sau để xem và test các A
 
 ---
 
-<p align="center">Made with ❤️ by <strong>nhóm X</strong> — CNTT4 - K64</p>
+<p align="center">Made with ❤️ by <strong>Lê Thanh Vy</strong> — CNTT4 - K64</p>
