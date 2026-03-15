@@ -4,7 +4,6 @@
 
 | Thông tin | Chi tiết |
 |---|---|
-| **Sinh viên thực hiện** | Lê Thanh Vy (231220965) |
 | **Lớp** | CNTT4 - K64 |
 | **Quy trình** | Agile/Scrum (Sprint 1: Cấu trúc hạ tầng & Báo cáo sự cố) |
 
