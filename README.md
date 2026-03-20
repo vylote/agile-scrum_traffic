@@ -243,7 +243,92 @@ All files                   |   65.80 |    26.82 |   42.85 |   65.80 |
 
 ---
 
-## 🔑 7. Tài liệu API (Swagger)
+---
+
+## 🌿 7. Hướng dẫn đóng góp & làm việc nhóm (Git Workflow)
+
+> Quy trình bắt buộc cho mọi thành viên — **không được commit thẳng lên `main`**.
+
+### Bước 1 — Clone dự án về máy
+```bash
+git clone https://github.com/<your-org>/agile-scrum_traffic.git
+cd agile-scrum_traffic
+```
+
+### Bước 2 — Tạo nhánh làm việc riêng
+
+Đặt tên nhánh theo quy ước: `feature/<tên-tính-năng>` hoặc `fix/<tên-lỗi>`
+```bash
+# Luôn tạo nhánh mới từ main mới nhất
+git checkout main
+git pull origin main
+
+# Tạo và chuyển sang nhánh mới
+git checkout -b feature/ten-tinh-nang
+# Ví dụ:
+# git checkout -b feature/incident-report
+# git checkout -b fix/auth-401-status
+```
+
+### Bước 3 — Code & commit thường xuyên
+```bash
+# Kiểm tra file đã thay đổi
+git status
+
+# Stage các file cần commit
+git add .
+
+# Commit với message rõ ràng
+git commit -m "feat: mô tả ngắn gọn những gì vừa làm"
+# Ví dụ:
+# git commit -m "feat: thêm validation tọa độ cho incident"
+# git commit -m "fix: sửa auth middleware trả về 401 thay vì 403"
+```
+
+> **Gợi ý commit message:** `feat:` cho tính năng mới, `fix:` cho sửa lỗi, `refactor:` cho tái cấu trúc, `test:` cho viết test, `docs:` cho tài liệu.
+
+### Bước 4 — Đồng bộ với `main` trước khi merge
+```bash
+# Kéo code mới nhất từ main về
+git fetch origin
+git rebase origin/main
+
+# Nếu có conflict, giải quyết từng file rồi chạy tiếp
+git add .
+git rebase --continue
+```
+
+### Bước 5 — Push nhánh lên GitHub
+```bash
+git push origin feature/ten-tinh-nang
+```
+
+### Bước 6 — Tạo Pull Request (PR)
+
+1. Vào GitHub → chọn **"Compare & pull request"**
+2. Điền mô tả rõ PR này làm gì, fix lỗi nào, hoặc thêm tính năng gì
+3. Assign cho ít nhất **1 người review**
+4. Chờ review → sửa nếu có góp ý → **Merge vào `main`** khi được approve
+
+### Sơ đồ luồng Git
+```
+main ──────────────────────────────────────► (production)
+  │                                ▲
+  │  git checkout -b feature/xyz   │ Pull Request & Merge
+  ▼                                │
+feature/xyz ── commit ── commit ───┘
+```
+
+### Quy tắc chung
+
+| Quy tắc | Chi tiết |
+|---|---|
+| ❌ Không commit thẳng lên `main` | Mọi thay đổi phải qua PR |
+| ✅ Rebase trước khi push | Tránh conflict khi merge |
+| ✅ Mỗi PR chỉ làm 1 việc | Dễ review, dễ rollback nếu lỗi |
+| ✅ Xóa nhánh sau khi merge | Giữ repo gọn gàng |
+
+## 🔑 8. Tài liệu API (Swagger)
 
 Sau khi chạy Backend, truy cập đường dẫn sau để xem và test các API (Đăng ký, Đăng nhập, Báo cáo sự cố):
 
