@@ -296,6 +296,9 @@ git rebase origin/main
 # Nếu có conflict, giải quyết từng file rồi chạy tiếp
 git add .
 git rebase --continue
+
+# Nếu muốn bỏ cuộc, quay về trạng thái trước khi rebase:
+git rebase --abort
 ```
 
 ### Bước 5 — Push nhánh lên GitHub
