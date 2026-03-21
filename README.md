@@ -249,11 +249,6 @@ Các file chưa đạt mức tối ưu cần tiếp tục cải thiện ở Spri
 
 ---
 
-<<<<<<< HEAD
----
-
-=======
->>>>>>> d3dc66c (feat: write test case call api)
 ## 🌿 7. Hướng dẫn đóng góp & làm việc nhóm (Git Workflow)
 
 > Quy trình bắt buộc cho mọi thành viên — **không được commit thẳng lên `main`**.
