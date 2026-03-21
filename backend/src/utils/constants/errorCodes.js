@@ -28,12 +28,19 @@ const ErrorCodes = {
         statusCode: 404 
     },
     
+    URL_NOT_FOUND: { 
+        code: 2002, 
+        message: "Đường dẫn không tồn tại.", 
+        statusCode: 404 
+    },
+    
     // System Errors (5000+)
     SYSTEM_INTERNAL_ERROR: { 
         code: 5000, 
         message: "Đã có lỗi xảy ra trên hệ thống, vui lòng thử lại sau.", 
         statusCode: 500 
     },
+
 };
 
 Object.freeze(ErrorCodes); // Chặn việc sửa đổi mã lỗi lúc runtime

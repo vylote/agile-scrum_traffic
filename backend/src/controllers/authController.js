@@ -2,8 +2,8 @@ const User = require('../models/Users');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const AppError = require('../middleware/AppError');
-const ErrorCodes = require('../config/errorCodes');
-const SuccessCodes = require('../config/successCodes');
+const ErrorCodes = require('../utils/constants/errorCodes');
+const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 
 /**
@@ -72,7 +72,8 @@ exports.register = async (req, res, next) => {
         });
 
         return sendSuccess(res, SuccessCodes.REGISTER_SUCCESS, { 
-            userId: newUser._id 
+            userId: newUser._id, 
+            username: newUser.username
         });
 
     } catch (err) {

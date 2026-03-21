@@ -173,78 +173,87 @@ npm test
 ### Kết quả Unit Test
 
 ```
-FAIL  src/tests/app.test.js (22.655 s)
+PASS  src/tests/app.test.js
   🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)
-    📁 Hạ tầng & Tài liệu
-      √ Swagger UI: Nên truy cập được trang tài liệu API (52 ms)
-      × Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (12 ms)
-    🔐 Xác thực (US-15)
-      × Register: Nên đăng ký tài khoản thành công (5012 ms)
-      × Register: Nên báo lỗi 1001 nếu trùng username (5008 ms)
-      × Login: Nên trả về Token khi đăng nhập đúng (5002 ms)
-      × Login: Nên từ chối (401) nếu sai mật khẩu (5016 ms)
-    🚨 Quản lý sự cố (US-01)
-      × Security: Không có Token thì không được lấy danh sách sự cố (6 ms)
-      × Create Incident: Nên tạo sự cố thành công khi có Token (6 ms)
-      × Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon) (6 ms)
+    📁 Nhóm: Hạ tầng & Tài liệu
+      √ Swagger UI: Nên truy cập được trang tài liệu API (32 ms)
+      √ Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (13 ms)
+    🔐 Nhóm: Xác thực (US-15)
+      √ Register: Nên đăng ký tài khoản thành công (100 ms)
+      √ Register: Nên báo lỗi 1001 nếu trùng username (8 ms)
+      √ Login: Nên trả về Token khi đăng nhập đúng (71 ms)
+      √ Login: Nên từ chối (401) nếu sai mật khẩu (66 ms)
+      √ Login: từ chối (401) nếu không tồn tại tên đăng nhập (6 ms)
+    🚨 Nhóm: Quản lý sự cố (US-01)
+      √ Security: Không có Token thì không được lấy danh sách sự cố (5 ms)
+      √ Create Incident: Nên tạo sự cố thành công khi có Token (21 ms)
+      √ Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon) (6 ms)
 
-Test Suites: 1 failed, 1 total
-Tests:       8 failed, 1 passed, 9 total
-Time:        23.192 s
+Test Suites: 1 passed, 1 total
+Tests:       10 passed, 10 total
+Time:        3.332 s
 ```
 
 ### Báo cáo Coverage
 
 ```
-----------------------------|---------|----------|---------|---------|
-File                        | % Stmts | % Branch | % Funcs | % Lines |
-----------------------------|---------|----------|---------|---------|
-All files                   |   65.80 |    26.82 |   42.85 |   65.80 |
- src/app.js                 |  100.00 |   100.00 |  100.00 |  100.00 |
- src/controllers            |   46.29 |     0.00 |   50.00 |   46.29 |
-  authController.js         |   60.71 |     0.00 |  100.00 |   60.71 |
-  incidentController.js     |   30.76 |     0.00 |    0.00 |   30.76 |
- src/middleware             |   66.00 |    52.38 |   50.00 |   66.00 |
-  auth.js                   |   52.17 |    50.00 |   66.66 |   52.17 |
-  upload.js                 |   57.14 |     0.00 |    0.00 |   57.14 |
- src/models                 |  100.00 |   100.00 |  100.00 |  100.00 |
- src/routes                 |  100.00 |   100.00 |  100.00 |  100.00 |
- src/services/geoService.js |   37.50 |   100.00 |    0.00 |   37.50 |
- src/utils/response.js      |   60.00 |     0.00 |    0.00 |   60.00 |
-----------------------------|---------|----------|---------|---------|
+----------------------------|---------|----------|---------|---------|-------------------
+File                        | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+----------------------------|---------|----------|---------|---------|-------------------
+All files                   |   85.62 |    68.29 |    62.5 |   86.14 |
+ src                        |     100 |      100 |     100 |     100 |
+  app.js                    |     100 |      100 |     100 |     100 |
+ src/controllers            |   85.45 |    83.33 |      60 |   87.03 |
+  authController.js         |   92.85 |      100 |     100 |   92.85 | 82,146
+  incidentController.js     |   77.77 |       70 |   33.33 |   80.76 | 85,102-109
+ src/middleware             |      80 |    57.14 |    62.5 |      80 |
+  AppError.js               |     100 |      100 |     100 |     100 |
+  auth.js                   |    82.6 |       80 |     100 |    82.6 | 21,26-27,34
+  globalExceptionHandler.js |     100 |    44.44 |     100 |     100 | 12-25
+  upload.js                 |   57.14 |        0 |       0 |   57.14 | 9-14,20-23
+ src/models                 |     100 |      100 |     100 |     100 |
+  Incident.js               |     100 |      100 |     100 |     100 |
+  Users.js                  |     100 |      100 |     100 |     100 |
+ src/routes                 |     100 |      100 |     100 |     100 |
+  authRoutes.js             |     100 |      100 |     100 |     100 |
+  incidentRoutes.js         |     100 |      100 |     100 |     100 |
+ src/services               |   33.33 |      100 |       0 |   33.33 |
+  geoService.js             |   33.33 |      100 |       0 |   33.33 | 6-23
+ src/utils                  |     100 |       50 |     100 |     100 |
+  logger.js                 |       0 |        0 |       0 |       0 |
+  response.js               |     100 |       50 |     100 |     100 | 9
+ src/utils/constants        |     100 |      100 |     100 |     100 |
+  errorCodes.js             |     100 |      100 |     100 |     100 |
+  successCodes.js           |     100 |      100 |     100 |     100 |
+----------------------------|---------|----------|---------|---------|-------------------
 ```
 
-> ⚠️ **Coverage hiện tại: 65.80% Statements / 65.80% Lines** — chưa đạt mức tối thiểu **80%** theo yêu cầu dự án.
+> ✅ **Coverage hiện tại: 85.62% Statements / 86.14% Lines** — đã vượt mức tối thiểu **80%** theo yêu cầu dự án.
 
-### Phân tích lỗi & hướng khắc phục
+### Roadmap nâng Coverage
 
-| Test case | Trạng thái | Nguyên nhân | Hướng xử lý |
+Các file chưa đạt mức tối ưu cần tiếp tục cải thiện ở Sprint tiếp theo:
+
+| File | % Stmts | % Funcs | Việc cần làm |
 |---|---|---|---|
-| Swagger `/api-docs` | ✅ Pass | — | — |
-| 404 JSON chuẩn khi sai URL | ❌ Body rỗng | `globalExceptionHandler` chưa bắt route không tồn tại | Thêm `404 handler` trước `globalExceptionHandler` trong `app.js` |
-| Register / Login (4 test) | ❌ Timeout 5000ms | Kết nối MongoDB thật bị treo trong môi trường test | Dùng `mongodb-memory-server` hoặc `jest.setTimeout(15000)` |
-| Security danh sách sự cố | ❌ Nhận `403` thay vì `401` | Middleware `auth.js` trả Forbidden thay vì Unauthorized | Sửa status code về `401` trong `auth.js` |
-| Create Incident có Token | ❌ `success: false` | Token không hợp lệ do test Register bị timeout trước | Sửa timeout → test này sẽ pass theo |
-| Validation thiếu tọa độ | ❌ Nhận `403` thay vì `400` | Middleware auth chặn trước khi đến bước validation | Sửa `401` ở `auth.js` hoặc dùng token hợp lệ trong test |
-
-### Roadmap nâng Coverage lên ≥ 80%
-
-| File ưu tiên | Coverage hiện tại | Việc cần làm |
-|---|---|---|
-| `incidentController.js` | 30.76% | Viết test cho tạo, cập nhật, xóa sự cố |
-| `authController.js` | 60.71% | Bổ sung test login thất bại, token hết hạn |
-| `geoService.js` | 37.50% | Mock Axios, test Reverse Geocoding & lỗi mạng |
-| `auth.js` (middleware) | 52.17% | Test token hợp lệ / sai / hết hạn |
+| `incidentController.js` | 77.77% | 33.33% | Viết test cho cập nhật, xóa sự cố (line 85, 102–109) |
+| `geoService.js` | 33.33% | 0% | Mock Axios, test Reverse Geocoding & lỗi mạng |
+| `upload.js` | 57.14% | 0% | Test upload file hợp lệ / sai định dạng / quá dung lượng |
+| `auth.js` | 82.6% | 100% | Test token sai định dạng, token hết hạn (line 21, 26–27, 34) |
+| `logger.js` | 0% | 0% | Bổ sung test hoặc loại khỏi coverage report |
 
 ### Tự động hóa CI/CD
 
-- **Trạng thái:** ⚠️ Failing (do 8/9 test case thất bại)
+- **Trạng thái:** ✅ Passing (10/10 test case thành công)
 - **Luồng chạy:** Mỗi khi push lên `main` → GitHub Actions khởi tạo Node 22 → `npm install` → Docker Build → Jest
 
 ---
 
+<<<<<<< HEAD
 ---
 
+=======
+>>>>>>> d3dc66c (feat: write test case call api)
 ## 🌿 7. Hướng dẫn đóng góp & làm việc nhóm (Git Workflow)
 
 > Quy trình bắt buộc cho mọi thành viên — **không được commit thẳng lên `main`**.
@@ -330,6 +339,8 @@ feature/xyz ── commit ── commit ───┘
 | ✅ Rebase trước khi push | Tránh conflict khi merge |
 | ✅ Mỗi PR chỉ làm 1 việc | Dễ review, dễ rollback nếu lỗi |
 | ✅ Xóa nhánh sau khi merge | Giữ repo gọn gàng |
+
+---
 
 ## 🔑 8. Tài liệu API (Swagger)
 

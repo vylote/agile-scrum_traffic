@@ -1,4 +1,4 @@
-const ErrorCodes = require('../config/errorCodes');
+const ErrorCodes = require('../utils/constants/errorCodes');
 
 /* một lưu ý là về vị trí của các tham số
 Số lượng | Vị trí 1 | Vị trí 2 | Vị trí 3 | Vị trí 4 
