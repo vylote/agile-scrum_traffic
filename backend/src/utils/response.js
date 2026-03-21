@@ -1,4 +1,4 @@
-const SuccessCodes = require('../config/successCodes')
+const SuccessCodes = require('./constants/successCodes')
 
 /**
  * @param {Object} res - Express Response object aka import('express').Response

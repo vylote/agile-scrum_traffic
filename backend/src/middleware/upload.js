@@ -1,7 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const AppError = require('../middleware/AppError');
-const ErrorCodes = require('../config/errorCodes');
+const ErrorCodes = require('../utils/constants/errorCodes');
 
 // 1. Cấu hình nơi lưu và tên file
 const storage = multer.diskStorage({

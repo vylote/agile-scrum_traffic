@@ -6,7 +6,7 @@ const { protect, restrictTo } = require('../middleware/auth');
 
 router.use(protect)
 
-router.post('/', restrictTo('Citizen'), upload.single('image'),incidentController.createIncident)
+router.post('/', restrictTo('Citizen'), upload.array('image', 5),incidentController.createIncident)
 
 router.get('/', restrictTo('Admin', 'Dispatcher'), incidentController.getAllIncidents)
 
