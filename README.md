@@ -82,6 +82,7 @@ Tạo file `backend/.env`:
 NODE_ENV=development
 PORT=5000
 MONGO_URI=mongodb://localhost:27017/incident_db
+MONGO_URI_TEST=mongodb://localhost:27017/incident_test_db
 JWT_SECRET=ma_bi_mat_cua_vy
 ```
 
