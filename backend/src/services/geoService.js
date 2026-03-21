@@ -16,6 +16,7 @@ const reverseGeocode = async (lat, lon) => {
     });
     /* URL thực tế sẽ trông như này 
     https://nominatim.openstreetmap.org/reverse?lat=10.7769&lon=106.6602&format=json&addressdetails=1 */
+    console.log('đang gọi api gg street map')
     return response.data.display_name;
   } catch (error) {
     console.error('Geocoding error:', error);

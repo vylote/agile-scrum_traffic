@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
-const incidentRoutes = require('./routes/incidentRoutes.js'); // Kết nối cho US-01
+const incidentRoutes = require('./routes/IncidentRoutes.js'); // Kết nối cho US-01
 const globalExceptionHandler = require('./middleware/globalExceptionHandler');
 const { swaggerUi, specs } = require('./config/swagger'); // Tài liệu API
+const ErrorCodes = require('./utils/constants/errorCodes.js');
+const AppError = require('./middleware/AppError.js')
 
 const app = express();
 
@@ -23,6 +25,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 // 4. Định tuyến (Routes)
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/incidents', incidentRoutes); // Luồng báo cáo sự cố
+
+app.all('*any', (req, res, next) => {
+    next(new AppError(ErrorCodes.URL_NOT_FOUND));
+});
 
 // 5. Phễu hứng lỗi cuối cùng (Global Exception Handler)
 app.use(globalExceptionHandler);

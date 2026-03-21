@@ -1,7 +1,7 @@
 const Incident = require('../models/Incident');
 const AppError = require('../middleware/AppError');
-const ErrorCodes = require('../config/errorCodes');
-const SuccessCodes = require('../config/successCodes');
+const ErrorCodes = require('../utils/constants/errorCodes');
+const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 const geoService = require('../services/geoService');
 
@@ -31,8 +31,10 @@ const geoService = require('../services/geoService');
  *               longitude:
  *                 type: number
  *               image:
- *                 type: string
- *                 format: binary
+ *                 type: array
+ *                 items:
+ *                   type: string    
+ *                   format: binary
  *     responses:
  *       201:
  *         description: Thành công
@@ -54,7 +56,8 @@ exports.createIncident = async (req, res, next) => {
             finalAddress = await geoService.reverseGeocode(latitude, longitude);
         }
 
-        const images = req.file ? [req.file.filename] : [];
+        // const images = req.file ? [req.file.filename] : []; so it
+        const images = req.files ? req.files.map(file => file.filename) : [];
 
         const newIncident = await Incident.create({
             reporterId: req.user.id,
@@ -78,7 +81,6 @@ exports.createIncident = async (req, res, next) => {
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, newIncident);
-
     } catch (err) {
         next(err);
     }

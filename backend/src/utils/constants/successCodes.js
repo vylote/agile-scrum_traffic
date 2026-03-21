@@ -19,4 +19,5 @@ const SuccessCodes = {
     }
 };
 
+Object.freeze(SuccessCodes); // Chặn việc sửa đổi mã lỗi lúc runtime
 module.exports = SuccessCodes;
