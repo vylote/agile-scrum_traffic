@@ -8,13 +8,6 @@ const { sendSuccess } = require('../utils/response');
 
 /**
  * @swagger
- * tags:
- *   name: Auth
- *   description: Các API liên quan đến Xác thực người dùng
- */
-
-/**
- * @swagger
  * /api/v1/auth/register:
  *   post:
  *     summary: Đăng ký tài khoản người dùng mới
@@ -25,61 +18,53 @@ const { sendSuccess } = require('../utils/response');
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - username
- *               - password
- *               - fullName
+ *             required: [username, password, name, email, phone]
  *             properties:
- *               username:
- *                 type: string
- *                 example: "vy_le_2026"
- *               password:
- *                 type: string
- *                 format: password
- *                 example: "SecurePass123"
- *               fullName:
- *                 type: string
- *                 example: "Le Thanh Vy"
- *               role:
- *                 type: string
- *                 enum: [Citizen, Dispatcher, Admin]
- *                 default: Citizen
- *                 example: "Citizen"
+ *               username: { type: string, example: "vy_le_2026" }
+ *               password: { type: string, format: password, example: "SecurePass123" }
+ *               name: { type: string, example: "Le Thanh Vy" }
+ *               email: { type: string, example: "vy.le@student.utc.edu.vn" }
+ *               phone: { type: string, example: "0987654321" }
+ *               role: { type: string, enum: [CITIZEN, DISPATCHER, ADMIN, RESCUE], default: CITIZEN }
  *     responses:
  *       201:
  *         description: Đăng ký thành công
- *       400:
- *         description: Tên đăng nhập đã tồn tại (Mã lỗi 1001)
  */
 exports.register = async (req, res, next) => {
     try {
-        const { username, password, role, fullName } = req.body;
+        const { username, password, role, name, email, phone } = req.body;
 
-        const existingUser = await User.findOne({ username });
+        // 1. Kiểm tra trùng lặp (Cả username và email)
+        const existingUser = await User.findOne({ 
+            $or: [{ username }, { email }] 
+        });
+        
         if (existingUser) {
             return next(new AppError(ErrorCodes.AUTH_USER_EXISTS));
         }
 
-        //hash
+        // 2. Mã hóa mật khẩu
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // 3. Tạo User với các trường chuẩn 7.3
         const newUser = await User.create({
             username,
-            password: hashedPassword,
-            role, 
-            fullName
+            passwordHash: hashedPassword, // Đổi từ password -> passwordHash
+            name,                         // Đổi từ fullName -> name
+            email,
+            phone,                        // Đổi từ phoneNumber -> phone
+            role: role ? role.toUpperCase() : 'CITIZEN' // Ép kiểu hoa
         });
 
         return sendSuccess(res, SuccessCodes.REGISTER_SUCCESS, { 
             userId: newUser._id, 
-            username: newUser.username
+            username: newUser.username,
+            name: newUser.name
         });
 
     } catch (err) {
-        /* Trong JS thuần túy, k hề tồn tại hàm next(), đây là do vy khai báo
-        khi có một request tới, express(framework) sẽ tạo ra nó   */
-        next(err); // Đẩy vào phễu Global Error Handler
+        next(err);
     }
 };
 
@@ -95,37 +80,33 @@ exports.register = async (req, res, next) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - username
- *               - password
+ *             required: [username, password]
  *             properties:
- *               username:
- *                 type: string
- *                 example: "vy_le_2026"
- *               password:
- *                 type: string
- *                 format: password
- *                 example: "SecurePass123"
+ *               username: { type: string, example: "vy_le_2026" }
+ *               password: { type: string, format: password, example: "SecurePass123" }
  *     responses:
  *       200:
- *         description: Đăng nhập thành công, trả về Token và thông tin cơ bản
- *       401:
- *         description: Tài khoản hoặc mật khẩu không chính xác (Mã lỗi 1002)
+ *         description: Đăng nhập thành công
  */
 exports.login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
 
+        // 1. Tìm user (Lưu ý: Schema giờ dùng passwordHash)
         const user = await User.findOne({ username });
         
-        const isMatch = user ? await bcrypt.compare(password, user.password) : false;
+        // 2. Kiểm tra mật khẩu
+        const isMatch = user ? await bcrypt.compare(password, user.passwordHash) : false;
 
         if (!user || !isMatch) {
             return next(new AppError(ErrorCodes.AUTH_INVALID_CREDENTIALS));
         }
 
-        /* tự tạo header mặc định 
-        { "alg": "HS256", "typ": "JWT" } */
+        // 3. Cập nhật lastLogin (Tính năng mới trong Schema)
+        user.lastLogin = Date.now();
+        await user.save();
+
+        // 4. Tạo Token
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
@@ -135,18 +116,14 @@ exports.login = async (req, res, next) => {
         return sendSuccess(res, SuccessCodes.LOGIN_SUCCESS, {
             token,
             user: {
+                id: user._id,
                 role: user.role,
-                fullName: user.fullName
+                name: user.name, // Đổi từ fullName -> name
+                email: user.email
             }
         });
 
     } catch (err) { 
-        /* Lệnh next(something): Khi gọi next và truyền vào bất cứ thứ gì (ngoại trừ chữ 'route'),
-        Express sẽ mặc định coi cái "something" đó là một lỗi (Error) */
         next(err);
     }
 };
-
-/* Token trông như này 
-eyJhbGciOiJIUzI1NiJ9.eyJpZCI6IjYwZDUiLCJyb2xlIjoiQ2l0aXplbiJ9.xK9abc...
-|_____ header ______|.___________ payload _____________|.__signature___| */
