@@ -6,71 +6,59 @@ const { sendSuccess } = require('../utils/response');
 const geoService = require('../services/geoService');
 const path = require('path');
 const fs = require('fs');
-const { default: mongoose } = require('mongoose');
+const mongoose = require('mongoose'); 
 
 /**
  * @swagger
  * /api/v1/incidents/create:
  *   post:
- *     summary: Báo cáo sự cố mới (Dành cho Citizen)
+ *     summary: Báo cáo sự cố mới
  *     tags: [Incidents]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
- *             type: object
  *             properties:
- *               title:
- *                 type: string
- *                 example: "Tai nạn giao thông"
- *               description:
- *                 type: string
- *                 example: "Va chạm giữa 2 xe máy"
- *               latitude:
- *                 type: number
- *               longitude:
- *                 type: number
- *               image:
- *                 type: array
- *                 items:
- *                   type: string    
- *                   format: binary
- *     responses:
- *       200:
- *         description: Thành công
+ *               title: { type: string }
+ *               description: { type: string }
+ *               type: { type: string, enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER] }
+ *               severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+ *               latitude: { type: number }
+ *               longitude: { type: number }
+ *               photos: { type: array, items: { type: string, format: binary } }
  */
 exports.createIncident = async (req, res, next) => {
     try {
-        const { title, description, latitude, longitude, address } = req.body;
+        const { title, description, latitude, longitude, address, type, severity } = req.body;
 
         if (!latitude || !longitude) {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
         }
 
-        let finalAddress = address;
-        if (!finalAddress) {
-            finalAddress = await geoService.reverseGeocode(latitude, longitude);
-        }
+        // Tự động dịch địa chỉ nếu không có
+        let finalAddress = address || await geoService.reverseGeocode(latitude, longitude);
 
-        // const images = req.file ? [req.file.filename] : []; so it
-        const images = req.files ? req.files.map(file => file.filename) : [];
+        // Map ảnh từ Multer sang mảng photos
+        const photos = req.files ? req.files.map(file => file.filename) : [];
 
         const newIncident = await Incident.create({
-            reporterId: req.user.id,
+            reportedBy: req.user._id, // Đổi từ reporterId sang reportedBy
             title,
             description,
+            type: type || 'OTHER',
+            severity: severity || 'MEDIUM',
             location: {
                 type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
+                coordinates: [parseFloat(longitude), parseFloat(latitude)], // [Kinh độ, Vĩ độ]
                 address: finalAddress
             },
-            images: images,
-            status: 'Pending'
+            photos: photos, // Đổi từ images sang photos
+            status: 'PENDING' // Dùng chữ hoa theo Enum mới
         });
 
+        // Socket thông báo thời gian thực
         const io = req.app.get('io');
         if (io) {
             io.emit('new_incident', {
@@ -84,10 +72,11 @@ exports.createIncident = async (req, res, next) => {
         next(err);
     }
 };
+
 /**
  * @swagger
- * /api/v1/incidents/update/{id}:
- *   patch:
+ * /api/v1/incidents/{id}:
+ *   put:
  *     summary: Cập nhật thông tin sự cố
  *     tags: [Incidents]
  *     security:
@@ -96,137 +85,116 @@ exports.createIncident = async (req, res, next) => {
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           description: id của sự cố    
+ *         schema: { type: string }
+ *         description: ID của sự cố cần cập nhật
  *     requestBody:
- *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
- *             type: object
  *             properties:
- *               title:
- *                 type: string
- *                 example: "Tai nạn giao thông"
- *               description:
- *                 type: string
- *                 example: "va chạm giữa 2 boi phố"
- *               latitude:
- *                 type: number
- *               longitude:
- *                 type: number
- *               image:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
+ *               title: { type: string, example: "Tai nạn đã được xử lý" }
+ *               description: { type: string }
+ *               type: { type: string, enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER] }
+ *               severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+ *               status: { type: string, enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED] }
+ *               latitude: { type: number }
+ *               longitude: { type: number }
+ *               photos: { type: array, items: { type: string, format: binary } }
  *     responses:
  *       200:
- *         description: Thành công
+ *         description: Cập nhật thành công
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ *       404:
+ *         description: Không tìm thấy sự cố
  */
 exports.updateIncident = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { title, description, latitude, longitude, address } = req.body;
+        const { title, description, latitude, longitude, address, status, type, severity } = req.body;
 
         const existIncident = await Incident.findById(id);
-
         if (!existIncident) {
             return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
         }
 
-        if (!latitude || !longitude) {
-            return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
-        }
-
-        let finalTitle = title || existIncident.title;
-        let finalAddress = address || existIncident.location.address;
         let finalLocation = existIncident.location;
-
         if (latitude && longitude) {
-            if (!address) {
-                finalAddress = await geoService.reverseGeocode(latitude, longitude);
-            }
+            const finalAddress = address || await geoService.reverseGeocode(latitude, longitude);
             finalLocation = {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)],
                 address: finalAddress
-            }
+            };
         }
 
-        const images = req.files && req.files.length > 0
+        // Nếu có ảnh mới thì lấy ảnh mới, không thì giữ ảnh cũ
+        const photos = req.files && req.files.length > 0
             ? req.files.map(file => file.filename)
-            : existIncident.images;
+            : existIncident.photos;
 
         const updateDoc = await Incident.findByIdAndUpdate(
             id,
             {
-                title: finalTitle,
-                description,
+                title: title || existIncident.title,
+                description: description || existIncident.description,
+                type: type || existIncident.type,
+                severity: severity || existIncident.severity,
                 location: finalLocation,
-                images: images,
-                status: 'Pending' || existIncident.status
+                photos: photos,
+                status: status || existIncident.status
             },
-            {new: true, runValidators: true}
+            { new: true, runValidators: true }
         );
 
         const io = req.app.get('io');
-        if (io) {
-            io.emit('update_incident', {
-                message: 'Một sự cố mới vừa được cập nhật!',
-                incident: updateDoc
-            });
-        }
+        if (io) io.emit('update_incident', { incident: updateDoc });
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updateDoc);
     } catch (err) {
         next(err);
     }
 };
+
 /**
  * @swagger
- * /api/v1/incidents/delete/{id}:
+ * /api/v1/incidents/{id}:
  *   delete:
- *     summary: Xóa thông tin sự cố
+ *     summary: Xóa sự cố và ảnh vật lý liên quan
  *     tags: [Incidents]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
- *         require: true
- *         schema:
- *           type: string
- *           description: id cần xóa 
+ *         required: true
+ *         schema: { type: string }
+ *         description: ID của sự cố cần xóa
  *     responses:
  *       200:
- *         description: Thành công     
+ *         description: Xóa thành công
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ *       404:
+ *         description: Không tìm thấy sự cố
  */
 exports.deleteIncident = async (req, res, next) => {
     try {
         const { id } = req.params;
 
         const deleteDoc = await Incident.findByIdAndDelete(id);
+        if (!deleteDoc) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
 
-        if (!deleteDoc) 
-            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND))
-
-        if (deleteDoc.images && deleteDoc.images.length > 0) {
-            deleteDoc.images.forEach(imgName => {
-                const filePath = path.join(__dirname, '../../uploads', imgName)
-                if (fs.existsSync(filePath))
-                    fs.unlinkSync(filePath)
-            })
+        // Xóa file vật lý bằng tên trường mới 'photos'
+        if (deleteDoc.photos && deleteDoc.photos.length > 0) {
+            deleteDoc.photos.forEach(imgName => {
+                const filePath = path.join(__dirname, '../../uploads', imgName);
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            });
         }
 
         const io = req.app.get('io');
-        if (io) {
-            io.emit('delete_incident', {
-                message: 'Một sự cố mới vừa bị xóa',
-                incident: id
-            });
-        }
+        if (io) io.emit('delete_incident', { incidentId: id });
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, deleteDoc);
     } catch (err) {
@@ -238,18 +206,20 @@ exports.deleteIncident = async (req, res, next) => {
  * @swagger
  * /api/v1/incidents:
  *   get:
- *     summary: Lấy danh sách sự cố (Dispatcher/Admin)
+ *     summary: Lấy danh sách tất cả sự cố
  *     tags: [Incidents]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Trả về danh sách sự cố
+ *         description: Danh sách sự cố, sắp xếp mới nhất lên đầu
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
  */
 exports.getAllIncidents = async (req, res, next) => {
     try {
         const incidents = await Incident.find()
-            .populate('reporterId', 'fullName phoneNumber') // tương tự như lệnh join sql
+            .populate('reportedBy', 'name phone email') // Cập nhật theo Schema 7.3
             .sort('-createdAt');
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incidents);
@@ -262,20 +232,23 @@ exports.getAllIncidents = async (req, res, next) => {
  * @swagger
  * /api/v1/incidents/{id}:
  *   get:
- *     summary: Lấy ra sự cố cụ thể
+ *     summary: Lấy chi tiết một sự cố theo ID
  *     tags: [Incidents]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
- *         require: true
- *         schema:
- *           type: string
- *           description: id cần tìm  
+ *         required: true
+ *         schema: { type: string }
+ *         description: ID của sự cố cần xem
  *     responses:
  *       200:
- *         description: Trả về danh sách sự cố
+ *         description: Chi tiết sự cố
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ *       404:
+ *         description: Không tìm thấy sự cố
  */
 exports.getIncidentById = async (req, res, next) => {
     try {
@@ -284,10 +257,11 @@ exports.getIncidentById = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INVALID_ID_FORMAT)); 
         }
 
-        const incident = await Incident.findById(id)
+        const incident = await Incident.findById(id).populate('reportedBy', 'name phone email');
+        if (!incident) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
 
-        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident)
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident);
     } catch (err) {
         next(err);
     }
-}
+};
