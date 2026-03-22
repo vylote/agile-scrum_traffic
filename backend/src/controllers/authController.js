@@ -34,31 +34,36 @@ exports.register = async (req, res, next) => {
     try {
         const { username, password, role, name, email, phone } = req.body;
 
-        // 1. Kiểm tra trùng lặp (Cả username và email)
-        const existingUser = await User.findOne({ 
-            $or: [{ username }, { email }] 
+        const existingUser = await User.findOne({
+            $or: [
+                { username },
+                { email },
+                { phone }
+            ]
         });
-        
-        if (existingUser) {
-            return next(new AppError(ErrorCodes.AUTH_USER_EXISTS));
-        }
 
-        // 2. Mã hóa mật khẩu
+        if (existingUser) {
+            if (existingUser.username === username) 
+                return next(new AppError(ErrorCodes.AUTH_USERNAME_EXISTS))
+            if (existingUser.email === email)
+                return next(new AppError(ErrorCodes.AUTH_EMAIL_EXISTS))
+            if (existingUser.phone === phone)
+                return next(new AppError(ErrorCodes.AUTH_PHONE_EXISTS))
+        }
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // 3. Tạo User với các trường chuẩn 7.3
         const newUser = await User.create({
             username,
-            passwordHash: hashedPassword, // Đổi từ password -> passwordHash
-            name,                         // Đổi từ fullName -> name
+            passwordHash: hashedPassword,
+            name,
             email,
-            phone,                        // Đổi từ phoneNumber -> phone
-            role: role ? role.toUpperCase() : 'CITIZEN' // Ép kiểu hoa
+            phone,
+            role: role ? role.toUpperCase() : 'CITIZEN'
         });
 
-        return sendSuccess(res, SuccessCodes.REGISTER_SUCCESS, { 
-            userId: newUser._id, 
+        return sendSuccess(res, SuccessCodes.REGISTER_SUCCESS, {
+            userId: newUser._id,
             username: newUser.username,
             name: newUser.name
         });
@@ -92,11 +97,11 @@ exports.login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
 
-        // 1. Tìm user (Lưu ý: Schema giờ dùng passwordHash)
         const user = await User.findOne({ username });
-        
-        // 2. Kiểm tra mật khẩu
-        const isMatch = user ? await bcrypt.compare(password, user.passwordHash) : false;
+
+        const isMatch = user && user.passwordHash
+            ? await bcrypt.compare(password, user.passwordHash)
+            : false;
 
         if (!user || !isMatch) {
             return next(new AppError(ErrorCodes.AUTH_INVALID_CREDENTIALS));
@@ -106,11 +111,10 @@ exports.login = async (req, res, next) => {
         user.lastLogin = Date.now();
         await user.save();
 
-        // 4. Tạo Token
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' }
+            { expiresIn: '1d', algorithm: 'HS256'}
         );
 
         return sendSuccess(res, SuccessCodes.LOGIN_SUCCESS, {
@@ -118,12 +122,12 @@ exports.login = async (req, res, next) => {
             user: {
                 id: user._id,
                 role: user.role,
-                name: user.name, // Đổi từ fullName -> name
+                name: user.name,
                 email: user.email
             }
         });
 
-    } catch (err) { 
+    } catch (err) {
         next(err);
     }
 };

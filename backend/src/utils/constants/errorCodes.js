@@ -2,8 +2,23 @@ const ErrorCodes = {
     // Auth Errors (1000 - 1099)
     AUTH_USER_EXISTS: { 
         code: 1001, 
-        message: "Tên đăng nhập đã tồn tại trên hệ thống.", 
+        message: "Người dùng đã tồn tại trên hệ thống.", 
         statusCode: 400 
+    },
+    AUTH_USERNAME_EXISTS: { 
+        statusCode: 400, 
+        code: 1007, 
+        message: 'Tên đăng nhập đã được sử dụng.' 
+    },
+    AUTH_EMAIL_EXISTS: { 
+        statusCode: 400, 
+        code: 1008, 
+        message: 'Email này đã được đăng ký tài khoản khác.' 
+    },
+    AUTH_PHONE_EXISTS: { 
+        statusCode: 400, 
+        code: 1009, 
+        message: 'Số điện thoại này đã được đăng ký tài khoản khác.' 
     },
     AUTH_INVALID_CREDENTIALS: { 
         code: 1002, 
@@ -20,11 +35,16 @@ const ErrorCodes = {
         message: "Bạn không có quyền thực hiện hành động này.", 
         statusCode: 403 
     },
-
+    
     INVALID_ID_FORMAT: {
         code: 1005, 
         message: 'Định dạng ID không hợp lệ. Vui lòng kiểm tra lại!',
         statusCode: 400
+    },
+    AUTH_USER_DISABLED: { 
+        code: 1006, 
+        statusCode: 403, 
+        message: 'Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.' 
     },
 
     // Incident Errors (2000 - 2099)

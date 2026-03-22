@@ -17,17 +17,36 @@ const mongoose = require('mongoose');
  *     security:
  *       - bearerAuth: []
  *     requestBody:
+ *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
+ *             type: object
+ *             required: [title, latitude, longitude, type]
  *             properties:
- *               title: { type: string }
- *               description: { type: string }
- *               type: { type: string, enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER] }
- *               severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
- *               latitude: { type: number }
- *               longitude: { type: number }
- *               photos: { type: array, items: { type: string, format: binary } }
+ *               title:
+ *                 type: string
+ *                 example: "Tai nạn giao thông"
+ *               description:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER]
+ *               severity:
+ *                 type: string
+ *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
+ *               latitude:
+ *                 type: number
+ *               longitude:
+ *                 type: number
+ *               photos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       201:
+ *         description: Thành công
  */
 exports.createIncident = async (req, res, next) => {
     try {
@@ -37,14 +56,12 @@ exports.createIncident = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
         }
 
-        // Tự động dịch địa chỉ nếu không có
         let finalAddress = address || await geoService.reverseGeocode(latitude, longitude);
 
-        // Map ảnh từ Multer sang mảng photos
         const photos = req.files ? req.files.map(file => file.filename) : [];
 
         const newIncident = await Incident.create({
-            reportedBy: req.user._id, // Đổi từ reporterId sang reportedBy
+            reportedBy: req.user._id, 
             title,
             description,
             type: type || 'OTHER',
@@ -54,8 +71,8 @@ exports.createIncident = async (req, res, next) => {
                 coordinates: [parseFloat(longitude), parseFloat(latitude)], // [Kinh độ, Vĩ độ]
                 address: finalAddress
             },
-            photos: photos, // Đổi từ images sang photos
-            status: 'PENDING' // Dùng chữ hoa theo Enum mới
+            photos: photos, 
+            status: 'PENDING' 
         });
 
         // Socket thông báo thời gian thực
@@ -75,8 +92,8 @@ exports.createIncident = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/v1/incidents/{id}:
- *   put:
+ * /api/v1/incidents/update/{id}:
+ *   patch:
  *     summary: Cập nhật thông tin sự cố
  *     tags: [Incidents]
  *     security:
@@ -91,15 +108,31 @@ exports.createIncident = async (req, res, next) => {
  *       content:
  *         multipart/form-data:
  *           schema:
+ *             type: object 
  *             properties:
- *               title: { type: string, example: "Tai nạn đã được xử lý" }
- *               description: { type: string }
- *               type: { type: string, enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER] }
- *               severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
- *               status: { type: string, enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED] }
- *               latitude: { type: number }
- *               longitude: { type: number }
- *               photos: { type: array, items: { type: string, format: binary } }
+ *               title: 
+ *                 type: string 
+ *                 example: "Tai nạn đã được xử lý" 
+ *               description: 
+ *                 type: string
+ *               type:
+ *                 type: string 
+ *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER] 
+ *               severity: 
+ *                 type: string
+ *                 enum: [LOW, MEDIUM, HIGH, CRITICAL] 
+ *               status: 
+ *                 type: string
+ *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED] 
+ *               latitude: 
+ *                 type: number
+ *               longitude: 
+ *                 type: number
+ *               photos: 
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       200:
  *         description: Cập nhật thành công
@@ -128,7 +161,6 @@ exports.updateIncident = async (req, res, next) => {
             };
         }
 
-        // Nếu có ảnh mới thì lấy ảnh mới, không thì giữ ảnh cũ
         const photos = req.files && req.files.length > 0
             ? req.files.map(file => file.filename)
             : existIncident.photos;
@@ -158,7 +190,7 @@ exports.updateIncident = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/v1/incidents/{id}:
+ * /api/v1/incidents/delete/{id}:
  *   delete:
  *     summary: Xóa sự cố và ảnh vật lý liên quan
  *     tags: [Incidents]
