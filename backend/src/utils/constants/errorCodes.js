@@ -21,11 +21,23 @@ const ErrorCodes = {
         statusCode: 403 
     },
 
+    INVALID_ID_FORMAT: {
+        code: 1005, 
+        message: 'Định dạng ID không hợp lệ. Vui lòng kiểm tra lại!',
+        statusCode: 400
+    },
+
     // Incident Errors (2000 - 2099)
     INCIDENT_NOT_FOUND: { 
         code: 2001, 
         message: "Không tìm thấy sự cố yêu cầu.", 
         statusCode: 404 
+    },
+
+    INCIDENT_MISSING_COORDINATES: {
+        code: 2002,
+        message: "Thiếu tọa độ sự cố!",
+        statusCode: 400
     },
     
     URL_NOT_FOUND: { 
@@ -33,6 +45,7 @@ const ErrorCodes = {
         message: "Đường dẫn không tồn tại.", 
         statusCode: 404 
     },
+
     
     // System Errors (5000+)
     SYSTEM_INTERNAL_ERROR: { 

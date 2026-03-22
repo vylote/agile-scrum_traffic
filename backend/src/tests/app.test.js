@@ -6,6 +6,8 @@ const SuccessCodes = require('../utils/constants/successCodes');
 const geoService = require('../services/geoService')
 const path = require('path');
 const fs = require('fs');
+const User = require('../models/Users')
+const Incident = require('../models/Incident')
 
 // Nạp biến môi trường để có JWT_SECRET, MONGODB_URI...
 require('dotenv').config();
@@ -13,6 +15,7 @@ require('dotenv').config();
 describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     
     let authToken = '';
+    let existId = '';
     const testUser = {
         username: `testuser_${Date.now()}`, // Dùng timestamp để không bị trùng khi chạy test nhiều lần
         password: 'Password123!',
@@ -33,13 +36,24 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     })
 
     afterAll(async () => {
-        const User = require('../models/Users')
+        const testIncidents = await Incident.find({ title: /Test/ })
+        testIncidents.forEach(incident => {
+            incident.images.forEach(imgName => {
+                const filePath = path.join(__dirname, '../../uploads', imgName)
+                if (fs.existsSync(filePath))
+                    fs.unlinkSync(filePath)
+            })
+        })
+
+        await Incident.deleteMany({})
         await User.deleteMany({ username: {$regex: /^testuser_/} })
+
         await mongoose.connection.close()
     })
 
     // --- 1. KIỂM TRA HẠ TẦNG (INFRASTRUCTURE) ---
     describe('📁 Nhóm: Hạ tầng & Tài liệu', () => {
+        
         it('Swagger UI: Nên truy cập được trang tài liệu API', async () => {
             const res = await request(app).get('/api-docs/');
             expect([200, 301, 302]).toContain(res.statusCode); // ma quy dinh trong lib swagger-ui-express
@@ -133,17 +147,53 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             const mockAddress = "3 Cầu Giấy, Ngọc Khánh, Đống Đa, Hà Nội, Vietnam";
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue(mockAddress);
             const filePath = path.join(__dirname, './fixtures/accident.jpg');
+      
+            const res = await request(app)
+                .post('/api/v1/incidents/create')
+                .set('Authorization', `Bearer ${authToken}`)
+                .field('title', 'Test up load thực tế')
+                .field('description', '3 xe ô tô va chạm')
+                .field('latitude', 21.029038230799788)
+                .field('longitude', 105.80342178837539)
+                .attach('image', filePath);
+
+            // Kiểm chứng:
+            expect(res.body.result.images).toHaveLength(1);
+            // Kiểm tra xem file có thực sự nằm trong thư mục uploads không
+            const uploadedPath = path.join(__dirname, '../../uploads', res.body.result.images[0]);
+            expect(fs.existsSync(uploadedPath)).toBe(true);
+
+            expect(res.body.success).toBe(true);
+            expect(res.body.result).toHaveProperty('_id');
+            existId = res.body.result._id;
+            expect(res.body.result.location.address).toBe(mockAddress);
+            expect(geoSpy).toHaveBeenCalledTimes(1);
+            geoSpy.mockRestore();
+        });
+
+        it('Update Incident: Cập nhật sự cố thành công khi có Token', async () => {
+            const mockAddress = "3 Cầu Giấy, Ngọc Khánh, Đống Đa, Hà Nội, Vietnam";
+            const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue(mockAddress);
+            const testId = existId;
+            const filePath = path.join(__dirname, './fixtures/accident.jpg');
             // Lưu ý: Nếu có upload ảnh (Multer), test này cần dùng .attach()
             // Ở đây test gửi dữ liệu text cơ bản trước
             const res = await request(app)
-                .post('/api/v1/incidents')
+                .patch(`/api/v1/incidents/update/${testId}`)
                 .set('Authorization', `Bearer ${authToken}`)
-                .field('title', 'Tai nạn liên hoàn')
+                .field('title', 'Test up load thực tế')
                 .field('description', '3 xe ô tô va chạm')
                 .field('latitude', 21.029038230799788)
-                .field('longitude', 105.80342178837539);
+                .field('longitude', 105.80342178837539)
+                .attach('image', filePath);
 
             // Kiểm chứng:
+
+            expect(res.body.result.images).toHaveLength(1);
+            // Kiểm tra xem file có thực sự nằm trong thư mục uploads không
+            const uploadedPath = path.join(__dirname, '../../uploads', res.body.result.images[0]);
+            expect(fs.existsSync(uploadedPath)).toBe(true);
+
             expect(res.body.success).toBe(true);
             expect(res.body.result).toHaveProperty('_id');
             expect(res.body.result.location.address).toBe(mockAddress);
@@ -151,14 +201,25 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
+        it('Delete Incident: Xóa sự cố thành công khi có Token', async () => {
+            const testId = existId;
+            
+            const res = await request(app)
+                .delete(`/api/v1/incidents/delete/${testId}`)
+                .set('Authorization', `Bearer ${authToken}`)
+
+            expect(res.body.success).toBe(true);
+            expect(res.body.result).toHaveProperty('_id');
+        });
+
         it('Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon)', async () => {
             const res = await request(app)
-                .post('/api/v1/incidents')
+                .post('/api/v1/incidents/create')
                 .set('Authorization', `Bearer ${authToken}`)
                 .send({ title: "Thiếu tọa độ" });
 
-            expect(res.statusCode).toEqual(400);
-            expect(res.body.error.message).toContain('tọa độ');
+            expect(res.statusCode).toEqual(ErrorCodes.INCIDENT_MISSING_COORDINATES.statusCode);
+            expect(res.body.error.message).toContain('Thiếu tọa độ sự cố!');
         });
     });
 });
