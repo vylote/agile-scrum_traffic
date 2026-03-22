@@ -24,7 +24,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // 4. Định tuyến (Routes)
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/incidents', incidentRoutes); // Luồng báo cáo sự cố
+app.use('/api/v1/incidents', incidentRoutes); 
 
 app.all('*any', (req, res, next) => {
     next(new AppError(ErrorCodes.URL_NOT_FOUND));

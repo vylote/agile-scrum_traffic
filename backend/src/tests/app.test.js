@@ -16,14 +16,13 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     let authToken = '';
     let existId = '';
     
-    // 1. Cập nhật testUser theo Schema 7.3
     const testUser = {
         username: `testuser_${Date.now()}`,
         password: 'Password123!',
-        name: 'Le Thanh Vy Test', // Đổi từ fullName -> name
-        email: `test_${Date.now()}@gmail.com`, // Thêm email (Required)
-        phone: '0987654321', // Thêm phone (Required)
-        role: 'CITIZEN' // Chuyển sang UPPERCASE
+        name: 'Le Thanh Vy Test', 
+        email: `test_${Date.now()}@gmail.com`, 
+        phone: '0987654321', 
+        role: 'CITIZEN' 
     };
 
     beforeAll(async () =>{
@@ -37,7 +36,6 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     });
 
     afterAll(async () => {
-        // 2. Dọn dẹp ảnh dựa trên trường 'photos' mới
         const testIncidents = await Incident.find({ title: /Test/ });
         for (const incident of testIncidents) {
             if (incident.photos) {
@@ -104,13 +102,13 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
                 .set('Authorization', `Bearer ${authToken}`)
                 .field('title', 'Test upload thực tế')
                 .field('description', '3 xe ô tô va chạm')
-                .field('type', 'ACCIDENT') // Thêm type theo Schema 7.1
+                .field('type', 'ACCIDENT') 
                 .field('latitude', 21.029038)
                 .field('longitude', 105.803421)
-                .attach('photos', filePath); // Đổi key từ 'image' -> 'photos'
+                .attach('photos', filePath); 
 
             expect(res.body.success).toBe(true);
-            expect(res.body.result.photos).toHaveLength(1); // Check trường 'photos'
+            expect(res.body.result.photos).toHaveLength(1); 
             
             // Kiểm tra file vật lý
             const uploadedPath = path.join(__dirname, '../../uploads', res.body.result.photos[0]);
@@ -127,7 +125,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
                 .patch(`/api/v1/incidents/update/${existId}`)
                 .set('Authorization', `Bearer ${authToken}`)
                 .field('title', 'Cập nhật tiêu đề test')
-                .attach('photos', filePath); // Đổi key 'photos'
+                .attach('photos', filePath); 
 
             expect(res.body.success).toBe(true);
             expect(res.body.result.photos).toBeDefined();
