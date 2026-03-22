@@ -1,11 +1,12 @@
 # 🚦 Hệ thống Quản lý Sự cố Giao thông (TIMS)
 
-> **Traffic Incident Management System** — Giải pháp hỗ trợ báo cáo và điều phối cứu hộ giao thông thời gian thực.
+> **Traffic Incident Management System** — Giải pháp hỗ trợ báo cáo và điều phối cứu hộ giao thông thời gian thực, tập trung vào tính chính xác của dữ liệu và tốc độ phản hồi.
 
 | Thông tin | Chi tiết |
 |---|---|
 | **Lớp** | CNTT4 - K64 |
-| **Quy trình** | Agile/Scrum (Sprint 1: Cấu trúc hạ tầng & Báo cáo sự cố) |
+| **Học phần** | Phát triển phần mềm hướng dịch vụ |
+| **Quy trình** | Agile/Scrum (Hoàn thành Sprint 1) |
 
 ---
 
@@ -21,13 +22,14 @@
 
 ---
 
-## 🏗️ 1. Kiến trúc & Luồng hệ thống (System Flow)
+## 🏗️ 1. Kiến trúc & Luồng hệ thống (System Architecture)
 
-Dự án áp dụng mô hình **Client-Server** với các lớp xử lý tách biệt:
+Dự án áp dụng kiến trúc **Client-Server** hiện đại với sự tách biệt rõ rệt giữa các tầng xử lý:
 
-- **Frontend:** React (Vite) + Redux Toolkit. Tích hợp Geolocation API để lấy tọa độ thực tế.
-- **Backend:** Node.js + Express + MongoDB. Xử lý logic nghiệp vụ và dịch ngược tọa độ (Reverse Geocoding).
-- **CI/CD:** Tự động hóa kiểm thử và đóng gói Docker thông qua GitHub Actions.
+- **Frontend:** React (Vite) + Redux Toolkit. Tích hợp Geolocation API để xác định vị trí sự cố chính xác.
+- **Backend:** Node.js + Express + MongoDB. Xử lý logic nghiệp vụ theo mô hình **Controller-Service-Model**.
+- **Real-time:** Socket.IO đảm bảo thông tin sự cố được phát tán tức thời đến các bên liên quan.
+- **DevOps:** Docker hóa toàn bộ ứng dụng và tự động hóa kiểm thử qua GitHub Actions.
 
 ---
 
@@ -38,15 +40,15 @@ Dự án áp dụng mô hình **Client-Server** với các lớp xử lý tách 
 ```
 backend/
 ├── src/
-│   ├── config/         # Swagger, MongoDB, success/error codes
-│   ├── controllers/    # Xử lý logic (Auth, Incident) - Có Swagger JSDoc
-│   ├── middleware/     # Auth (JWT), Upload (Multer), Error Handler
-│   ├── models/         # Mongoose Schemas (User, Incident)
-│   ├── routes/         # Định nghĩa API endpoints (v1)
-│   ├── services/       # GeoService (Dịch địa chỉ)
-│   └── server.js       # Điểm khởi chạy hệ thống
-├── Dockerfile          # Bản thiết kế đóng gói Container
-└── .dockerignore       # Loại bỏ file thừa khi build Docker
+│   ├── config/          # Cấu hình Swagger, MongoDB, Database
+│   ├── controllers/     # Điều hướng logic & Swagger JSDoc
+│   ├── middleware/      # Auth (JWT), Upload (Multer), Error Handler
+│   ├── models/          # Mongoose Schemas (User, Incident)
+│   ├── routes/          # Định nghĩa API endpoints (v1)
+│   ├── services/        # GeoService (Reverse Geocoding) & Business Logic
+│   ├── utils/           # Helper functions & Constant Codes
+│   └── server.js        # Điểm khởi chạy hệ thống (Entry Point)
+└── uploads/             # Lưu trữ ảnh sự cố vật lý
 ```
 
 ### Frontend — `frontend/src/`
@@ -69,6 +71,7 @@ frontend/src/
 | **GitHub Actions** | Tự động chạy Test và Build mỗi khi Push code | ✅ Đã cấu hình |
 | **Swagger UI** | Tài liệu API tương tác trực tiếp | ✅ Đã cấu hình |
 | **Axios Interceptor** | Tự động xử lý Header Authorization (Bearer Token) | ✅ Đã cấu hình |
+| **Socket.IO** | Phát tán sự cố thời gian thực đến các bên liên quan | ✅ Đã cấu hình |
 
 ---
 
@@ -90,7 +93,7 @@ JWT_SECRET=ma_bi_mat_cua_vy
 
 ```bash
 # Build và chạy toàn bộ hệ thống (DB + Backend)
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 ### Bước 3 — Chạy thủ công để Development
@@ -103,11 +106,11 @@ npm run dev
 
 ---
 
-## 🏆 5. Điểm nổi bật kiến trúc (Sprint 1 — Cải tiến kỹ thuật)
+## 🏆 5. Đặc điểm kỹ thuật nổi bật (Sprint 1)
 
-### 1. Hệ thống xử lý lỗi tập trung (Error Handling Pipeline)
+### 🛡️ Xử lý lỗi & Phản hồi chuẩn hóa (Error Handling Pipeline)
 
-Thay vì viết `try-catch` và `res.status()` rải rác khắp nơi, hệ thống áp dụng mô hình **"Phễu lỗi"** tập trung:
+Hệ thống sử dụng lớp `AppError` tùy chỉnh kết hợp với `globalExceptionHandler`. Mọi phản hồi API đều tuân thủ cấu trúc thống nhất:
 
 | Thành phần | Vai trò |
 |---|---|
@@ -123,12 +126,12 @@ return next(new AppError(ErrorCodes.AUTH_USER_EXISTS));
 app.use((err, req, res, next) => { ... });
 ```
 
-### 2. Bảo mật & Cấu hình môi trường
+- **Success:** `{ success: true, result: [...] }`
+- **Error:** `{ success: false, error: { code: XXX, message: "..." } }`
 
-- **Dotenv** được nạp ở **dòng đầu tiên** của `server.js` — đảm bảo mọi biến môi trường (`JWT_SECRET`, `MONGO_URI`) sẵn sàng trước khi bất kỳ module nào khởi động.
-- **Swagger Authorize** — hỗ trợ dán JWT Token trực tiếp lên Swagger UI để test các endpoint yêu cầu xác thực mà không cần Postman.
+### 🗺️ Dịch vụ địa lý tự động (Geo-Automation)
 
-### 3. Tách biệt Service — Controller
+`GeoService` tự động chuyển đổi tọa độ (Lat/Lon) từ thiết bị di động thành địa chỉ văn bản chính xác thông qua OpenStreetMap API, giảm thiểu thao tác nhập liệu cho người dùng.
 
 ```
 Request → Route → Controller → Service → Model
@@ -137,28 +140,20 @@ Request → Route → Controller → Service → Model
                                 & gọi API ngoài
 ```
 
-- **Controller** chỉ nhận Request, gọi Service, trả Response — không chứa logic phức tạp.
-- **GeoService** tự động dịch ngược tọa độ thành địa chỉ (Reverse Geocoding) qua Axios → OpenStreetMap, tích hợp thực tiễn cho bài toán cứu hộ giao thông.
+### 🔐 Bảo mật & Cấu hình môi trường
 
-### 4. Quy trình DevOps & Testing
+- **Dotenv** được nạp ở **dòng đầu tiên** của `server.js` — đảm bảo mọi biến môi trường (`JWT_SECRET`, `MONGO_URI`) sẵn sàng trước khi bất kỳ module nào khởi động.
+- **Swagger Authorize** — hỗ trợ dán JWT Token trực tiếp lên Swagger UI để test các endpoint yêu cầu xác thực mà không cần Postman.
 
-- **Git conflict** được xử lý bằng `git pull --rebase` trước khi push, đồng bộ local và remote.
+### ⚙️ Quy trình DevOps & Testing
+
 - **Test Suite tự động** kiểm tra toàn bộ luồng nghiệp vụ theo thứ tự:
 
 ```
-Đăng ký tài khoản → Đăng nhập lấy Token → Dùng Token tạo sự cố
+Đăng ký tài khoản → Đăng nhập lấy Token → Tạo / Cập nhật / Xóa sự cố
 ```
 
 - Dùng `Date.now()` để sinh username ngẫu nhiên, tránh trùng lặp giữa các lần chạy test.
-
-### 📊 Trước & Sau Sprint 1
-
-| Đặc điểm | Trước | Sau |
-|---|---|---|
-| **Xử lý lỗi** | `try-catch` + `res.status()` rải rác | `AppError` + `globalExceptionHandler` tập trung |
-| **Tài liệu API** | Ghi chú tay / Postman | Swagger UI tự động, có sẵn JSON example |
-| **Cấu trúc code** | Logic gọi API ngoài nằm trong Controller | Tách Service riêng, Controller chỉ điều hướng |
-| **Testing** | Test thủ công từng endpoint | Test Suite tự động kiểm tra cả luồng |
 
 ---
 
@@ -168,7 +163,7 @@ Request → Route → Controller → Service → Model
 
 ```bash
 cd backend
-npm test
+npm test -- --coverage
 ```
 
 ### Kết quả Unit Test
@@ -177,75 +172,58 @@ npm test
 PASS  src/tests/app.test.js
   🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)
     📁 Nhóm: Hạ tầng & Tài liệu
-      √ Swagger UI: Nên truy cập được trang tài liệu API (32 ms)
-      √ Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (13 ms)
+      √ Swagger UI: Nên truy cập được trang tài liệu API (58 ms)
+      √ Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (22 ms)
     🔐 Nhóm: Xác thực (US-15)
-      √ Register: Nên đăng ký tài khoản thành công (100 ms)
-      √ Register: Nên báo lỗi 1001 nếu trùng username (8 ms)
-      √ Login: Nên trả về Token khi đăng nhập đúng (71 ms)
-      √ Login: Nên từ chối (401) nếu sai mật khẩu (66 ms)
-      √ Login: từ chối (401) nếu không tồn tại tên đăng nhập (6 ms)
+      √ Register: Nên đăng ký tài khoản thành công (144 ms)
+      √ Register: Nên báo lỗi 1001 nếu trùng username (14 ms)
+      √ Login: Nên trả về Token khi đăng nhập đúng (113 ms)
+      √ Login: Nên từ chối (401) nếu sai mật khẩu (105 ms)
+      √ Login: từ chối (401) nếu không tồn tại tên đăng nhập (12 ms)
     🚨 Nhóm: Quản lý sự cố (US-01)
-      √ Security: Không có Token thì không được lấy danh sách sự cố (5 ms)
-      √ Create Incident: Nên tạo sự cố thành công khi có Token (21 ms)
-      √ Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon) (6 ms)
+      √ Security: Không có Token thì không được lấy danh sách sự cố (8 ms)
+      √ Create Incident: Nên tạo sự cố thành công khi có Token (51 ms)
+      √ Update Incident: Cập nhật sự cố thành công khi có Token (39 ms)
+      √ Delete Incident: Xóa sự cố thành công khi có Token (19 ms)
+      √ Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon) (12 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       10 passed, 10 total
-Time:        3.332 s
+Tests:       12 passed, 12 total
+Time:        4.626 s
 ```
 
-### Báo cáo Coverage
+### Kết quả Coverage
+
+- **Test Suites:** 1 passed
+- **Tests:** 12 passed (100% thành công)
+- **Overall Coverage: > 86%** (Vượt mức tiêu chuẩn 80%)
 
 ```
-----------------------------|---------|----------|---------|---------|-------------------
-File                        | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
-----------------------------|---------|----------|---------|---------|-------------------
-All files                   |   85.62 |    68.29 |    62.5 |   86.14 |
- src                        |     100 |      100 |     100 |     100 |
-  app.js                    |     100 |      100 |     100 |     100 |
- src/controllers            |   85.45 |    83.33 |      60 |   87.03 |
-  authController.js         |   92.85 |      100 |     100 |   92.85 | 82,146
-  incidentController.js     |   77.77 |       70 |   33.33 |   80.76 | 85,102-109
- src/middleware             |      80 |    57.14 |    62.5 |      80 |
+----------------------------|---------|----------|---------|---------|
+File                        | % Stmts | % Branch | % Funcs | % Lines |
+----------------------------|---------|----------|---------|---------|
+All files                   |   86.42 |    66.23 |   85.71 |   86.36 |
+ src/app.js                 |     100 |      100 |     100 |     100 |
+ src/controllers            |   82.07 |    68.51 |      80 |    81.9 |
+  authController.js         |   92.85 |      100 |     100 |   92.85 |
+  incidentController.js     |    78.2 |    63.04 |      75 |   77.92 |
+ src/middleware             |      90 |     61.9 |     100 |      90 |
   AppError.js               |     100 |      100 |     100 |     100 |
-  auth.js                   |    82.6 |       80 |     100 |    82.6 | 21,26-27,34
-  globalExceptionHandler.js |     100 |    44.44 |     100 |     100 | 12-25
-  upload.js                 |   57.14 |        0 |       0 |   57.14 | 9-14,20-23
+  auth.js                   |    82.6 |       80 |     100 |    82.6 |
+  globalExceptionHandler.js |     100 |    44.44 |     100 |     100 |
+  upload.js                 |   92.85 |       50 |     100 |   92.85 |
  src/models                 |     100 |      100 |     100 |     100 |
-  Incident.js               |     100 |      100 |     100 |     100 |
-  Users.js                  |     100 |      100 |     100 |     100 |
  src/routes                 |     100 |      100 |     100 |     100 |
-  authRoutes.js             |     100 |      100 |     100 |     100 |
-  incidentRoutes.js         |     100 |      100 |     100 |     100 |
- src/services               |   33.33 |      100 |       0 |   33.33 |
-  geoService.js             |   33.33 |      100 |       0 |   33.33 | 6-23
- src/utils                  |     100 |       50 |     100 |     100 |
-  logger.js                 |       0 |        0 |       0 |       0 |
-  response.js               |     100 |       50 |     100 |     100 | 9
- src/utils/constants        |     100 |      100 |     100 |     100 |
-  errorCodes.js             |     100 |      100 |     100 |     100 |
-  successCodes.js           |     100 |      100 |     100 |     100 |
-----------------------------|---------|----------|---------|---------|-------------------
+ src/services/geoService.js |   33.33 |      100 |       0 |   33.33 |
+ src/utils/response.js      |     100 |       50 |     100 |     100 |
+----------------------------|---------|----------|---------|---------|
 ```
 
-> ✅ **Coverage hiện tại: 85.62% Statements / 86.14% Lines** — đã vượt mức tối thiểu **80%** theo yêu cầu dự án.
-
-### Roadmap nâng Coverage
-
-Các file chưa đạt mức tối ưu cần tiếp tục cải thiện ở Sprint tiếp theo:
-
-| File | % Stmts | % Funcs | Việc cần làm |
-|---|---|---|---|
-| `incidentController.js` | 77.77% | 33.33% | Viết test cho cập nhật, xóa sự cố (line 85, 102–109) |
-| `geoService.js` | 33.33% | 0% | Mock Axios, test Reverse Geocoding & lỗi mạng |
-| `upload.js` | 57.14% | 0% | Test upload file hợp lệ / sai định dạng / quá dung lượng |
-| `auth.js` | 82.6% | 100% | Test token sai định dạng, token hết hạn (line 21, 26–27, 34) |
-| `logger.js` | 0% | 0% | Bổ sung test hoặc loại khỏi coverage report |
+> ✅ **Coverage hiện tại: 86.42% Statements / 86.36% Lines** — đã vượt mức tối thiểu **80%** theo yêu cầu dự án.
 
 ### Tự động hóa CI/CD
 
-- **Trạng thái:** ✅ Passing (10/10 test case thành công)
+- **Trạng thái:** ✅ Passing (12/12 test case thành công)
 - **Luồng chạy:** Mỗi khi push lên `main` → GitHub Actions khởi tạo Node 22 → `npm install` → Docker Build → Jest
 
 ---
@@ -346,4 +324,4 @@ Sau khi chạy Backend, truy cập đường dẫn sau để xem và test các A
 
 ---
 
-<p align="center">Made with ❤️ by <strong>Lê Thanh Vy</strong> — CNTT4 - K64</p>
+<p align="center">Made with ❤️ by <strong>Lê Thanh Vy</strong> — CNTT4-K64 UTC</p>
