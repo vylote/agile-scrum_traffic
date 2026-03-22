@@ -6,8 +6,14 @@ const { protect, restrictTo } = require('../middleware/auth');
 
 router.use(protect)
 
-router.post('/', restrictTo('Citizen'), upload.array('image', 5),incidentController.createIncident)
+router.post('/create', restrictTo('Citizen'), upload.array('image', 5),incidentController.createIncident)
+
+router.patch('/update/:id', upload.array('image',5), incidentController.updateIncident)
+
+router.delete('/delete/:id', incidentController.deleteIncident)
 
 router.get('/', restrictTo('Admin', 'Dispatcher'), incidentController.getAllIncidents)
+
+router.get('/:id', incidentController.getIncidentById)
 
 module.exports = router;
