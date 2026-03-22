@@ -169,27 +169,23 @@ npm test -- --coverage
 ### Kết quả Unit Test
 
 ```
-PASS  src/tests/app.test.js
+ PASS  src/tests/app.test.js
   🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)
     📁 Nhóm: Hạ tầng & Tài liệu
-      √ Swagger UI: Nên truy cập được trang tài liệu API (58 ms)
-      √ Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (22 ms)
+      √ Swagger UI: Nên truy cập được trang tài liệu API (36 ms)
+      √ Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (15 ms)
     🔐 Nhóm: Xác thực (US-15)
-      √ Register: Nên đăng ký tài khoản thành công (144 ms)
-      √ Register: Nên báo lỗi 1001 nếu trùng username (14 ms)
-      √ Login: Nên trả về Token khi đăng nhập đúng (113 ms)
-      √ Login: Nên từ chối (401) nếu sai mật khẩu (105 ms)
-      √ Login: từ chối (401) nếu không tồn tại tên đăng nhập (12 ms)
+      √ Register: Nên đăng ký tài khoản thành công (111 ms)
+      √ Login: Nên trả về Token khi đăng nhập đúng (79 ms)
     🚨 Nhóm: Quản lý sự cố (US-01)
-      √ Security: Không có Token thì không được lấy danh sách sự cố (8 ms)
-      √ Create Incident: Nên tạo sự cố thành công khi có Token (51 ms)
-      √ Update Incident: Cập nhật sự cố thành công khi có Token (39 ms)
-      √ Delete Incident: Xóa sự cố thành công khi có Token (19 ms)
-      √ Validation: Nên báo lỗi nếu thiếu tọa độ (Lat/Lon) (12 ms)
+      √ Create Incident: Nên tạo sự cố thành công khi có Token (28 ms)
+      √ Update Incident: Cập nhật sự cố thành công (21 ms)
+      √ Delete Incident: Xóa sự cố thành công (11 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       12 passed, 12 total
-Time:        4.626 s
+Tests:       7 passed, 7 total
+Snapshots:   0 total
+Time:        3.13 s      
 ```
 
 ### Kết quả Coverage
@@ -200,26 +196,37 @@ Time:        4.626 s
 
 ```
 ----------------------------|---------|----------|---------|---------|
-File                        | % Stmts | % Branch | % Funcs | % Lines |
+File                        | % Stmts | % Branch | % Funcs | % Lines | 
 ----------------------------|---------|----------|---------|---------|
-All files                   |   86.42 |    66.23 |   85.71 |   86.36 |
- src/app.js                 |     100 |      100 |     100 |     100 |
- src/controllers            |   82.07 |    68.51 |      80 |    81.9 |
-  authController.js         |   92.85 |      100 |     100 |   92.85 |
-  incidentController.js     |    78.2 |    63.04 |      75 |   77.92 |
- src/middleware             |      90 |     61.9 |     100 |      90 |
-  AppError.js               |     100 |      100 |     100 |     100 |
-  auth.js                   |    82.6 |       80 |     100 |    82.6 |
-  globalExceptionHandler.js |     100 |    44.44 |     100 |     100 |
-  upload.js                 |   92.85 |       50 |     100 |   92.85 |
- src/models                 |     100 |      100 |     100 |     100 |
- src/routes                 |     100 |      100 |     100 |     100 |
- src/services/geoService.js |   33.33 |      100 |       0 |   33.33 |
- src/utils/response.js      |     100 |       50 |     100 |     100 |
+All files                   |    82.6 |    57.14 |   86.95 |   83.33 | 
+ src                        |     100 |      100 |     100 |     100 | 
+  app.js                    |     100 |      100 |     100 |     100 | 
+ src/controllers            |   75.72 |    61.29 |      80 |   76.28 | 
+  authController.js         |   86.66 |       60 |     100 |   86.66 | 
+  incidentController.js     |   71.23 |    61.53 |      75 |   71.64 | 
+ src/middleware             |   85.45 |       48 |     100 |   85.18 | 
+  AppError.js               |     100 |      100 |     100 |     100 | 
+  auth.js                   |      75 |       50 |     100 |   74.07 | 
+  globalExceptionHandler.js |     100 |    44.44 |     100 |     100 | 
+  upload.js                 |   92.85 |       50 |     100 |   92.85 | 
+ src/models                 |   92.85 |       50 |     100 |     100 | 
+  Incident.js               |    90.9 |       50 |     100 |     100 | 
+  Users.js                  |     100 |      100 |     100 |     100 | 
+ src/routes                 |     100 |      100 |     100 |     100 | 
+  authRoutes.js             |     100 |      100 |     100 |     100 | 
+  incidentRoutes.js         |     100 |      100 |     100 |     100 | 
+ src/services               |   33.33 |      100 |       0 |   33.33 | 
+  geoService.js             |   33.33 |      100 |       0 |   33.33 | 
+ src/utils                  |     100 |       50 |     100 |     100 | 
+  logger.js                 |       0 |        0 |       0 |       0 | 
+  response.js               |     100 |       50 |     100 |     100 | 
+ src/utils/constants        |     100 |      100 |     100 |     100 | 
+  errorCodes.js             |     100 |      100 |     100 |     100 | 
+  successCodes.js           |     100 |      100 |     100 |     100 | 
 ----------------------------|---------|----------|---------|---------|
 ```
 
-> ✅ **Coverage hiện tại: 86.42% Statements / 86.36% Lines** — đã vượt mức tối thiểu **80%** theo yêu cầu dự án.
+> ✅ **Coverage hiện tại: 82.6% Statements / 83.33% Lines** — đã vượt mức tối thiểu **80%** theo yêu cầu dự án.
 
 ### Tự động hóa CI/CD
 
