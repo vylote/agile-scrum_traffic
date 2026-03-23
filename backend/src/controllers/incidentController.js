@@ -5,17 +5,19 @@ const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 const geoService = require('../services/geoService');
 const path = require('path');
-const fs = require('fs');
-const mongoose = require('mongoose'); 
+const fs = require('fs').promises;
+const mongoose = require('mongoose');
+const { INCIDENT_TYPES, INCIDENT_STATUS, INCIDENT_SEVERITY, ALL_STATUS } = require('../utils/constants/incidentConstants');
 
 /**
  * @swagger
- * /api/v1/incidents/create:
+ * /api/v1/incidents/:
  *   post:
  *     summary: Báo cáo sự cố mới
  *     tags: [Incidents]
  *     security:
  *       - bearerAuth: []
+ *     description: Chỉ dành cho người dùng có role **CITIZEN**. Cho phép tải lên tối đa 5 ảnh.
  *     requestBody:
  *       required: true
  *       content:
@@ -29,16 +31,21 @@ const mongoose = require('mongoose');
  *                 example: "Tai nạn giao thông"
  *               description:
  *                 type: string
+ *                 example: "Va chạm giữa xe máy và ô tô"
  *               type:
  *                 type: string
  *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER]
+ *                 example: ACCIDENT
  *               severity:
  *                 type: string
  *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
+ *                 example: MEDIUM
  *               latitude:
  *                 type: number
+ *                 example: 21.0285
  *               longitude:
  *                 type: number
+ *                 example: 105.8542
  *               photos:
  *                 type: array
  *                 items:
@@ -46,7 +53,13 @@ const mongoose = require('mongoose');
  *                   format: binary
  *     responses:
  *       201:
- *         description: Thành công
+ *         description: Tạo sự cố thành công
+ *       400:
+ *         description: Thiếu tọa độ latitude/longitude
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ *       403:
+ *         description: Không có quyền truy cập (không phải CITIZEN)
  */
 exports.createIncident = async (req, res, next) => {
     try {
@@ -61,18 +74,18 @@ exports.createIncident = async (req, res, next) => {
         const photos = req.files ? req.files.map(file => file.filename) : [];
 
         const newIncident = await Incident.create({
-            reportedBy: req.user._id, 
+            reportedBy: req.user._id,
             title,
             description,
-            type: type || 'OTHER',
-            severity: severity || 'MEDIUM',
+            type: type || INCIDENT_TYPES.OTHER,
+            severity: severity || INCIDENT_SEVERITY.MEDIUM,
             location: {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)], // [Kinh độ, Vĩ độ]
                 address: finalAddress
             },
-            photos: photos, 
-            status: 'PENDING' 
+            photos: photos,
+            status: INCIDENT_STATUS.PENDING
         });
 
         // Socket thông báo thời gian thực
@@ -92,7 +105,76 @@ exports.createIncident = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/v1/incidents/update/{id}:
+ * /api/v1/incidents/sos:
+ *   post:
+ *     summary: Gửi tín hiệu SOS khẩn cấp
+ *     tags: [Incidents]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Tạo ngay một sự cố với mức độ **CRITICAL** và loại **ACCIDENT**. Không cần tiêu đề hay mô tả.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [latitude, longitude]
+ *             properties:
+ *               latitude:
+ *                 type: number
+ *                 example: 21.0285
+ *               longitude:
+ *                 type: number
+ *                 example: 105.8542
+ *     responses:
+ *       200:
+ *         description: Gửi SOS thành công, socket event `incident:sos` được phát đi
+ *       400:
+ *         description: Thiếu tọa độ latitude/longitude
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ */
+exports.createSOS = async (req, res, next) => {
+    try {
+        const { latitude, longitude } = req.body;
+
+        if (!latitude || !longitude) {
+            return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
+        }
+
+        address = await geoService.reverseGeocode(latitude, longitude);
+
+        const sosIncident = await Incident.create({
+            reportedBy: req.user._id,
+            title: "🆘 YÊU CẦU CỨU HỘ KHẨN CẤP (SOS)",
+            description: "ưu tiên cứu hộ khẩn cấp",
+            type: INCIDENT_TYPES.ACCIDENT,
+            severity: INCIDENT_SEVERITY.CRITICAL,
+            location: {
+                type: 'Point',
+                coordinates: [parseFloat(longitude), parseFloat(latitude)],
+                address
+            },
+            status: INCIDENT_STATUS.PENDING
+        });
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('incident:sos', {
+                message: 'xuât hiện sự cố khẩn cấp!',
+                incident: sosIncident
+            });
+        }
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, sosIncident);
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * @swagger
+ * /api/v1/incidents/{id}/info:
  *   patch:
  *     summary: Cập nhật thông tin sự cố
  *     tags: [Incidents]
@@ -108,47 +190,75 @@ exports.createIncident = async (req, res, next) => {
  *       content:
  *         multipart/form-data:
  *           schema:
- *             type: object 
+ *             type: object
  *             properties:
- *               title: 
- *                 type: string 
- *                 example: "Tai nạn đã được xử lý" 
- *               description: 
+ *               title:
+ *                 type: string
+ *                 example: "Tai nạn đã được xử lý"
+ *               description:
  *                 type: string
  *               type:
- *                 type: string 
- *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER] 
- *               severity: 
  *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH, CRITICAL] 
- *               status: 
+ *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER]
+ *               severity:
  *                 type: string
- *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED] 
- *               latitude: 
+ *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED]
+ *               latitude:
  *                 type: number
- *               longitude: 
+ *               longitude:
  *                 type: number
- *               photos: 
+ *               keepPhotos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Danh sách TÊN các ảnh cũ muốn giữ lại (ví dụ ["image-123.jpg"])
+ *               photos:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
+ *                 description: Tải lên các ảnh MỚI (nếu có)
  *     responses:
  *       200:
  *         description: Cập nhật thành công
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
  *       404:
  *         description: Không tìm thấy sự cố
  */
-exports.updateIncident = async (req, res, next) => {
+exports.updateIncidentInfo = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { title, description, latitude, longitude, address, status, type, severity } = req.body;
+        const { title, description, latitude, longitude, address, status, type, severity, keepPhotos } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
+        }
 
         const existIncident = await Incident.findById(id);
         if (!existIncident) {
             return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
+        }
+
+        let finalPhotos = [];
+        let photosToDelete = [];
+        if (keepPhotos === undefined && (!req.files || req.files.length === 0)) {
+            finalPhotos = existIncident.photos;
+        } else {
+            let finalKeepPhotos = [];
+            if (keepPhotos) {
+                finalKeepPhotos = Array.isArray(keepPhotos) ? keepPhotos : [keepPhotos];
+            }
+
+            photosToDelete = existIncident.photos.filter(p => !finalKeepPhotos.includes(p));
+            console.log(`so luog anh xoa la: ${photosToDelete.length}`)
+
+            const newPhotos = req.files && req.files.length > 0
+                ? req.files.map(file => file.filename)
+                : [];
+
+            finalPhotos = [...finalKeepPhotos, ...newPhotos];
         }
 
         let finalLocation = existIncident.location;
@@ -161,10 +271,6 @@ exports.updateIncident = async (req, res, next) => {
             };
         }
 
-        const photos = req.files && req.files.length > 0
-            ? req.files.map(file => file.filename)
-            : existIncident.photos;
-
         const updateDoc = await Incident.findByIdAndUpdate(
             id,
             {
@@ -173,14 +279,28 @@ exports.updateIncident = async (req, res, next) => {
                 type: type || existIncident.type,
                 severity: severity || existIncident.severity,
                 location: finalLocation,
-                photos: photos,
+                photos: finalPhotos,
                 status: status || existIncident.status
             },
             { new: true, runValidators: true }
         );
 
+        if (photosToDelete.length > 0) {
+            // Không dùng await ở đây để tránh block response trả về cho user
+            photosToDelete.forEach(async (imgName) => {
+                const filePath = path.join(__dirname, '../../uploads', imgName);
+                try {
+                    await fs.access(filePath);
+                    await fs.unlink(filePath);
+                    console.log(`✅ Đã xóa file thừa: ${imgName}`);
+                } catch (err) {
+                    console.log(`❌ File không tồn tại hoặc lỗi xóa: ${imgName}`);
+                }
+            });
+        }
+
         const io = req.app.get('io');
-        if (io) io.emit('update_incident', { incident: updateDoc });
+        if (io) io.emit('incident:infor_updated', { incident: updateDoc });
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updateDoc);
     } catch (err) {
@@ -217,12 +337,26 @@ exports.deleteIncident = async (req, res, next) => {
         const deleteDoc = await Incident.findByIdAndDelete(id);
         if (!deleteDoc) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
 
-        // Xóa file vật lý bằng tên trường mới 'photos'
         if (deleteDoc.photos && deleteDoc.photos.length > 0) {
-            deleteDoc.photos.forEach(imgName => {
-                const filePath = path.join(__dirname, '../../uploads', imgName);
-                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            });
+            const deletePromise = deleteDoc.photos.map(async (imgName) => {
+                const filePath = path.join(__dirname, '../../uploads', imgName)
+
+                try {
+                    await fs.access(filePath)
+                    return fs.unlink(filePath)
+                } catch (err) {
+                    console.log(`file k ton tai: ${imgName}`)
+                    return null
+                }
+            })
+
+            // === là sao sánh k ép kiểu nó khác với == có ép kiểu
+            Promise.allSettled(deletePromise).then(result => {
+                result.forEach((result, index) => {
+                    if (result.status === 'fulfilled' && result.value !== null)
+                        console.log(`Da xoa xong anh: ${deleteDoc.photos[index]} `)
+                })
+            })
         }
 
         const io = req.app.get('io');
@@ -250,11 +384,35 @@ exports.deleteIncident = async (req, res, next) => {
  */
 exports.getAllIncidents = async (req, res, next) => {
     try {
-        const incidents = await Incident.find()
-            .populate('reportedBy', 'name phone email') // Cập nhật theo Schema 7.3
-            .sort('-createdAt');
+        const { page, type, severity, status } = req.query
 
-        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incidents);
+        const limit = 5
+        const currentPage = parseInt(page) || 1;
+        const skip = (currentPage - 1) * limit
+
+        const filter = {}
+        if (type) filter.type = type
+        if (severity) filter.severity = severity
+        if (status) filter.status = status
+
+        const total = await Incident.countDocuments(filter)
+        const totalPages = Math.ceil(total / limit)
+
+        const incidents = await Incident.find(filter)
+            .sort('-createdAt')
+            .skip(parseInt(skip))
+            .limit(parseInt(limit))
+            .populate('reportedBy', 'name phone email')
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
+            pagination: {
+                total,
+                totalPages,
+                currentPage,
+                limit
+            },
+            data: incidents
+        });
     } catch (err) {
         next(err);
     }
@@ -286,7 +444,7 @@ exports.getIncidentById = async (req, res, next) => {
     try {
         const { id } = req.params;
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT)); 
+            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
         }
 
         const incident = await Incident.findById(id).populate('reportedBy', 'name phone email');
@@ -297,3 +455,115 @@ exports.getIncidentById = async (req, res, next) => {
         next(err);
     }
 };
+
+/**
+ * @swagger
+ * /api/v1/incidents/track/{code}:
+ *   get:
+ *     summary: Lấy chi tiết một sự cố theo code
+ *     tags: [Incidents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema: { type: string }
+ *         description: Mã của sự cố cần xem
+ *     responses:
+ *       200:
+ *         description: Chi tiết sự cố
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ *       404:
+ *         description: Không tìm thấy sự cố
+ */
+exports.getIncidentByCode = async (req, res, next) => {
+    try {
+        const { code } = req.params;
+
+        const codeRegex = /^[A-Z]{3}-\d{8}-\d{4}$/;
+
+        if (!codeRegex.test(code)) {
+            return next(new AppError(ErrorCodes.INCIDENT_INVALID_CODE_FORMAT));
+        }
+
+        const incident = await Incident.findOne({ code })
+            .populate('reportedBy', 'name phone')
+
+        if (!incident)
+            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident);
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * @swagger
+ * /api/v1/incidents/{id}/status:
+ *   patch:
+ *     summary: Cập nhật trạng thái sự cố
+ *     tags: [Incidents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: MongoDB ObjectId của sự cố
+ *         example: "664f1b2c9a4e2d001f3a7b12"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED]
+ *                 example: IN_PROGRESS
+ *     responses:
+ *       200:
+ *         description: Cập nhật trạng thái thành công
+ *       401:
+ *         description: Không có Token hoặc Token không hợp lệ
+ *       404:
+ *         description: Không tìm thấy sự cố
+ */
+exports.updateIncidentStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { status } = req.body
+
+        if (!ALL_STATUS.includes(status)) {
+            return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS))
+        }
+
+        const incident = await Incident.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true, runValidators: true }
+        );
+
+        if (!incident)
+            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND))
+        // 🚀 PHÁT TÍN HIỆU REAL-TIME
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('incident:updated', {
+                message: 'Sự cố đã được cập nhật!',
+                status: incident.status
+            });
+        }
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident)
+    } catch (err) {
+        next(err)
+    }
+}
