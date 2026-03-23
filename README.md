@@ -1,12 +1,12 @@
 # 🚦 Hệ thống Quản lý Sự cố Giao thông (TIMS)
 
-> **Traffic Incident Management System** — Giải pháp quản lý sự cố giao thông thông minh, hỗ trợ báo cáo và điều phối cứu hộ thời gian thực, tối ưu hóa quy trình xử lý sự cố tại đô thị.
+> **Traffic Incident Management System** — Giải pháp quản lý sự cố giao thông thông minh, hỗ trợ báo cáo và điều phối cứu hộ thời gian thực với cơ chế đồng bộ hóa tài nguyên (Resource Sync) và tự động dọn dẹp (Auto-Cleanup).
 
 | Thông tin | Chi tiết |
 |---|---|
 | **Lớp** | CNTT4 - K64 |
-| **Học phần** | Công nghệ phần mềm |
-| **Trạng thái** | ✅ Hoàn thành Sprint 1 (Backend Core & Auth) |
+| **Quy trình** | Agile/Scrum (Sprint 1 → Sprint 1.5: Resource Management) |
+| **Trạng thái** | ✅ Hoàn thành Logic nâng cao — 44/44 tests passed |
 
 ---
 
@@ -24,7 +24,7 @@
 
 ## 🏗️ 1. Kiến trúc hệ thống (System Architecture)
 
-Dự án được xây dựng trên mô hình **Micro-monolith** với sự tách biệt rõ ràng giữa các tầng:
+Dự án được xây dựng trên mô hình **Client-Server** với sự tách biệt rõ ràng giữa các tầng:
 
 - **API Layer:** RESTful API chuẩn hóa với tiền tố `/api/v1`.
 - **Security Layer:** JWT Bearer Token kết hợp phân quyền RBAC (Role-Based Access Control).
@@ -39,17 +39,21 @@ Dự án được xây dựng trên mô hình **Micro-monolith** với sự tác
 ```
 backend/
 ├── src/
-│   ├── config/          # Cấu hình Swagger (specs), Database connection
-│   ├── controllers/     # Xử lý logic nghiệp vụ & Mapping dữ liệu
-│   ├── jobs/            # Các task chạy ngầm (Cron jobs)
-│   ├── middleware/      # Auth (Protect), Upload (Multer), Global Error Handler
+│   ├── config/          # Cấu hình Swagger, Database connection
+│   ├── controllers/     # Logic xử lý chính (Đồng bộ ảnh, SOS, Incidents)
+│   ├── middleware/      # Auth (Protect), Multer (Upload), Error Handler
 │   ├── models/          # Mongoose Schemas (User, Incident)
-│   ├── routes/          # Định tuyến API (Auth, Incidents)
-│   ├── services/        # GeoService (Reverse Geocoding)
+│   ├── routes/          # API Routing (Auth, Incidents)
+│   ├── services/        # GeoService (Reverse Geocoding qua OSM)
 │   ├── tests/           # Integration Tests (Jest + Supertest)
-│   └── utils/           # Constant codes (Error/Success), Response helpers
-├── uploads/             # Thư mục lưu trữ ảnh sự cố vật lý
-└── server.js            # Điểm khởi chạy (Entry Point)
+│   └── utils/
+│       ├── constants/   # Mã lỗi & Mã thành công chuẩn hóa
+│       ├── cleanupTask.js  # Logic dọn dẹp ảnh mồ côi 🗑️
+│       └── response.js  # Helper trả về JSON chuẩn
+├── uploads/             # Kho lưu trữ ảnh vật lý
+├── .env                 # Biến môi trường (JWT, Mongo URI, Port)
+├── app.js               # Cấu hình Express & Middleware
+└── server.js            # Điểm khởi chạy & Thiết lập Cron Jobs
 ```
 
 ---
@@ -60,9 +64,10 @@ backend/
 |---|---|---|
 | **Docker** | Đóng gói ứng dụng vào Container để chạy trên mọi môi trường | ✅ Đã cấu hình |
 | **GitHub Actions** | Tự động chạy Test và Build mỗi khi Push code | ✅ Đã cấu hình |
-| **Swagger UI** | Tài liệu API tương tác trực tiếp, hỗ trợ test Upload ảnh | ✅ Đã cấu hình |
+| **Swagger UI** | Tài liệu API tương tác, hỗ trợ test Upload ảnh trực tiếp | ✅ Đã cấu hình |
+| **Socket.IO** | Phát tán sự cố & SOS thời gian thực đến các bên liên quan | ✅ Đã cấu hình |
+| **node-cron** | Lập lịch tác vụ dọn dẹp ảnh mồ côi chạy ngầm hàng ngày | ✅ Đã cấu hình |
 | **Axios Interceptor** | Tự động xử lý Header Authorization (Bearer Token) | ✅ Đã cấu hình |
-| **Socket.IO** | Phát tán sự cố thời gian thực đến các bên liên quan | ✅ Đã cấu hình |
 
 ---
 
@@ -72,7 +77,7 @@ backend/
 
 - Node.js v18+
 - MongoDB v6.0+
-- Docker & Docker Compose (Tùy chọn)
+- Docker & Docker Compose (tùy chọn)
 
 ### Bước 1 — Chuẩn bị môi trường
 
@@ -101,11 +106,11 @@ npm run dev
 
 ---
 
-## 🏆 5. Đặc điểm kỹ thuật nổi bật (Sprint 1)
+## 🏆 5. Đặc điểm kỹ thuật nổi bật
 
-### 🛡️ Xử lý lỗi & Phản hồi chuẩn hóa
+### 1. Hệ thống xử lý lỗi tập trung (Error Handling Pipeline)
 
-Hệ thống sử dụng `AppError` và `globalExceptionHandler` đảm bảo mọi lỗi trả về Frontend đều có mã định danh riêng:
+Thay vì viết `try-catch` và `res.status()` rải rác khắp nơi, hệ thống áp dụng mô hình **"Phễu lỗi"** tập trung:
 
 | Thành phần | Vai trò |
 |---|---|
@@ -121,33 +126,70 @@ return next(new AppError(ErrorCodes.AUTH_USER_EXISTS));
 app.use((err, req, res, next) => { ... });
 ```
 
-- **Success:** `{ success: true, result: [...] }`
-- **Error:** `{ success: false, error: { code: XXX, message: "..." } }`
+Cấu trúc phản hồi chuẩn hóa toàn hệ thống:
 
-### 🔐 Bảo mật đa tầng
+- **Success:** `{ success: true, result: data }`
+- **Error:** `{ success: false, error: { code: 1xxx, message: "..." } }`
 
-- Middleware kiểm tra trạng thái `isActive` — chặn ngay lập tức các tài khoản bị khóa dù có Token hợp lệ.
+### 2. Bảo mật & Cấu hình môi trường
+
 - **Dotenv** được nạp ở **dòng đầu tiên** của `server.js` — đảm bảo mọi biến môi trường sẵn sàng trước khi bất kỳ module nào khởi động.
-- JWT ký với thuật toán **HS256** tường minh, thời hạn `1d`.
+- Middleware kiểm tra `isActive` — chặn ngay lập tức tài khoản bị khóa dù có Token hợp lệ.
+- JWT ký với thuật toán **HS256**, thời hạn `1d`.
+- **Swagger Authorize** — hỗ trợ dán JWT Token trực tiếp để test API yêu cầu xác thực.
 
-### 🗺️ Dịch vụ địa lý tự động (Geo-Automation)
+### 3. Tách biệt Service — Controller
 
-`GeoService` tự động chuyển đổi tọa độ (Lat/Lon) thành địa chỉ văn bản qua OpenStreetMap API. MongoDB lưu trữ với Geospatial Index `2dsphere` hỗ trợ truy vấn bản đồ.
+```
+Request → Route → Controller → Service → Model
+                      ↑             ↑
+               Chỉ điều hướng   Logic nghiệp vụ
+                                & gọi API ngoài
+```
 
-### ⚙️ Tự động hóa nghiệp vụ
-
+- **GeoService** tự động dịch ngược tọa độ thành địa chỉ (Reverse Geocoding) qua Axios → OpenStreetMap.
 - **Mongoose pre-save hook** sinh mã sự cố tự động theo định dạng `TYPE-YYYYMMDD-XXXX`.
-- **Test Suite** kiểm tra toàn bộ luồng: Đăng ký → Đăng nhập → Tạo / Cập nhật / Xóa sự cố (bao gồm xóa file vật lý).
+
+### 4. Quản lý vòng đời tài nguyên (Resource Lifecycle)
+
+API cập nhật sự cố `PATCH /:id/info` sử dụng cơ chế **Target State**:
+
+- **Keep:** Giữ lại danh sách ảnh cũ được chọn qua field `keepPhotos`.
+- **Delete:** Tự động so sánh và xóa file vật lý của ảnh không còn trong danh sách giữ lại.
+- **Add:** Upload thêm ảnh mới và gộp vào bộ sưu tập hiện có.
+
+### 5. Tự động dọn dẹp ảnh mồ côi (Auto-Cleanup)
+
+Cron Job chạy lúc **3:00 sáng** hàng ngày, quét và xóa ảnh đã upload nhưng không thuộc về bất kỳ sự cố nào:
+
+```js
+// server.js
+cron.schedule('0 3 * * *', () => {
+    cleanupOrphanPhotos(); // Quét Disk vs DB để tìm ảnh mồ côi
+});
+```
+
+**Grace Period Logic:** Chỉ xóa ảnh mồ côi đã tồn tại trên **2 giờ** — tránh xóa nhầm ảnh của người dùng đang thao tác dở.
+
+### 📊 Trước & Sau Sprint 1
+
+| Đặc điểm | Trước | Sau |
+|---|---|---|
+| **Xử lý lỗi** | `try-catch` + `res.status()` rải rác | `AppError` + `globalExceptionHandler` tập trung |
+| **Tài liệu API** | Ghi chú tay / Postman | Swagger UI tự động, có sẵn JSON example |
+| **Cấu trúc code** | Logic gọi API ngoài nằm trong Controller | Tách Service riêng, Controller chỉ điều hướng |
+| **Testing** | Test thủ công từng endpoint | Test Suite tự động 44 cases kiểm tra cả luồng |
+| **Quản lý file** | Upload xong không dọn | Auto-cleanup ảnh mồ côi qua Cron Job |
 
 ---
 
-## 🧪 6. Kiểm thử & Chất lượng (Sprint 1 — Kết quả thực tế)
+## 🧪 6. Kiểm thử & Chất lượng
 
 ### Chạy test
 
 ```bash
 cd backend
-npm test -- --coverage
+npm test
 ```
 
 ### Kết quả Unit Test
@@ -155,34 +197,80 @@ npm test -- --coverage
 ```
 PASS  src/tests/app.test.js
   🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)
-    📁 Nhóm: Hạ tầng & Tài liệu
-      √ Swagger UI: Truy cập được trang tài liệu API
-      √ Error Handling: Trả về JSON chuẩn 404 khi sai URL
-    🔐 Nhóm: Xác thực (US-15)
-      √ Register: Đăng ký tài khoản thành công
-      √ Login: Trả về Token khi đăng nhập đúng
-    🚨 Nhóm: Quản lý sự cố (US-01)
-      √ Create Incident: Tạo sự cố thành công (có đính kèm ảnh)
-      √ Update Incident: Cập nhật thông tin sự cố thành công
-      √ Delete Incident: Xóa sự cố & xóa ảnh vật lý thành công
+    📁 Hạ tầng & Tài liệu
+      √ Swagger UI: Nên truy cập được trang tài liệu API (8 ms)
+      √ Error Handling: Nên trả về JSON chuẩn 404 khi sai URL (5 ms)
+    🔐 Xác thực
+      √ Register: Nên đăng ký tài khoản thành công (86 ms)
+      √ Login: Nên trả về Token khi đăng nhập đúng (85 ms)
+    🚨 POST / — Tạo sự cố mới
+      √ Tạo sự cố đầy đủ tất cả trường thành công (31 ms)
+      √ Tạo sự cố với type và severity mặc định khi không truyền (11 ms)
+      √ Thiếu latitude → lỗi INCIDENT_MISSING_COORDINATES (6 ms)
+      √ Không có Token → 401 (7 ms)
+      √ Token của ADMIN (không phải CITIZEN) → 403 (6 ms)
+    🆘 POST /sos — Gửi tín hiệu SOS khẩn cấp
+      √ Gửi SOS thành công với đầy đủ tọa độ (12 ms)
+      √ Thiếu latitude → lỗi INCIDENT_MISSING_COORDINATES (8 ms)
+      √ Không có Token → 401 (4 ms)
+    🔍 GET /:id — Lấy chi tiết sự cố
+      √ Lấy sự cố thành công với ID hợp lệ (42 ms)
+      √ ID sai định dạng ObjectId → lỗi INVALID_ID_FORMAT (11 ms)
+      √ ID không tồn tại → lỗi INCIDENT_NOT_FOUND (11 ms)
+      √ Không có Token → 401 (5 ms)
+    🔎 GET /track/:code — Lấy sự cố theo mã code
+      √ Lấy sự cố thành công với code hợp lệ (14 ms)
+      √ Code sai định dạng → lỗi INCIDENT_INVALID_CODE_FORMAT (8 ms)
+      √ Code đúng định dạng nhưng không tồn tại → lỗi INCIDENT_NOT_FOUND (8 ms)
+      √ Không có Token → 401 (4 ms)
+    🔄 PATCH /:id/status — Cập nhật trạng thái
+      √ Cập nhật status thành ASSIGNED (14 ms)
+      √ ID không tồn tại → lỗi INCIDENT_NOT_FOUND (8 ms)
+      √ Không có Token → 401 (3 ms)
+    ✏️ PATCH /:id/info — Cập nhật thông tin sự cố
+      √ Cập nhật đầy đủ tất cả trường thành công (27 ms)
+      √ Không gửi ảnh mới → giữ nguyên ảnh cũ (28 ms)
+      √ Cập nhật tọa độ có truyền address thủ công (14 ms)
+      √ ID không tồn tại → lỗi INCIDENT_NOT_FOUND (9 ms)
+      √ Không có Token → 401 (4 ms)
+    📋 GET / — Lấy danh sách sự cố
+      √ Lấy danh sách thành công với ADMIN token (18 ms)
+      √ Lọc theo type, severity, status + phân trang (15 ms)
+      √ CITIZEN token → 403 (7 ms)
+      √ Không có Token → 401 (4 ms)
+    🗑️ DELETE /delete/:id — Xóa sự cố
+      √ Xóa sự cố thành công với CITIZEN token (25 ms)
+      √ Xóa sự cố không có ảnh — không lỗi khi photos rỗng (41 ms)
+      √ ID không tồn tại → lỗi INCIDENT_NOT_FOUND (21 ms)
+      √ DISPATCHER token → 403 (18 ms)
+      √ Không có Token → 401 (16 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       7 passed, 7 total
+Tests:       44 passed, 44 total
+Time:        6.009 s
 ```
 
-### Kết quả Coverage
+### Báo cáo Coverage
 
-- **Test Suites:** 1 passed
-- **Tests:** 7 passed (100% thành công)
-- **Overall Coverage: > 80%** (Đạt mức tiêu chuẩn)
+```
+----------------------------|---------|----------|---------|---------|
+File                        | % Stmts | % Branch | % Funcs | % Lines |
+----------------------------|---------|----------|---------|---------|
+All files                   |   82.02 |    73.94 |   87.87 |   81.97 |
+ src/app.js                 |  100.00 |   100.00 |  100.00 |  100.00 |
+ src/controllers            |   87.70 |    79.81 |  100.00 |   87.07 |
+  authController.js         |   74.28 |    44.44 |  100.00 |   74.28 |
+  incidentController.js     |   90.78 |    86.81 |  100.00 |   90.20 |
+ src/middleware             |   92.72 |    64.00 |  100.00 |   92.59 |
+  auth.js                   |   89.28 |    78.57 |  100.00 |   88.88 |
+  upload.js                 |   92.85 |    50.00 |  100.00 |   92.85 |
+ src/models                 |   71.42 |    50.00 |  100.00 |   75.00 |
+ src/routes                 |  100.00 |   100.00 |  100.00 |  100.00 |
+ src/utils/response.js      |  100.00 |    50.00 |  100.00 |  100.00 |
+----------------------------|---------|----------|---------|---------|
+```
 
-| Phân đoạn | % Statements | % Lines | Trạng thái |
-|---|---|---|---|
-| **Tổng thể (All files)** | 80.85% | 81.49% | ✅ Đạt chuẩn |
-| Routes | 100% | 100% | 🚀 Tuyệt vời |
-| Models | 92.85% | 100% | 🚀 Tuyệt vời |
-| App Entry (app.js) | 100% | 100% | 🚀 Tuyệt vời |
-| Controllers | 72.22% | 72.54% | 🟡 Cần cải thiện ở Sprint 2 |
+> ✅ **Coverage: 82.02% Statements / 81.97% Lines** — đạt mức tiêu chuẩn **≥ 80%** theo yêu cầu dự án.
 
 ### Tự động hóa CI/CD
 
@@ -196,6 +284,7 @@ Tests:       7 passed, 7 total
 > Quy trình bắt buộc cho mọi thành viên — **không được commit thẳng lên `main`**.
 
 ### Bước 1 — Clone dự án về máy
+
 ```bash
 git clone https://github.com/<your-org>/agile-scrum_traffic.git
 cd agile-scrum_traffic
@@ -204,36 +293,68 @@ cd agile-scrum_traffic
 ### Bước 2 — Tạo nhánh làm việc riêng
 
 Đặt tên nhánh theo quy ước: `feature/<tên-tính-năng>` hoặc `fix/<tên-lỗi>`
+
 ```bash
+# Luôn tạo nhánh mới từ main mới nhất
 git checkout main
 git pull origin main
+
+# Tạo và chuyển sang nhánh mới
 git checkout -b feature/ten-tinh-nang
+# Ví dụ:
+# git checkout -b feature/incident-report
+# git checkout -b fix/auth-401-status
 ```
 
 ### Bước 3 — Code & commit thường xuyên
+
 ```bash
 git status
 git add .
 git commit -m "feat: mô tả ngắn gọn những gì vừa làm"
 ```
 
-> **Gợi ý commit message:** `feat:` cho tính năng mới, `fix:` cho sửa lỗi, `refactor:` cho tái cấu trúc, `test:` cho viết test, `docs:` cho tài liệu.
+> **Gợi ý commit message:** `feat:` tính năng mới · `fix:` sửa lỗi · `refactor:` tái cấu trúc · `test:` viết test · `docs:` tài liệu
 
-### Bước 4 — Đồng bộ & Push
+### Bước 4 — Đồng bộ với `main` trước khi push
+
+Trong lúc bạn làm việc, teammate có thể đã push thêm code mới lên `main`. Cần cập nhật nhánh của mình trước khi merge:
+
 ```bash
-git fetch origin
-git rebase origin/main
+# Vẫn đứng ở nhánh feature — không cần checkout sang main
+git fetch origin main     # tải code mới nhất từ GitHub vào kho tạm origin/main
+git rebase origin/main    # "dời" commit của bạn lên sau commit mới nhất của team
+```
+
+Nếu có conflict, Git sẽ dừng lại và báo file nào bị xung đột:
+
+```bash
+# Mở file conflict, sửa tay phần được đánh dấu, rồi:
+git add .
+git rebase --continue
+
+# Nếu muốn huỷ, quay về trạng thái trước khi rebase:
+git rebase --abort
+```
+
+> **Tại sao dùng `rebase` thay vì `merge`?** `merge` tạo thêm một commit thừa làm lịch sử ngoằn ngoèo. `rebase` dời commit của bạn lên sau commit mới nhất của team, giữ lịch sử thẳng hàng và dễ đọc hơn.
+
+### Bước 5 — Push nhánh lên GitHub
+
+```bash
 git push origin feature/ten-tinh-nang
 ```
 
-### Bước 5 — Tạo Pull Request (PR)
+### Bước 6 — Tạo Pull Request (PR)
 
 1. Vào GitHub → chọn **"Compare & pull request"**
-2. Mô tả rõ PR làm gì, fix lỗi nào
+2. Mô tả rõ PR này làm gì, fix lỗi nào, hoặc thêm tính năng gì
 3. Assign ít nhất **1 người review**
 4. Chờ approve → **Rebase and merge** vào `main`
+5. Xóa nhánh sau khi merge để giữ repo gọn gàng
 
 ### Sơ đồ luồng Git
+
 ```
 main ──────────────────────────────────────► (production)
   │                                ▲
@@ -255,10 +376,12 @@ feature/xyz ── commit ── commit ───┘
 
 ## 🔑 8. Tài liệu API (Swagger)
 
-Sau khi khởi động Server, truy cập để xem và test đầy đủ các API — hỗ trợ Upload ảnh trực tiếp trên trình duyệt:
+Sau khi khởi động Server, truy cập để xem và test đầy đủ các API — hỗ trợ Upload ảnh và test JWT trực tiếp trên trình duyệt:
 
 👉 `http://localhost:5000/api-docs`
 
+> **Lưu ý khi test API Update:** Field `photos` dùng để upload file binary mới. Field `keepPhotos` dùng để dán **tên** các file cũ (lấy từ DB) muốn giữ lại.
+
 ---
 
-<p align="center">Dự án được thực hiện bởi <strong>Lê Thanh Vy</strong> — 231220965 | CNTT4-K64 UTC</p>
+<p align="center">Made with ❤️ by <strong>Lê Thanh Vy</strong> — 231220965 | CNTT4-K64</p>
