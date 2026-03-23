@@ -1,24 +1,25 @@
 const mongoose = require('mongoose');
+const { ALL_TYPES, ALL_STATUS, ALL_SEVERITIES, INCIDENT_STATUS, INCIDENT_SEVERITY } = require('../utils/constants/incidentConstants');
 
 const incidentSchema = new mongoose.Schema({
     code: { type: String, unique: true }, 
 
     type: { 
         type: String, 
-        enum: ['ACCIDENT', 'BREAKDOWN', 'FLOOD', 'FIRE', 'OTHER'], 
+        enum: ALL_TYPES,
         required: true 
     },
 
     status: { 
         type: String, 
-        enum: ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'], 
-        default: 'PENDING' 
+        enum: ALL_STATUS,
+        default: INCIDENT_STATUS.PENDING 
     },
 
     severity: {
         type: String,
-        enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
-        default: 'MEDIUM'
+        enum: ALL_SEVERITIES,
+        default: INCIDENT_SEVERITY.MEDIUM
     },
 
     location: {
@@ -42,7 +43,7 @@ const incidentSchema = new mongoose.Schema({
         note: String
     }],
 
-    // 10. Thời gian dự kiến & Kết thúc
+    // Thời gian dự kiến & Kết thúc
     estimatedArrival: Date,
     completedAt: Date
 
