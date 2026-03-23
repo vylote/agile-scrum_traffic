@@ -45,7 +45,7 @@ exports.restrictTo = (...roles) => {
         const upperRoles = roles.map(role => role.toUpperCase());
 
         if (!upperRoles.includes(req.user.role)) {
-            return next(new AppError(ErrorCodes.AUTH_UNAUTHORIZED));
+            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
         }
 
         next();

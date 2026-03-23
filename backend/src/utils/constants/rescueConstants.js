@@ -1,0 +1,20 @@
+const RESCUE_TEAM_TYPES = {
+    AMBULANCE: 'AMBULANCE',
+    TOW_TRUCK: 'TOW_TRUCK',
+    FIRE: 'FIRE',
+    POLICE: 'POLICE',
+    MULTI: 'MULTI'
+};
+
+const RESCUE_TEAM_STATUS = {
+    AVAILABLE: 'AVAILABLE',
+    BUSY: 'BUSY',
+    OFFLINE: 'OFFLINE'
+};
+
+module.exports = {
+    RESCUE_TEAM_TYPES,
+    RESCUE_TEAM_STATUS,
+    ALL_RESCUE_TYPES: Object.values(RESCUE_TEAM_TYPES),
+    ALL_RESCUE_STATUS: Object.values(RESCUE_TEAM_STATUS)
+};

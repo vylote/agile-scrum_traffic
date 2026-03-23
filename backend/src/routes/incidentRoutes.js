@@ -3,34 +3,24 @@ const router = express.Router();
 const incidentController = require("../controllers/incidentController");
 const upload = require("../middleware/upload");
 const { protect, restrictTo } = require("../middleware/auth");
+const { USER_ROLES} = require("../utils/constants/userConstants")
 
 router.use(protect);
 
-router.post(
-    "/create",
-    restrictTo("CITIZEN"),
-    upload.array("photos", 5),
-    incidentController.createIncident,
-);
+router.post('/',restrictTo(USER_ROLES.CITIZEN),upload.array("photos", 5),incidentController.createIncident);
 
-router.patch(
-    "/update/:id",
-    upload.array("photos", 5),
-    incidentController.updateIncident,
-);
-
-router.delete(
-    "/delete/:id",
-    restrictTo("ADMIN", "CITIZEN"),
-    incidentController.deleteIncident,
-);
-
-router.get(
-    "/",
-    restrictTo("ADMIN", "DISPATCHER"),
-    incidentController.getAllIncidents,
-);
+router.post('/sos',restrictTo(USER_ROLES.CITIZEN),incidentController.createSOS);
 
 router.get("/:id", incidentController.getIncidentById);
+
+router.get('/track/:code', incidentController.getIncidentByCode);
+
+router.patch('/:id/status', restrictTo(USER_ROLES.CITIZEN), incidentController.updateIncidentStatus)
+
+router.patch("/:id/info",upload.array("photos", 5),incidentController.updateIncidentInfo);
+
+router.get('/',restrictTo(USER_ROLES.ADMIN, USER_ROLES.DISPATCHER),incidentController.getAllIncidents);
+
+router.delete("/delete/:id",restrictTo(USER_ROLES.CITIZEN),incidentController.deleteIncident);
 
 module.exports = router;
