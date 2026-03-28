@@ -1,3 +1,34 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Quan trọng: app mobile nên giới hạn width */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f0f0f0;
+  /* Căn giữa app như điện thoại */
+  display: flex;
+  justify-content: center;
+}
+
+/* Khung điện thoại — đúng kích thước Figma 393x852 */
+#root {
+  width: 393px;
+  min-height: 100vh;
+  background: white;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Fix Leaflet map */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
