@@ -4,6 +4,7 @@
 
 | Thông tin | Chi tiết |
 |---|---|
+| **Sinh viên thực hiện** | Lê Thanh Vy (231220965) |
 | **Lớp** | CNTT4 - K64 |
 | **Quy trình** | Agile/Scrum (Sprint 1 → Sprint 1.5: Resource Management) |
 | **Trạng thái** | ✅ Hoàn thành Logic nâng cao — 44/44 tests passed |
