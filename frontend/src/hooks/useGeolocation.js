@@ -1,25 +1,15 @@
-import { useState, useCallback } from 'react'; // Bỏ useEffect, thêm useCallback
+import { useState, useEffect } from 'react';
 
 export const useGeolocation = () => {
-  const [location, setLocation] = useState({ lat: null, lng: null });
-  const [error, setError] = useState(null);
+  const [coords, setCoords] = useState({ lat: null, lng: null });
 
-  // Dùng useCallback để hàm không bị tạo lại mỗi lần render (tránh loop)
-  const getPosition = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Trình duyệt không hỗ trợ định vị.");
-      return;
-    }
-
+  useEffect(() => {
+    // Tự động gọi khi hook này được sử dụng lần đầu
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      (err) => {
-        setError(err.message);
-      }
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => console.error("Lỗi lấy vị trí:", err)
     );
-  }, []); // Array rỗng để hàm này luôn cố định
+  }, []); // [] đảm bảo chỉ chạy 1 lần khi mount-> nếu mảng rỗng thì k thực hiện cập nhật theo code-> đọc kĩ hơn ở module 
 
-  return { location, error, getPosition };
+  return { coords };
 };

@@ -7,7 +7,6 @@ exports.protect = async (req, res, next) => {
     try {
         let token;
 
-        // 1. Lấy token từ Header
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
             token = req.headers.authorization.split(' ')[1];
         }
@@ -24,12 +23,11 @@ exports.protect = async (req, res, next) => {
             return next(new AppError(ErrorCodes.AUTH_UNAUTHORIZED));
         }
 
-        // 🚀 Tính năng mới: Chặn nếu tài khoản bị khóa (isActive = false)
+        // Tính năng mới: Chặn nếu tài khoản bị khóa (isActive = false)
         if (!currentUser.isActive) {
             return next(new AppError(ErrorCodes.AUTH_USER_DISABLED)); 
         }
 
-        // 4. Lưu User vào request để dùng ở các bước sau
         req.user = currentUser;
         next();
     } catch (err) {

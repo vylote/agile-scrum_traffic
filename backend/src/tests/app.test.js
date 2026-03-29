@@ -150,7 +150,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     // 🚨 TẠO SỰ CỐ - POST /
     // ============================================================
     describe('🚨 POST / — Tạo sự cố mới', () => {
-        it('✅ Tạo sự cố đầy đủ tất cả trường thành công', async () => {
+        it(' Tạo sự cố đầy đủ tất cả trường thành công', async () => {
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue(mockAddress);
 
             const res = await request(app)
@@ -188,7 +188,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
-        it('✅ Tạo sự cố với type và severity mặc định khi không truyền', async () => {
+        it(' Tạo sự cố với type và severity mặc định khi không truyền', async () => {
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue(mockAddress);
 
             const res = await request(app)
@@ -206,7 +206,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
-        it('❌ Thiếu latitude → lỗi INCIDENT_MISSING_COORDINATES', async () => {
+        it(' Thiếu latitude → lỗi INCIDENT_MISSING_COORDINATES', async () => {
             const res = await request(app)
                 .post('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${citizenToken}`)
@@ -220,7 +220,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app)
                 .post('/api/v1/incidents/')
                 .send({ title: 'Test no token', latitude: 21.0, longitude: 105.8 });
@@ -228,7 +228,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.statusCode).toBe(401);
         });
 
-        it('❌ Token của ADMIN (không phải CITIZEN) → 403', async () => {
+        it(' Token của ADMIN (không phải CITIZEN) → 403', async () => {
             const res = await request(app)
                 .post('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -242,7 +242,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     // 🆘 TẠO SOS - POST /sos
     // ============================================================
     describe('🆘 POST /sos — Gửi tín hiệu SOS khẩn cấp', () => {
-        it('✅ Gửi SOS thành công với đầy đủ tọa độ', async () => {
+        it(' Gửi SOS thành công với đầy đủ tọa độ', async () => {
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue(mockAddress);
 
             const res = await request(app)
@@ -265,7 +265,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
-        it('❌ Thiếu latitude → lỗi INCIDENT_MISSING_COORDINATES', async () => {
+        it(' Thiếu latitude → lỗi INCIDENT_MISSING_COORDINATES', async () => {
             const res = await request(app)
                 .post('/api/v1/incidents/sos')
                 .set('Authorization', `Bearer ${citizenToken}`)
@@ -275,7 +275,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app)
                 .post('/api/v1/incidents/sos')
                 .send({ latitude: 21.0, longitude: 105.8 });
@@ -288,7 +288,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     // 🔍 LẤY CHI TIẾT THEO ID - GET /:id
     // ============================================================
     describe('🔍 GET /:id — Lấy chi tiết sự cố theo ID', () => {
-        it('✅ Lấy sự cố thành công với ID hợp lệ', async () => {
+        it(' Lấy sự cố thành công với ID hợp lệ', async () => {
             const res = await request(app)
                 .get(`/api/v1/incidents/${existId}`)
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -307,7 +307,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result.reportedBy).toHaveProperty('email');
         });
 
-        it('❌ ID sai định dạng ObjectId → lỗi INVALID_ID_FORMAT', async () => {
+        it(' ID sai định dạng ObjectId → lỗi INVALID_ID_FORMAT', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/not-a-valid-id')
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -316,7 +316,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
+        it(' ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
             const fakeId = new mongoose.Types.ObjectId();
             const res = await request(app)
                 .get(`/api/v1/incidents/${fakeId}`)
@@ -326,7 +326,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app).get(`/api/v1/incidents/${existId}`);
             expect(res.statusCode).toBe(401);
         });
@@ -336,7 +336,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     // 🔎 LẤY CHI TIẾT THEO CODE - GET /track/:code
     // ============================================================
     describe('🔎 GET /track/:code — Lấy chi tiết sự cố theo mã code', () => {
-        it('✅ Lấy sự cố thành công với code hợp lệ', async () => {
+        it(' Lấy sự cố thành công với code hợp lệ', async () => {
             const res = await request(app)
                 .get(`/api/v1/incidents/track/${existCode}`)
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -353,7 +353,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result.reportedBy).toHaveProperty('phone');
         });
 
-        it('❌ Code sai định dạng (thiếu phần số cuối) → lỗi INCIDENT_INVALID_CODE_FORMAT', async () => {
+        it(' Code sai định dạng (thiếu phần số cuối) → lỗi INCIDENT_INVALID_CODE_FORMAT', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/track/ACC-20240601')
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -362,7 +362,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Code sai định dạng (chữ thường) → lỗi INCIDENT_INVALID_CODE_FORMAT', async () => {
+        it(' Code sai định dạng (chữ thường) → lỗi INCIDENT_INVALID_CODE_FORMAT', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/track/acc-20240601-0001')
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -371,7 +371,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Code đúng định dạng nhưng không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
+        it(' Code đúng định dạng nhưng không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/track/ACC-20240601-9999')
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -380,17 +380,17 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app).get(`/api/v1/incidents/track/${existCode}`);
             expect(res.statusCode).toBe(401);
         });
     });
 
     // ============================================================
-    // 🔄 CẬP NHẬT TRẠNG THÁI - PATCH /:id/status
+    //  CẬP NHẬT TRẠNG THÁI - PATCH /:id/status
     // ============================================================
-    describe('🔄 PATCH /:id/status — Cập nhật trạng thái sự cố', () => {
-        it('✅ Cập nhật status thành ASSIGNED', async () => {
+    describe(' PATCH /:id/status — Cập nhật trạng thái sự cố', () => {
+        it(' Cập nhật status thành ASSIGNED', async () => {
             const res = await request(app)
                 .patch(`/api/v1/incidents/${existId}/status`)
                 .set('Authorization', `Bearer ${citizenToken}`)
@@ -398,7 +398,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result).toHaveProperty('status', 'ASSIGNED');
         });
 
-        it('✅ Reset lại PENDING', async () => {
+        it(' Reset lại PENDING', async () => {
             const res = await request(app)
                 .patch(`/api/v1/incidents/${existId}/status`)
                 .set('Authorization', `Bearer ${citizenToken}`)
@@ -406,7 +406,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result).toHaveProperty('status', 'PENDING');
         });
 
-        it('❌ ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
+        it(' ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
             const fakeId = new mongoose.Types.ObjectId();
             const res = await request(app)
                 .patch(`/api/v1/incidents/${fakeId}/status`)
@@ -417,7 +417,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app)
                 .patch(`/api/v1/incidents/${existId}/status`)
                 .send({ status: 'IN_PROGRESS' });
@@ -430,7 +430,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     // ✏️ CẬP NHẬT THÔNG TIN - PATCH /:id/info
     // ============================================================
     describe('✏️ PATCH /:id/info — Cập nhật thông tin chi tiết sự cố', () => {
-        it('✅ Cập nhật đầy đủ tất cả trường thành công', async () => {
+        it(' Cập nhật đầy đủ tất cả trường thành công', async () => {
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue('Địa chỉ mới');
 
             const res = await request(app)
@@ -459,7 +459,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
-        it('✅ Không gửi ảnh mới → giữ nguyên ảnh cũ', async () => {
+        it(' Không gửi ảnh mới → giữ nguyên ảnh cũ', async () => {
             const resBefore = await request(app)
                 .get(`/api/v1/incidents/${existId}`)
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -474,7 +474,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result.photos).toEqual(oldPhotos);
         });
 
-        it('✅ Cập nhật tọa độ có truyền address thủ công (không gọi geoService)', async () => {
+        it(' Cập nhật tọa độ có truyền address thủ công (không gọi geoService)', async () => {
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode');
 
             const res = await request(app)
@@ -491,7 +491,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
-        it('❌ ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
+        it(' ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
             const fakeId = new mongoose.Types.ObjectId();
             const res = await request(app)
                 .patch(`/api/v1/incidents/${fakeId}/info`)
@@ -502,7 +502,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app)
                 .patch(`/api/v1/incidents/${existId}/info`)
                 .field('title', 'Test no token');
@@ -515,7 +515,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
     // 📋 LẤY DANH SÁCH - GET /
     // ============================================================
     describe('📋 GET / — Lấy danh sách tất cả sự cố', () => {
-        it('✅ Lấy danh sách thành công với ADMIN token (mặc định page=1, limit=5)', async () => {
+        it(' Lấy danh sách thành công với ADMIN token (mặc định page=1, limit=5)', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`);
@@ -536,7 +536,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result.data.length).toBeLessThanOrEqual(5);
         });
 
-        it('✅ Lấy danh sách thành công với DISPATCHER token', async () => {
+        it(' Lấy danh sách thành công với DISPATCHER token', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${dispatcherToken}`);
@@ -545,7 +545,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(true);
         });
 
-        it('✅ Lọc theo type=ACCIDENT', async () => {
+        it(' Lọc theo type=ACCIDENT', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -557,7 +557,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             });
         });
 
-        it('✅ Lọc theo severity=HIGH', async () => {
+        it(' Lọc theo severity=HIGH', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -569,7 +569,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             });
         });
 
-        it('✅ Lọc theo status=PENDING', async () => {
+        it(' Lọc theo status=PENDING', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -581,7 +581,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             });
         });
 
-        it('✅ Phân trang: page=1', async () => {
+        it(' Phân trang: page=1', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -593,7 +593,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.result.pagination.limit).toBe(5);
         });
 
-        it('✅ Lọc kết hợp type + severity + status + phân trang', async () => {
+        it(' Lọc kết hợp type + severity + status + phân trang', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -607,7 +607,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             });
         });
 
-        it('❌ CITIZEN token → 403', async () => {
+        it(' CITIZEN token → 403', async () => {
             const res = await request(app)
                 .get('/api/v1/incidents/')
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -615,7 +615,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.statusCode).toBe(403);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app).get('/api/v1/incidents/');
             expect(res.statusCode).toBe(401);
         });
@@ -648,7 +648,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             geoSpy.mockRestore();
         });
 
-        it('✅ Xóa sự cố thành công với CITIZEN token', async () => {
+        it(' Xóa sự cố thành công với CITIZEN token', async () => {
             const res = await request(app)
                 .delete(`/api/v1/incidents/delete/${deleteTargetId}`)
                 .set('Authorization', `Bearer ${citizenToken}`);
@@ -664,7 +664,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             }
         });
 
-        it('✅ Xóa sự cố không có ảnh — không lỗi khi photos rỗng', async () => {
+        it(' Xóa sự cố không có ảnh — không lỗi khi photos rỗng', async () => {
             const geoSpy = jest.spyOn(geoService, 'reverseGeocode').mockResolvedValue(mockAddress);
 
             const createRes = await request(app)
@@ -683,7 +683,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(true);
         });
 
-        it('❌ ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
+        it(' ID không tồn tại → lỗi INCIDENT_NOT_FOUND', async () => {
             const fakeId = new mongoose.Types.ObjectId();
             const res = await request(app)
                 .delete(`/api/v1/incidents/delete/${fakeId}`)
@@ -693,7 +693,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.body.success).toBe(false);
         });
 
-        it('❌ DISPATCHER token → 403', async () => {
+        it(' DISPATCHER token → 403', async () => {
             const res = await request(app)
                 .delete(`/api/v1/incidents/delete/${deleteTargetId}`)
                 .set('Authorization', `Bearer ${dispatcherToken}`);
@@ -701,7 +701,7 @@ describe('🚀 TIMS - KIỂM THỬ TÍCH HỢP TOÀN DIỆN (SPRINT 1)', () => {
             expect(res.statusCode).toBe(403);
         });
 
-        it('❌ Không có Token → 401', async () => {
+        it(' Không có Token → 401', async () => {
             const res = await request(app)
                 .delete(`/api/v1/incidents/delete/${deleteTargetId}`);
 

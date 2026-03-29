@@ -117,8 +117,16 @@ exports.login = async (req, res, next) => {
             { expiresIn: '1d', algorithm: 'HS256'}
         );
 
+        const options = {
+            expires: new Date(Date.now() +24*60*60*1000),
+            httpOnly: true,
+            // secure: true, 
+            // sameSite: 'strict'
+        }
+
+        res.cookie('token', token, options);
+
         return sendSuccess(res, SuccessCodes.LOGIN_SUCCESS, {
-            token,
             user: {
                 id: user._id,
                 role: user.role,
