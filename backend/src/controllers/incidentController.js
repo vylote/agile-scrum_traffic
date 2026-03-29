@@ -292,9 +292,9 @@ exports.updateIncidentInfo = async (req, res, next) => {
                 try {
                     await fs.access(filePath);
                     await fs.unlink(filePath);
-                    console.log(`✅ Đã xóa file thừa: ${imgName}`);
+                    console.log(`Đã xóa file thừa: ${imgName}`);
                 } catch (err) {
-                    console.log(`❌ File không tồn tại hoặc lỗi xóa: ${imgName}`);
+                    console.log(`File không tồn tại hoặc lỗi xóa: ${imgName}`);
                 }
             });
         }

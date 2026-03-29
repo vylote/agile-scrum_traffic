@@ -4,11 +4,10 @@ const axios = require('axios');
 
 const reverseGeocode = async (lat, lon) => {
   try {
-    //gọi API OpenStreetMap
     const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
       params: {
-        lat: lat, //vi do
-        lon: lon, //kinh do
+        lat: lat, 
+        lon: lon, 
         format: 'json',
         addressdetails: 1 //1 = true -> trả về chi tiết địa chỉ
       },
