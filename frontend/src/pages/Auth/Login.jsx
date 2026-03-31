@@ -12,7 +12,7 @@ const Login = ({ isAdmin = true }) => {
     if (isAdmin) {
       navigate('/admin/dashboard'); 
     } else {
-      alert("Đăng nhập App thành công!"); 
+       navigate('/citizen/dashboard'); 
     }
   };
 

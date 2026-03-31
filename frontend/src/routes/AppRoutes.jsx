@@ -10,6 +10,7 @@ export const AppRoutes = () => {
       <Route path="/*" element={<PublicRoutes />} />
       <Route path="/dispatcher/*" element={<DispatcherRoutes />} />
       <Route path="/admin/*" element={<AdminRoutes />} />
+      <Route path="/citizen/*" element={<CitizenRoutes />} />
     </Routes>
   );
 };
