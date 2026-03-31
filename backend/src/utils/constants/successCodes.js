@@ -10,6 +10,11 @@ const SuccessCodes = {
         message: "Đăng nhập thành công.", 
         statusCode: 200 
     },
+    LOGOUT_SUCCESS: {
+        code: 1000,
+        message: 'Đăng xuất thành công. Hẹn gặp lại!',
+        statusCode: 202
+    },
 
     // Mặc định cho các thao tác chung
     DEFAULT_SUCCESS: { 

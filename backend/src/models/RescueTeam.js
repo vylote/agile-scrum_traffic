@@ -17,13 +17,13 @@ const rescueTeamSchema = new mongoose.Schema({
     },
     currentLocation: {
         type: { type: String, default: 'Point' },
-        coordinates: { type: [Number], required: true } // [lng, lat]
+        coordinates: { type: [Number], required: true } 
     },
     zone: { type: String, required: true },
-    members: {
+    members: [{
         userId: {type: mongoose.Schema.Types.ObjectId, ref: 'User'},
         role: String
-    },
+    }],
     // khả năng: sơ cứu, chữa cháy, cẩu nặng
     capablities: [String],
     activeIncident:{
@@ -40,4 +40,4 @@ const rescueTeamSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 rescueTeamSchema.index({currentLocation: '2dsphere'})
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('RescueTeam', rescueTeamSchema);

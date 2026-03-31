@@ -107,7 +107,6 @@ exports.login = async (req, res, next) => {
             return next(new AppError(ErrorCodes.AUTH_INVALID_CREDENTIALS));
         }
 
-        // 3. Cập nhật lastLogin (Tính năng mới trong Schema)
         user.lastLogin = Date.now();
         await user.save();
 
@@ -138,4 +137,14 @@ exports.login = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+};
+
+exports.logout = (req, res) => {
+    const options = {
+        httpOnly: true,
+        // secure: process.env.NODE_ENV === 'production', 
+        // sameSite: 'strict'
+    }
+    res.clearCookie('token',options);
+    return sendSuccess(res, SuccessCodes.LOGOUT_SUCCESS);
 };

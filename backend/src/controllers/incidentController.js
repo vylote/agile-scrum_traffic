@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const mongoose = require('mongoose');
 const { INCIDENT_TYPES, INCIDENT_STATUS, INCIDENT_SEVERITY, ALL_STATUS } = require('../utils/constants/incidentConstants');
+const { USER_ROLES } = require('../utils/constants/userConstants');
 
 /**
  * @swagger
@@ -91,7 +92,7 @@ exports.createIncident = async (req, res, next) => {
         // Socket thông báo thời gian thực
         const io = req.app.get('io');
         if (io) {
-            io.emit('new_incident', {
+            io.emit('incident:new', {
                 message: 'Có sự cố mới vừa được báo cáo!',
                 incident: newIncident
             });
@@ -142,11 +143,11 @@ exports.createSOS = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
         }
 
-        address = await geoService.reverseGeocode(latitude, longitude);
+        const address = await geoService.reverseGeocode(latitude, longitude);
 
         const sosIncident = await Incident.create({
             reportedBy: req.user._id,
-            title: "🆘 YÊU CẦU CỨU HỘ KHẨN CẤP (SOS)",
+            title: "YÊU CẦU CỨU HỘ KHẨN CẤP (SOS)",
             description: "ưu tiên cứu hộ khẩn cấp",
             type: INCIDENT_TYPES.ACCIDENT,
             severity: INCIDENT_SEVERITY.CRITICAL,
@@ -160,7 +161,7 @@ exports.createSOS = async (req, res, next) => {
 
         const io = req.app.get('io');
         if (io) {
-            io.emit('incident:sos', {
+            io.emit('alert:sos', {
                 message: 'xuât hiện sự cố khẩn cấp!',
                 incident: sosIncident
             });
@@ -395,6 +396,10 @@ exports.getAllIncidents = async (req, res, next) => {
         if (severity) filter.severity = severity
         if (status) filter.status = status
 
+        if (req.user.role === USER_ROLES.CITIZEN) {
+            filter.reportedBy = req.user._id;
+        }
+
         const total = await Incident.countDocuments(filter)
         const totalPages = Math.ceil(total / limit)
 
@@ -547,18 +552,29 @@ exports.updateIncidentStatus = async (req, res, next) => {
 
         const incident = await Incident.findByIdAndUpdate(
             id,
-            { status },
+            {
+                status,
+                // Dùng $push của MongoDB để nhét thêm 1 dòng lịch sử mới vào mảng timeline
+                $push: {
+                    timeline: {
+                        status: status,
+                        updatedBy: req.user._id,
+                        note: `Trạng thái cập nhật thành ${status}`,
+                        timestamp: Date.now()
+                    }
+                }
+            },
             { new: true, runValidators: true }
         );
 
         if (!incident)
             return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND))
-        // 🚀 PHÁT TÍN HIỆU REAL-TIME
+
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', {
                 message: 'Sự cố đã được cập nhật!',
-                status: incident.status
+                incident: incident
             });
         }
 

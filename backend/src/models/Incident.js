@@ -35,7 +35,6 @@ const incidentSchema = new mongoose.Schema({
 
     assignedTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'RescueTeam' },
 
-    //Dùng để vẽ biểu đồ tiến độ)
     timeline: [{
         status: String,
         updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -43,7 +42,6 @@ const incidentSchema = new mongoose.Schema({
         note: String
     }],
 
-    // Thời gian dự kiến & Kết thúc
     estimatedArrival: Date,
     completedAt: Date
 
