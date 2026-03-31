@@ -226,4 +226,4 @@ const ReportIncident = () => {
   );
 };
 
-export default ReportIncident;
+export default Dashboard;
