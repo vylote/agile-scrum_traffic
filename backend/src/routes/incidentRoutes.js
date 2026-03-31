@@ -19,7 +19,7 @@ router.patch('/:id/status', restrictTo(USER_ROLES.CITIZEN), incidentController.u
 
 router.patch("/:id/info",upload.array("photos", 5),incidentController.updateIncidentInfo);
 
-router.get('/',restrictTo(USER_ROLES.ADMIN, USER_ROLES.DISPATCHER),incidentController.getAllIncidents);
+router.get('/', restrictTo(USER_ROLES.DISPATCHER),incidentController.getAllIncidents);
 
 router.delete("/delete/:id",restrictTo(USER_ROLES.CITIZEN),incidentController.deleteIncident);
 
