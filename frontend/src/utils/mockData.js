@@ -1,35 +1,22 @@
 export const mockIncidents = [
   {
-    _id: "INC-20260326-0001",
-    title: "Va chạm xe máy tại ngã tư",
-    type: "ACCIDENT",
-    severity: "MEDIUM",
-    status: "PENDING",
+    _id: "660c1d2e3f4a5b6c7d8e9f01",
+    type: "TAI NẠN",
+    severity: "Nghiêm trọng",
+    title: "Xe máy va chạm ô tô",
     location: {
-      address: "Đường Trần Phú, Từ Sơn, Bắc Ninh",
-      coordinates: [105.9548, 21.1132] // [Lng, Lat]
+      coordinates: [105.7950, 21.0360], // [Kinh độ, Vĩ độ] - Khu vực Cầu Giấy
+      address: "Ngã tư Cầu Giấy, Hà Nội"
     }
   },
   {
-    _id: "INC-20260326-0002",
-    title: "Cây đổ chắn ngang đường",
-    type: "OTHER",
-    severity: "HIGH",
-    status: "IN_PROGRESS",
+    _id: "660c1d2e3f4a5b6c7d8e9f02",
+    type: "HỎNG XE",
+    severity: "Bình thường",
+    title: "Chết máy giữa đường",
     location: {
-      address: "Quốc lộ 1A, đoạn qua Đình Bảng",
-      coordinates: [105.9400, 21.1000]
-    }
-  },
-  {
-    _id: "INC-20260326-0003",
-    title: "Ngập sâu do vỡ ống nước",
-    type: "FLOOD",
-    severity: "CRITICAL",
-    status: "PENDING",
-    location: {
-      address: "Khu vực Hoàn Kiếm, Hà Nội",
-      coordinates: [105.8542, 21.0285]
+      coordinates: [105.8050, 21.0160], // [Kinh độ, Vĩ độ] - Khu vực Láng
+      address: "123 Đường Láng, Hà Nội"
     }
   }
 ];

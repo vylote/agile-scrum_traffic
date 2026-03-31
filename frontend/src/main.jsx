@@ -4,8 +4,8 @@ import { Provider } from 'react-redux'
 import { store } from './store/index.js' 
 
 import 'leaflet/dist/leaflet.css';
-import './index.css'
-import App from './App.jsx'
+import './index.css'  
+import  App from './App.jsx'
 
 const container = document.getElementById('root');
 
