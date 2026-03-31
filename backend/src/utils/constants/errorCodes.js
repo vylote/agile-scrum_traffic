@@ -1,6 +1,6 @@
 const ErrorCodes = {
-    // --- AUTH ERRORS (1000 - 1099) ---
-    // 1001-1005: Đăng nhập & Token
+    // --- AUTH & USER ERRORS (1000 - 1099) ---
+    // 1001-1004: Đăng nhập & Token
     AUTH_INVALID_CREDENTIALS: { statusCode: 401, code: 1001, message: "Tài khoản hoặc mật khẩu không chính xác." },
     AUTH_MISSING_TOKEN:        { statusCode: 401, code: 1002, message: "Vui lòng đăng nhập để truy cập." },
     AUTH_TOKEN_EXPIRED:        { statusCode: 401, code: 1003, message: "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại." },
@@ -15,21 +15,24 @@ const ErrorCodes = {
     AUTH_EMAIL_EXISTS:    { statusCode: 400, code: 1008, message: "Email này đã được đăng ký tài khoản khác." },
     AUTH_PHONE_EXISTS:    { statusCode: 400, code: 1009, message: "Số điện thoại này đã được đăng ký tài khoản khác." },
 
+    // 1010+: Tìm kiếm người dùng
+    USER_NOT_FOUND: { statusCode: 404, code: 1010, message: "Không tìm thấy người dùng trong hệ thống." },
+
     // --- INCIDENT ERRORS (2000 - 2099) ---
-    URL_NOT_FOUND:    { statusCode: 404, code: 2000, message: "Đường dẫn (URL) không tồn tại." },
-    INCIDENT_NOT_FOUND: { statusCode: 404, code: 2001, message: "Không tìm thấy thông tin sự cố." },
-
-    // 2002: Validation dữ liệu đầu vào
+    INCIDENT_NOT_FOUND:           { statusCode: 404, code: 2001, message: "Không tìm thấy thông tin sự cố." },
     INCIDENT_MISSING_COORDINATES: { statusCode: 400, code: 2002, message: "Thiếu thông tin tọa độ (latitude/longitude)." },
-
-    // 2003-2004: Validation định dạng
-    INVALID_ID_FORMAT:            { statusCode: 400, code: 2003, message: "Định dạng ID (ObjectId) không hợp lệ." },
-    INCIDENT_INVALID_CODE_FORMAT: { statusCode: 400, code: 2004, message: "Mã tra cứu không đúng định dạng (Ví dụ: ACC-20260322-1234)." },
-    INCIDENT_INVALID_STATUS: { statusCode: 400, code: 2006, message: 'Trạng thái sự cố không hợp lệ. Vui lòng kiểm tra lại!' },
+    INCIDENT_INVALID_CODE_FORMAT: { statusCode: 400, code: 2003, message: "Mã tra cứu không đúng định dạng (Ví dụ: ACC-20260322-1234)." },
+    INCIDENT_INVALID_STATUS:      { statusCode: 400, code: 2004, message: "Trạng thái sự cố không hợp lệ. Vui lòng kiểm tra lại!" },
 
     // --- RESCUE TEAM ERRORS (3000 - 3099) ---
     RESCUE_TEAM_NOT_FOUND: { statusCode: 404, code: 3001, message: "Không tìm thấy đội cứu hộ yêu cầu." },
     RESCUE_TEAM_BUSY:      { statusCode: 400, code: 3002, message: "Đội cứu hộ này đang thực hiện nhiệm vụ khác." },
+    USER_ALREADY_IN_TEAM:  { statusCode: 400, code: 3003, message: "Nhân viên này hiện đã thuộc biên chế của một đội cứu hộ khác." },
+
+    // --- GENERAL VALIDATION & HTTP ERRORS (4000 - 4099) ---
+    INVALID_INPUT:     { statusCode: 400, code: 4000, message: "Dữ liệu đầu vào không hợp lệ hoặc bị thiếu thông tin bắt buộc." },
+    INVALID_ID_FORMAT: { statusCode: 400, code: 4001, message: "Định dạng ID (ObjectId) không hợp lệ." },
+    URL_NOT_FOUND:     { statusCode: 404, code: 4004, message: "Đường dẫn (URL) API không tồn tại." },
 
     // --- SYSTEM ERRORS (5000+) ---
     SYSTEM_INTERNAL_ERROR: { statusCode: 500, code: 5000, message: "Lỗi hệ thống! Vui lòng thử lại sau." },

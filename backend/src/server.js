@@ -6,6 +6,7 @@ const app = require('./app');
 const connectDB = require('./config/db');
 const cron = require('node-cron');
 const cleanupOrphanPhotos = require('./utils/cleanupTask');
+const initApp = require('./utils/initApp');
 
 const server = http.createServer(app);
 
@@ -30,6 +31,8 @@ const startServer = async () => {
     try {
         await connectDB();
         console.log('Database connected successfully');
+
+        initApp();
 
         // 2. CHẠY NGAY BÂY GIỜ: Kiểm tra rác ngay khi server vừa bật
         // Việc này giải quyết yêu cầu "check ngay bây giờ" của bạn

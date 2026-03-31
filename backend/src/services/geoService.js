@@ -1,5 +1,3 @@
-//axios là thư viện gọi HTTP req aka gọi API từ bên ngoài (external)
-//ở đây dùng để gọi lên server của OpenStreetMap 
 const axios = require('axios');
 
 const reverseGeocode = async (lat, lon) => {
