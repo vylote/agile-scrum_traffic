@@ -1,20 +1,92 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { loginSuccess } from "../../store/slices/authSlice";
+import { Loader2 } from "lucide-react";
+import api from "../../services/api";
 
-const Login = ({ isAdmin = true }) => {
+const Login = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  //lay tu redux store
+  const { user } = useSelector((state) => state.auth);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    
-    if (isAdmin) {
-      navigate('/admin/dashboard'); 
-    } else {
-       navigate('/citizen/dashboard'); 
+  useEffect(() => {
+    if (user) {
+      switch (user.role) {
+        case "ADMIN":
+          navigate("/admin/dashboard");
+          break;
+        case "DISPATCHER":
+          navigate("/dispatcher/dashboard");
+          break;
+        case "RESCUE":
+          navigate("/rescue/dashboard");
+          break;
+        case "CITIZEN":
+          navigate("/citizen/dashboard");
+          break;
+        default:
+          navigate("/");
+      }
+    }
+  }, [user, navigate]); // mang phu thuoc
+
+  const handleLogin = async (e) => {
+    e.preventDefault(); //ngan cho reset input
+    setIsLoading(true);
+    setErrorMsg("");
+
+    try {
+      const response = await api.post("/auth/login", {
+        username: username,
+        password: password,
+      });
+
+      const { user: loggedInUser } = response.data.result;
+
+      dispatch(loginSuccess({ user: loggedInUser })); //user o day chinhla payload
+
+      switch (loggedInUser.role) {
+        case "ADMIN":
+          navigate("/admin/dashboard");
+          break;
+        case "DISPATCHER":
+          navigate("/dispatcher/dashboard");
+          break;
+        case "RESCUE":
+          navigate("/rescue/dashboard");
+          break;
+        case "CITIZEN":
+          navigate("/citizen/dashboard");
+          break;
+        default:
+          navigate("/");
+      }
+    } catch (error) {
+      console.log("Lỗi này: " + error);
+      if (error.response && error.response.data) {
+        setErrorMsg(
+          error.response.data.message ||
+            "Tên đăng nhập hoặc mật khẩu không đúng!",
+        );
+      } else {
+        setErrorMsg("Không thể kết nối đến máy chủ. Vui lòng thử lại sau!");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (user) {
+    return null; // Hoặc có thể return một màn hình Loading toàn trang
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#F2F2F7] md:bg-gray-100 flex items-center justify-center font-sans">
@@ -23,14 +95,19 @@ const Login = ({ isAdmin = true }) => {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             Cứu hộ giao thông
           </h1>
-          {/* Tự động đổi phụ đề dựa trên Role đang đăng nhập */}
           <p className="text-lg text-gray-600 font-medium">
-            {isAdmin ? "Admin System" : "Đăng nhập hệ thống"}
+            Đăng nhập hệ thống
           </p>
         </div>
 
+        {/* Hiển thị lỗi nếu có */}
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-lg text-center">
+            {errorMsg}
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="flex flex-col gap-5">
-          
           <div className="flex flex-col gap-2">
             <label className="text-[17px] font-medium text-gray-900">
               Tên đăng nhập
@@ -42,10 +119,10 @@ const Login = ({ isAdmin = true }) => {
               className="w-full h-11 px-4 rounded-lg border border-[#C6C6C8] bg-white text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
               placeholder="Nhập tên đăng nhập..."
               required
+              disabled={isLoading}
             />
           </div>
 
-          
           <div className="flex flex-col gap-2">
             <label className="text-[17px] font-medium text-gray-900">
               Mật khẩu
@@ -57,34 +134,40 @@ const Login = ({ isAdmin = true }) => {
               className="w-full h-11 px-4 rounded-lg border border-[#C6C6C8] bg-white text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
               placeholder="Nhập mật khẩu..."
               required
+              disabled={isLoading}
             />
           </div>
 
-          
           <div className="flex justify-end mt-[-8px]">
             <span className="text-[#496FC0] text-sm font-medium hover:underline cursor-pointer transition-all">
               Quên mật khẩu?
             </span>
           </div>
 
-          
           <button
             type="submit"
-            className="w-full mt-4 h-12 bg-[#EDCA30] hover:bg-[#dcb928] text-gray-900 text-[17px] font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center shadow-sm"
+            disabled={isLoading}
+            className="w-full mt-4 h-12 bg-[#EDCA30] hover:bg-[#dcb928] disabled:bg-[#dcb928]/50 disabled:cursor-not-allowed text-gray-900 text-[17px] font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center shadow-sm"
           >
-            Đăng nhập
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" /> Đang xử lý...
+              </span>
+            ) : (
+              "Đăng nhập"
+            )}
           </button>
         </form>
 
-        
-        {!isAdmin && (
-          <div className="mt-8 text-center text-sm text-gray-600">
-            Chưa có tài khoản?{" "}
-            <span className="text-[#496FC0] font-bold hover:underline cursor-pointer">
-              Đăng ký ngay
-            </span>
-          </div>
-        )}
+        <div className="mt-8 text-center text-sm text-gray-600">
+          Chưa có tài khoản?{" "}
+          <span
+            className="text-[#496FC0] font-bold hover:underline cursor-pointer"
+            onClick={() => navigate("/register")}
+          >
+            Đăng ký ngay
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -22,18 +22,17 @@ export const CitizenNotifications = () => {
       icon: <CheckCircle2 className="w-6 h-6 text-green-500" />,
       bgColor: "bg-green-50",
       isUnread: false,
-    }
+    },
   ];
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-24">
-      
       {/* 1. STATUS BAR */}
       <div className="flex justify-between items-center px-8 pt-5 pb-2">
         <span className="text-black font-bold text-[17px]">9:41</span>
-        <img 
-          src="https://storage.googleapis.com/tagjs-prod.appspot.com/v1/rVIdi7n1RR/hncc5whw_expires_30_days.png" 
-          className="w-[95px] h-[22px] object-contain" 
+        <img
+          src="https://storage.googleapis.com/tagjs-prod.appspot.com/v1/rVIdi7n1RR/hncc5whw_expires_30_days.png"
+          className="w-[95px] h-[22px] object-contain"
           alt="status icons"
         />
       </div>
@@ -50,7 +49,7 @@ export const CitizenNotifications = () => {
       {/* 3. DANH SÁCH THÔNG BÁO */}
       <div className="px-6 flex flex-col gap-4">
         {notifications.map((noti) => (
-          <div 
+          <div
             key={noti.id}
             className={`flex p-5 gap-4 rounded-[24px] shadow-sm transition-transform active:scale-[0.98] relative overflow-hidden ${
               noti.isUnread ? "bg-white" : "bg-white/60"
@@ -62,21 +61,29 @@ export const CitizenNotifications = () => {
             )}
 
             {/* Icon Thông báo */}
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${noti.bgColor} ${noti.isUnread ? "ml-2" : ""}`}>
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${noti.bgColor} ${noti.isUnread ? "ml-2" : ""}`}
+            >
               {noti.icon}
             </div>
 
             {/* Nội dung */}
             <div className="flex flex-col flex-1 justify-center gap-1">
               <div className="flex justify-between items-start">
-                <span className={`text-[17px] leading-tight ${noti.isUnread ? "font-bold text-black" : "font-semibold text-gray-800"}`}>
+                <span
+                  className={`text-[17px] leading-tight ${noti.isUnread ? "font-bold text-black" : "font-semibold text-gray-800"}`}
+                >
                   {noti.type}
                 </span>
-                <span className={`text-[12px] whitespace-nowrap ml-2 mt-0.5 ${noti.isUnread ? "text-[#0088FF] font-medium" : "text-[#AEAEB2]"}`}>
+                <span
+                  className={`text-[12px] whitespace-nowrap ml-2 mt-0.5 ${noti.isUnread ? "text-[#0088FF] font-medium" : "text-[#AEAEB2]"}`}
+                >
                   {noti.time}
                 </span>
               </div>
-              <p className={`text-[14px] leading-snug mt-0.5 ${noti.isUnread ? "text-[#727272]" : "text-[#8E8E93]"}`}>
+              <p
+                className={`text-[14px] leading-snug mt-0.5 ${noti.isUnread ? "text-[#727272]" : "text-[#8E8E93]"}`}
+              >
                 {noti.message}
               </p>
             </div>
@@ -86,7 +93,6 @@ export const CitizenNotifications = () => {
 
       {/* 4. NAVIGATION DƯỚI CÙNG (Dùng chung) */}
       <BottomNav />
-      
     </div>
   );
 };
