@@ -1,7 +1,5 @@
 import { Menu } from "../../components/Menu";
 import { SearchBar } from "../../components/SearchBar";
-
-// Đã xóa import ellipse1 và Settings vì không còn dùng ở file này nữa
 import { TriangleAlert, Car, Clock, ChevronRight, Activity, Plus } from "lucide-react";
 
 const incidentList = [

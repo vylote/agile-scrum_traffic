@@ -1,13 +1,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  X, 
-  Car, 
-  PhoneCall, 
-  Bell, 
-  ShieldCheck, 
-  LogOut, 
-  ChevronRight 
+import {
+  X,
+  Car,
+  PhoneCall,
+  Bell,
+  ShieldCheck,
+  LogOut,
+  ChevronRight,
 } from "lucide-react";
 import ellipse1 from "../../assets/images/avatar.jpg"; // Nhớ trỏ đúng đường dẫn ảnh avatar của bạn
 
@@ -16,13 +16,12 @@ export const CitizenAccount = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-10">
-      
       {/* 1. STATUS BAR */}
       <div className="flex justify-between items-center px-8 pt-5 pb-2">
         <span className="text-black font-bold text-[17px]">9:41</span>
-        <img 
-          src="https://storage.googleapis.com/tagjs-prod.appspot.com/v1/rVIdi7n1RR/hncc5whw_expires_30_days.png" 
-          className="w-[95px] h-[22px] object-contain" 
+        <img
+          src="https://storage.googleapis.com/tagjs-prod.appspot.com/v1/rVIdi7n1RR/hncc5whw_expires_30_days.png"
+          className="w-[95px] h-[22px] object-contain"
           alt="status icons"
         />
       </div>
@@ -32,8 +31,8 @@ export const CitizenAccount = () => {
         <h1 className="text-[28px] font-bold text-black tracking-tight">
           Tài khoản & Cài đặt
         </h1>
-        <button 
-          onClick={() => navigate(-1)} 
+        <button
+          onClick={() => navigate(-1)}
           className="w-9 h-9 bg-gray-200/80 rounded-full flex items-center justify-center text-gray-600 active:scale-90 transition-transform"
         >
           <X className="w-5 h-5" />
@@ -43,20 +42,21 @@ export const CitizenAccount = () => {
       {/* 3. PROFILE INFO (Avatar & Tên) */}
       <div className="flex flex-col items-center justify-center mb-8 mt-2">
         <div className="relative">
-          <img 
-            src={ellipse1} 
-            alt="User Avatar" 
+          <img
+            src={ellipse1}
+            alt="User Avatar"
             className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-sm"
           />
           {/* Dấu chấm xanh online (tùy chọn) */}
           <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-[3px] border-white rounded-full"></div>
         </div>
         <h2 className="text-[22px] font-bold text-black mt-3">Nguyễn Văn A</h2>
-        <span className="text-[15px] text-gray-500 font-medium mt-0.5">0912 345 678</span>
+        <span className="text-[15px] text-gray-500 font-medium mt-0.5">
+          0912 345 678
+        </span>
       </div>
 
       <div className="px-6 space-y-6">
-        
         {/* GROUP 1: THÔNG TIN CỨU HỘ */}
         <section>
           <h3 className="text-[#8E8E93] text-[13px] font-bold uppercase ml-4 mb-2">
@@ -119,7 +119,7 @@ export const CitizenAccount = () => {
 
         {/* GROUP 3: ĐĂNG XUẤT */}
         <section className="pt-2">
-          <button 
+          <button
             onClick={() => alert("Xử lý đăng xuất...")}
             className="w-full flex items-center justify-center px-4 py-4 bg-white rounded-[20px] shadow-sm border border-gray-100 active:bg-red-50 transition-colors text-red-600"
           >
@@ -127,7 +127,6 @@ export const CitizenAccount = () => {
             <span className="text-[17px] font-bold">Đăng xuất</span>
           </button>
         </section>
-
       </div>
     </div>
   );

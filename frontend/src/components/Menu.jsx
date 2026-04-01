@@ -1,14 +1,15 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Map, AlertCircle, Truck, Phone, Settings } from "lucide-react";
-// Nhớ giữ đúng đường dẫn avatar của bạn nhé
 import ellipse1 from "../assets/images/avatar.jpg";
 
-// ==========================================================
-// 1. COMPONENT: UserProfile (Thông tin avatar Điều phối viên)
-// ==========================================================
 const UserProfile = () => {
+  const navigate = useNavigate();
+
   return (
-    <footer className="p-6 border-t border-gray-200 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition-colors">
+    <footer
+      onClick={() => navigate("/dispatcher/settings")}
+      className="p-6 border-t border-gray-200 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition-colors"
+    >
       <div className="flex items-center gap-3">
         <img
           src={ellipse1}
@@ -23,25 +24,42 @@ const UserProfile = () => {
           </div>
         </div>
       </div>
-      <button aria-label="User menu" className="text-gray-400 hover:text-gray-600 transition-colors">
+      <button
+        aria-label="User menu"
+        className="text-gray-400 hover:text-gray-600 transition-colors"
+      >
         <Settings className="w-5 h-5" />
       </button>
     </footer>
   );
 };
 
-// ==========================================================
-// 2. COMPONENT: NavigationMenu (Danh sách link điều hướng)
-// ==========================================================
 const NavigationMenu = () => {
   const location = useLocation();
   const currentPath = location.pathname;
 
   const menuItems = [
-    { path: "/dispatcher/dashboard", icon: <Map className="w-5 h-5" />, label: "Bản đồ trực tiếp" },
-    { path: "/dispatcher/incidents", icon: <AlertCircle className="w-5 h-5" />, label: "Sự cố", badge: 3 },
-    { path: "/dispatcher/fleet", icon: <Truck className="w-5 h-5" />, label: "Quản lý đội xe" },
-    { path: "/dispatcher/call-center", icon: <Phone className="w-5 h-5" />, label: "Liên lạc tổng đài" },
+    {
+      path: "/dispatcher/dashboard",
+      icon: <Map className="w-5 h-5" />,
+      label: "Bản đồ trực tiếp",
+    },
+    {
+      path: "/dispatcher/incidents",
+      icon: <AlertCircle className="w-5 h-5" />,
+      label: "Sự cố",
+      badge: 3,
+    },
+    {
+      path: "/dispatcher/fleet",
+      icon: <Truck className="w-5 h-5" />,
+      label: "Quản lý đội xe",
+    },
+    {
+      path: "/dispatcher/call-center",
+      icon: <Phone className="w-5 h-5" />,
+      label: "Liên lạc tổng đài",
+    },
   ];
 
   return (
@@ -79,13 +97,9 @@ const NavigationMenu = () => {
   );
 };
 
-// ==========================================================
-// 3. COMPONENT GỐC: Lắp ráp Sidebar hoàn chỉnh để export
-// ==========================================================
 export const Menu = () => {
   return (
     <aside className="w-[280px] h-screen bg-white border-r border-gray-200 flex flex-col justify-between shrink-0 z-10">
-      
       {/* Nửa trên: Logo + Danh sách menu */}
       <div className="flex flex-col">
         <div className="h-[80px] flex items-center px-8 border-b border-gray-100">
@@ -96,7 +110,6 @@ export const Menu = () => {
 
       {/* Nửa dưới: Profile Avatar */}
       <UserProfile />
-      
     </aside>
   );
 };
