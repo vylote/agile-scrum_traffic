@@ -1,47 +1,53 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom"
+import BottomNavigation from "../../components/BottomNavigation"
 
-export default function Home() {
+export default function HomePage() {
+
+  const navigate = useNavigate()
+
   return (
-    <div className="h-screen bg-gray-100 p-4 flex flex-col justify-between">
+    <div className="p-4 pb-20 bg-gray-100 min-h-screen">
 
-      <div>
+      <h1 className="text-xl font-bold mb-4">
+        Cứu hộ giao thông
+      </h1>
 
-        <h1 className="text-xl font-semibold mb-4">
-          Cứu hộ giao thông
-        </h1>
+      {/* SOS button */}
 
-        <div className="bg-white rounded-xl shadow divide-y">
+      <div className="bg-white p-6 rounded-xl shadow mb-4 text-center">
 
-          <Link to="/sos" className="flex justify-between p-4">
-            <span className="text-red-500 font-semibold">
-              SOS Khẩn cấp
-            </span>
-            <span>›</span>
-          </Link>
+        <p className="text-gray-500 mb-4">
+          Bạn đang gặp sự cố?
+        </p>
 
-          <Link to="/report" className="flex justify-between p-4">
-            <span>Báo cáo chi tiết</span>
-            <span>›</span>
-          </Link>
-
-        </div>
-
-        <h2 className="mt-6 font-semibold">Bản đồ khu vực</h2>
-
-        <div className="bg-white rounded-xl p-4 mt-2 h-40 flex items-center justify-center">
-          Map
-        </div>
+        <button
+          onClick={() => navigate("/sos")}
+          className="bg-red-500 text-white px-6 py-3 rounded-full"
+        >
+          SOS Khẩn cấp
+        </button>
 
       </div>
 
-      <div className="bg-white rounded-full p-3 flex justify-around shadow">
+      {/* Report */}
 
-        <button className="text-blue-500">Trang chủ</button>
-        <button>Lịch sử</button>
-        <button>Thông báo</button>
+      <div className="bg-white p-4 rounded-xl shadow mb-4">
+
+        <p className="font-semibold mb-2">
+          Báo cáo sự cố
+        </p>
+
+        <button
+          onClick={() => navigate("/report")}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Báo cáo
+        </button>
 
       </div>
+
+      <BottomNavigation />
 
     </div>
-  );
+  )
 }

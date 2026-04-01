@@ -1,27 +1,58 @@
-    export default function Register() {
+import { Link, useNavigate } from "react-router-dom"
+
+export default function RegisterPage() {
+
+  const navigate = useNavigate()
+
+  const handleRegister = (e) => {
+    e.preventDefault()
+    navigate("/login")
+  }
+
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-gray-100 px-6">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
 
-      <h1 className="text-2xl font-bold mb-10">Cứu hộ giao thông</h1>
+      <div className="bg-white p-6 rounded-xl shadow w-80">
 
-      <div className="w-full max-w-sm space-y-4">
-
-        <div>
-          <label className="text-sm">Tên đăng nhập</label>
-          <input className="w-full border rounded-lg p-2 mt-1"/>
-        </div>
-
-        <div>
-          <label className="text-sm">Mật khẩu</label>
-          <input type="password" className="w-full border rounded-lg p-2 mt-1"/>
-        </div>
-
-        <button className="w-full bg-yellow-400 rounded-lg py-2 font-semibold">
+        <h1 className="text-2xl font-bold text-center mb-6">
           Đăng ký
-        </button>
+        </h1>
+
+        <form onSubmit={handleRegister}>
+
+          <input
+            type="text"
+            placeholder="Họ tên"
+            className="w-full border p-2 rounded mb-3"
+          />
+
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full border p-2 rounded mb-3"
+          />
+
+          <input
+            type="password"
+            placeholder="Mật khẩu"
+            className="w-full border p-2 rounded mb-4"
+          />
+
+          <button className="w-full bg-green-500 text-white py-2 rounded">
+            Đăng ký
+          </button>
+
+        </form>
+
+        <p className="text-sm text-center mt-4">
+          Đã có tài khoản?{" "}
+          <Link to="/login" className="text-blue-500">
+            Đăng nhập
+          </Link>
+        </p>
 
       </div>
 
     </div>
-  );
+  )
 }

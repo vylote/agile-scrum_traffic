@@ -1,34 +1,25 @@
-export default function Report() {
+import BottomNavigation from "../../components/BottomNavigation"
+
+export default function ReportPage() {
+
   return (
-    <div className="h-screen bg-gray-100 p-4">
+    <div className="p-4 pb-20 bg-gray-100 min-h-screen">
 
-      <div className="flex items-center mb-4">
-        <button className="mr-2">←</button>
-        <h1 className="font-semibold">Báo cáo</h1>
-      </div>
+      <h1 className="text-xl font-bold mb-4">
+        Báo cáo chi tiết
+      </h1>
 
-      <div className="bg-white rounded-xl p-4 mb-4">
-        <p className="text-sm text-gray-500">Vị trí hiện tại</p>
-        <div className="h-32 bg-gray-200 mt-2 flex items-center justify-center">
-          Map
-        </div>
-      </div>
+      <textarea
+        placeholder="Nhập nội dung báo cáo..."
+        className="w-full border rounded-xl p-3 mb-4"
+      />
 
-      <div className="bg-white rounded-xl p-4 space-y-3">
+      <button className="w-full bg-blue-500 text-white py-3 rounded-xl">
+        Gửi báo cáo
+      </button>
 
-        <p>Tai nạn giao thông</p>
-        <p>Hỏng xe / Chết máy</p>
-        <p>Ngập nước</p>
-        <p>Cháy nổ</p>
-        <p>Sự cố khác</p>
-
-      </div>
-
-      <div className="mt-4 bg-white rounded-xl p-4">
-        <p className="text-sm text-gray-500 mb-2">Chi tiết bổ sung</p>
-        <input className="border w-full p-2 rounded"/>
-      </div>
+      <BottomNavigation />
 
     </div>
-  );
+  )
 }

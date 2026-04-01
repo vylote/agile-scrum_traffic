@@ -6,6 +6,10 @@ import RegisterPage from "./pages/citizen/RegisterPage";
 import HomePage from "./pages/citizen/HomePage";
 import ReportPage from "./pages/citizen/ReportPage";
 import SOSPage from "./pages/citizen/SOSPage";
+import HistoryPage from "./pages/citizen/HistoryPage"
+import NotificationPage from "./pages/citizen/NotificationPage"
+import AccountPage from "./pages/citizen/AccountPage"
+import ReportDetailsPage from "./pages/citizen/ReportDetailsPage"
 
 /* Components flow quên mật khẩu */
 import EmailForm from './components/EmailForm'
@@ -30,6 +34,10 @@ export default function App() {
         <Route path="/citizen/home" element={<HomePage />} />
         <Route path="/citizen/report" element={<ReportPage />} />
         <Route path="/citizen/sos" element={<SOSPage />} />
+        <Route path="/citizen/report-details" element={<ReportDetailsPage />} />
+        <Route path="/citizen/history" element={<HistoryPage />} />
+        <Route path="/citizen/notifications" element={<NotificationPage />} />
+        <Route path="/citizen/account" element={<AccountPage />} />
 
         {/* ========== FLOW QUÊN MẬT KHẨU ========== */}
 
