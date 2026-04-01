@@ -2,10 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 /* Citizen pages */
 import LoginPage from './pages/citizen/LoginPage'
-import RegisterPage from './pages/citizen/RegisterPage'
-import HomePage from './pages/citizen/HomePage'
-import ReportPage from './pages/citizen/ReportPage'
-import SOSPage from './pages/citizen/SOSPage'
+import RegisterPage from "./pages/citizen/RegisterPage";
+import HomePage from "./pages/citizen/HomePage";
+import ReportPage from "./pages/citizen/ReportPage";
+import SOSPage from "./pages/citizen/SOSPage";
 
 /* Components flow quên mật khẩu */
 import EmailForm from './components/EmailForm'
