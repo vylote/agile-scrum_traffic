@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
-import {CitizenDashboard} from '../pages/Citizen/DashBoard'
+import {CitizenDashboard} from '../pages/Citizen/dashoard'
 import { IncidentReport } from '../pages/Citizen/IncidentReport'
-import { CitizenHistory } from '../pages/Citizen/CitizenHistory'
+import { CitizenHistory } from '../pages/Citizen/History'
 import { CitizenNotifications } from '../pages/Citizen/Notifications'
 import { CitizenSOS } from '../pages/Citizen/SOS'
 import { CitizenAccount } from '../pages/Citizen/Account';

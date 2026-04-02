@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Menu } from "../../components/Menu";
-import { SearchBar } from "../../components/SearchBar";
+import { Menu } from "../../components/Dispatcher/Menu";
+import { SearchBar } from "../../components/Dispatcher/SearchBar";
 
 // Import Icons
 import {

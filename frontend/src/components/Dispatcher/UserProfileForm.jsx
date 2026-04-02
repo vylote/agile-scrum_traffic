@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
+import { LogOut } from 'lucide-react'; 
+import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import api from '../../services/api'
+import { logout } from '../../store/slices/authSlice'
 
+//   Thêm onLogout vào tham số của component
 export const UserProfileForm = () => {
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
+
   const [formData, setFormData] = useState({
     fullName: 'Nguyễn Văn A',
     employeeId: '0001',
@@ -19,6 +28,17 @@ export const UserProfileForm = () => {
     console.log('Đang lưu thay đổi:', formData);
     // Sau này bạn gọi API ở đây: await api.put('/users/update', formData)
   };
+
+  const handleLogout = async (e) => {
+    e.preventDefault()
+    try {
+      await api.get("auth/logout")
+      dispatch(logout())
+      navigate("/login")
+    } catch (err) {
+      console.error("loi dang xuat: ", err)
+    }
+  }
 
   return (
     <section className="flex-1 p-8 bg-white rounded-xl border border-gray-200 shadow-sm max-md:p-5">
@@ -85,14 +105,28 @@ export const UserProfileForm = () => {
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-gray-100">
+        {/*   CHỈNH SỬA Ở ĐÂY: Thêm div flex chứa 2 nút */}
+        <div className="flex justify-end items-center gap-4 pt-6 border-t border-gray-100">
+          
+          {/* Nút Đăng xuất */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center px-6 py-2.5 bg-red-50 text-red-600 font-semibold rounded-lg hover:bg-red-100 transition-colors"
+          >
+            <LogOut className="w-5 h-5 mr-2" />
+            Đăng xuất
+          </button>
+
+          {/* Nút Lưu thay đổi */}
           <button
             type="button"
             onClick={handleSave}
-            className="px-6 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             Lưu thay đổi
           </button>
+          
         </div>
       </form>
     </section>

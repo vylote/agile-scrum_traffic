@@ -3,6 +3,7 @@ import { Dashboard as AdminDashboard } from '../pages/Admin/Dashboard';
 import { Partners } from '../pages/Admin/Partners';
 import { Users } from '../pages/Admin/Users';
 import { Reports } from '../pages/Admin/Reports';
+import { AdminSettings } from '../pages/Admin/AdminSettings'
 
 export const AdminRoutes = () => {
   return (
@@ -11,6 +12,7 @@ export const AdminRoutes = () => {
       <Route path="partners" element={<Partners />} />
       <Route path="users" element={<Users />} />
       <Route path="reports" element={<Reports />} />
+      <Route path="settings" element={<AdminSettings />} />
     </Routes>
   );
 };

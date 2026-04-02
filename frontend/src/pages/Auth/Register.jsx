@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import api from "../../services/api";
 import { Loader2 } from "lucide-react";
+import { USER_ROLES } from "../../utils/constants/userConstants";
 
 export function RegisterForm() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export function RegisterForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  const [role, setRole] = useState("CITIZEN");
+  const [role, setRole] = useState(USER_ROLES.CITIZEN);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -24,16 +25,16 @@ export function RegisterForm() {
   useEffect(() => {
     if (user) {
       switch (user.role) {
-        case "ADMIN":
+        case USER_ROLES.ADMIN:
           navigate("/admin/dashboard");
           break;
-        case "DISPATCHER":
+        case USER_ROLES.DISPATCHER:
           navigate("/dispatcher/dashboard");
           break;
-        case "RESCUE":
+        case USER_ROLES.RESCUE:
           navigate("/rescue/dashboard");
           break;
-        case "CITIZEN":
+        case USER_ROLES.CITIZEN:
           navigate("/citizen/dashboard");
           break;
         default:
@@ -68,8 +69,8 @@ export function RegisterForm() {
     } catch (error) {
       console.error("Lỗi đăng ký:", error);
 
-      if (error.response?.data?.message) {
-        setErrorMsg(error.response.data.message);
+      if (error.response?.data?.error?.message) {
+        setErrorMsg(error.response.data.error.message);
       } else {
         setErrorMsg("Không thể kết nối đến máy chủ. Vui lòng thử lại!");
       }
@@ -176,8 +177,6 @@ export function RegisterForm() {
             required
           />
         </div>
-
-        {/* ✅ THÊM MỚI: Thẻ SELECT DROPDOWN cho Vai trò */}
         <div className="flex flex-col">
           <label
             htmlFor="role"
@@ -192,11 +191,10 @@ export function RegisterForm() {
             disabled={isLoading || successMsg !== ""}
             className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100 cursor-pointer"
           >
-            {/* Value là tiếng Anh để gửi backend, Text hiển thị là tiếng Việt cho người dùng dễ hiểu */}
-            <option value="CITIZEN">Người dân</option>
-            <option value="RESCUE">Đội cứu hộ</option>
-            <option value="DISPATCHER">Điều phối viên</option>
-            <option value="ADMIN">Quản trị viên</option>
+            <option value={USER_ROLES.CITIZEN} >Người dân</option>
+            <option value={USER_ROLES.RESCUE}>Đội cứu hộ</option>
+            <option value={USER_ROLES.DISPATCHER}>Điều phối viên</option>
+            <option value={USER_ROLES.ADMIN}>Quản trị viên</option>
           </select>
         </div>
 

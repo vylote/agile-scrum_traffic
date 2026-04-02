@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Login from '../pages/Auth/Login'; 
 import Register from '../pages/Auth/Register'; 
 
@@ -7,7 +7,7 @@ export const PublicRoutes = () => {
     <Routes>
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
-      <Route path='logout'  />
+      <Route path='logout'/>
     </Routes>
   );
 };

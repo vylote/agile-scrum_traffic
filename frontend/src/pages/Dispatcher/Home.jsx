@@ -1,6 +1,6 @@
-import { Menu } from "../../components/Menu";
-import { SearchBar } from "../../components/SearchBar";
-import Map from "../../components/Map";
+import { Menu } from "../../components/Dispatcher/Menu";
+import { SearchBar } from "../../components/Dispatcher/SearchBar";
+import Map from "../../components/Public/Map";
 
 export const Home = () => {
   return (

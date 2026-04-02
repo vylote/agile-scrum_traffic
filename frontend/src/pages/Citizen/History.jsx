@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BottomNav } from "../../components/BottomNav";
+import { BottomNav } from "../../components/Citizen/BottomNav";
 import {
   AlertCircle,
   CheckCircle2,
