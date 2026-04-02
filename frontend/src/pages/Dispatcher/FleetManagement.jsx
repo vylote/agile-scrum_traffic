@@ -1,5 +1,5 @@
-import { Menu } from "../../components/Menu";
-import { SearchBar } from "../../components/SearchBar";
+import { Menu } from "../../components/Dispatcher/Menu";
+import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import { MessageSquare, MapPin, CheckCircle2, Clock, XCircle } from "lucide-react";
 
 // MOCK DATA: Dữ liệu giả lập các đội xe

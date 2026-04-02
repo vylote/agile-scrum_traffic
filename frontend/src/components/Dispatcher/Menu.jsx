@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Map, AlertCircle, Truck, Phone, Settings } from "lucide-react";
-import ellipse1 from "../assets/images/avatar.jpg";
+import ellipse1 from "../../assets/images/avatar.jpg";
 
 const UserProfile = () => {
   const navigate = useNavigate();

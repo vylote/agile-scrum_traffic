@@ -1,5 +1,5 @@
 import React from "react";
-import { BottomNav } from "../../components/BottomNav";
+import { BottomNav } from "../../components/Citizen/BottomNav";
 import { Truck, CheckCircle2 } from "lucide-react";
 
 export const CitizenNotifications = () => {

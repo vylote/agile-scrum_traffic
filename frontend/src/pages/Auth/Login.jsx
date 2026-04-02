@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { loginSuccess } from "../../store/slices/authSlice";
 import { Loader2 } from "lucide-react";
 import api from "../../services/api";
+import { USER_ROLES } from "../../utils/constants/userConstants";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,16 +21,16 @@ const Login = () => {
   useEffect(() => {
     if (user) {
       switch (user.role) {
-        case "ADMIN":
+        case USER_ROLES.ADMIN:
           navigate("/admin/dashboard");
           break;
-        case "DISPATCHER":
+        case USER_ROLES.DISPATCHER:
           navigate("/dispatcher/dashboard");
           break;
-        case "RESCUE":
+        case USER_ROLES.RESCUE:
           navigate("/rescue/dashboard");
           break;
-        case "CITIZEN":
+        case USER_ROLES.CITIZEN:
           navigate("/citizen/dashboard");
           break;
         default:
@@ -54,28 +55,27 @@ const Login = () => {
       dispatch(loginSuccess({ user: loggedInUser })); //user o day chinhla payload
 
       switch (loggedInUser.role) {
-        case "ADMIN":
+        case USER_ROLES.ADMIN:
           navigate("/admin/dashboard");
           break;
-        case "DISPATCHER":
+        case USER_ROLES.DISPATCHER:
           navigate("/dispatcher/dashboard");
           break;
-        case "RESCUE":
+        case USER_ROLES.RESCUE:
           navigate("/rescue/dashboard");
           break;
-        case "CITIZEN":
+        case USER_ROLES.CITIZEN:
           navigate("/citizen/dashboard");
           break;
         default:
           navigate("/");
       }
     } catch (error) {
-      console.log("Lỗi này: " + error);
-      if (error.response && error.response.data) {
-        setErrorMsg(
-          error.response.data.message ||
-            "Tên đăng nhập hoặc mật khẩu không đúng!",
-        );
+      console.error("Lỗi này: " + error);
+      /* nếu sv sập error.response sẽ là undefined -> làm sập toàn bộ giao diện màn hình.
+      Dấu ?. -> tự động dừng lại và trả về undefined nếu đoạn phía trước nó không tồn tại */
+      if (error.response?.data?.error?.message) {
+        setErrorMsg(error.response.data.error.message);
       } else {
         setErrorMsg("Không thể kết nối đến máy chủ. Vui lòng thử lại sau!");
       }

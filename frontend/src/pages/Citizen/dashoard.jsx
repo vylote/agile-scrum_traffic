@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom"; // 👈 Thêm "hoa tiêu" điều hướng
-import { BottomNav } from "../../components/BottomNav";
-import Map from "../../components/Map";
+import { BottomNav } from "../../components/Citizen/BottomNav";
+import Map from "../../components/Public/Map";
 import { ChevronRight } from "lucide-react";
 
 export const CitizenDashboard = () => {

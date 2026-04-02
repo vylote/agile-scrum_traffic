@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Menu } from "../../components/Menu"; // Sidebar lớn bên trái
-import { SearchBar } from "../../components/SearchBar"; // Khung tìm kiếm ở header
-import { SettingsPanel } from "./SettingsPanel"; // Component menu bạn vừa tạo
-import { UserProfileForm } from "./UserProfileForm"; // Component form bạn vừa tạo
+import { Menu } from "../../components/Dispatcher/Menu"; 
+import { SearchBar } from "../../components/Dispatcher/SearchBar"; 
+import { SettingsPanel } from "../../components/Dispatcher/SettingsPanel"; 
+import { UserProfileForm } from "../../components/Dispatcher/UserProfileForm"; 
 
 export function Settings() {
   // Trạng thái quản lý xem menu nào đang được chọn

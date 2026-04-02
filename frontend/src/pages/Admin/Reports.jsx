@@ -1,6 +1,5 @@
-import { AdminMenu } from "../../components/AdminMenu";
-import { ExportButton } from "../../components/ExportButton";
-import ellipse1 from "../../assets/images/avatar.jpg";
+import { AdminMenu } from "../../components/Admin/Menu";
+import { AdminHeader } from "../../components/Admin/AdminHeader"; 
 import {
   Filter,
   Download,
@@ -57,35 +56,14 @@ const mockReports = [
 export const Reports = () => {
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
-      {/* 1. SIDEBAR */}
+    
       <AdminMenu />
-
-      {/* 2. NỘI DUNG CHÍNH */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* HEADER CHUẨN ADMIN */}
-        <header className="h-[90px] flex items-center justify-between px-8 bg-transparent shrink-0 mt-2">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-[26px] font-bold text-gray-900 leading-tight">
-              Trích xuất dữ liệu hệ thống
-            </h2>
-            <p className="text-base text-gray-500 font-medium">
-              Báo cáo hệ thống
-            </p>
-          </div>
-
-          <div className="flex items-center gap-5">
-            <ExportButton
-              onClick={() => alert("Mở popup tạo báo cáo nhanh...")}
-            />
-            <img
-              src={ellipse1}
-              alt="Admin Profile"
-              className="w-12 h-12 rounded-full object-cover border border-gray-200 shadow-sm"
-            />
-          </div>
-        </header>
-
-        {/* KHU VỰC BẢNG DỮ LIỆU */}
+        <AdminHeader 
+          title="Trích xuất dữ liệu hệ thống"
+          subtitle="Báo cáo hệ thống"
+          onExport={() => alert("Mở popup tạo báo cáo nhanh...")}
+        />
         <div className="flex-1 overflow-y-auto px-8 pb-8">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col mt-2 min-h-[500px]">
             {/* Toolbar */}

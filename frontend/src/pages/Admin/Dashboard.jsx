@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import { AdminMenu } from "../../components/AdminMenu";
-import { ExportButton } from "../../components/ExportButton"; // 👈 Đã import ExportButton chuẩn
-// Import Avatar & Icons
-import ellipse1 from "../../assets/images/avatar.jpg";
+import { AdminMenu } from "../../components/Admin/Menu";
+import { AdminHeader } from "../../components/Admin/AdminHeader"; 
 import { AlertCircle, Clock, Users, Star, TrendingUp, TrendingDown, Calendar, ChevronDown } from "lucide-react";
 
 // MOCK DATA: 4 Thẻ KPI trên cùng
@@ -25,7 +23,6 @@ const kpiData = [
   },
 ];
 
-// MOCK DATA: Điểm nóng sự cố
 const hotspotData = [
   { name: 'Cầu Giấy', count: 50, pct: '100%' }, 
   { name: 'Đống Đa', count: 38, pct: '76%' },
@@ -39,38 +36,15 @@ export const Dashboard = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
-      
-      {/* =========================================
-          SIDEBAR ADMIN
-      ========================================= */}
       <AdminMenu />
-
-      {/* =========================================
-          NỘI DUNG CHÍNH CỦA QUẢN TRỊ VIÊN
-      ========================================= */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         
-        {/* HEADER */}
-        <header className="h-[90px] flex items-center justify-between px-8 bg-transparent shrink-0 mt-2">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-[26px] font-bold text-gray-900 leading-tight">
-              Tổng quan hoạt động
-            </h2>
-            <p className="text-base text-gray-500 font-medium">
-              Báo cáo hệ thống
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-5">
-            {/* 👈 Gọi nút Export Button dùng chung */}
-            <ExportButton onClick={() => alert("Đang tải báo cáo Dashboard...")} />
-            
-            {/* Avatar Admin */}
-            <img src={ellipse1} alt="Admin Profile" className="w-12 h-12 rounded-full object-cover border border-gray-200 shadow-sm" />
-          </div>
-        </header>
+        <AdminHeader 
+          title="Tổng quan hoạt động"
+          subtitle="Báo cáo hệ thống"
+          onExport={() => alert("Đang tải báo cáo Dashboard...")}
+        />
 
-        {/* KHU VỰC NỘI DUNG CHÍNH (Có thể cuộn) */}
         <div className="flex-1 overflow-y-auto px-8 pb-8">
           
           {/* HÀNG 1: 4 THẺ THỐNG KÊ (KPI Cards) */}

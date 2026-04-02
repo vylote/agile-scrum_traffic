@@ -1,5 +1,5 @@
-import { Menu } from "../../components/Menu";
-import { SearchBar } from "../../components/SearchBar";
+import { Menu } from "../../components/Dispatcher/Menu";
+import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import { TriangleAlert, Car, Clock, ChevronRight, Activity, Plus } from "lucide-react";
 
 const incidentList = [

@@ -1,18 +1,27 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  X,
-  Car,
-  PhoneCall,
-  Bell,
-  ShieldCheck,
-  LogOut,
-  ChevronRight,
-} from "lucide-react";
-import ellipse1 from "../../assets/images/avatar.jpg"; // Nhớ trỏ đúng đường dẫn ảnh avatar của bạn
+import { useDispatch } from "react-redux";
+import {X,Car,PhoneCall,Bell,ShieldCheck,LogOut,ChevronRight} from "lucide-react";
+import ellipse1 from "../../assets/images/avatar.jpg"; 
+import api from "../../services/api";
+import { logout } from "../../store/slices/authSlice";
 
 export const CitizenAccount = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const handleLogout = async (e) => {
+      e.preventDefault()
+      try {
+        await api.get("auth/logout")
+        dispatch(logout())
+        // setTimeout(() => {
+        //   navigate("/login");
+        // }, 2000);
+        navigate("/login")
+      } catch (err) {
+        console.error("loi dang xuat: ",err)
+      } 
+    }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-10">
@@ -120,7 +129,7 @@ export const CitizenAccount = () => {
         {/* GROUP 3: ĐĂNG XUẤT */}
         <section className="pt-2">
           <button
-            onClick={() => alert("Xử lý đăng xuất...")}
+            onClick={handleLogout}
             className="w-full flex items-center justify-center px-4 py-4 bg-white rounded-[20px] shadow-sm border border-gray-100 active:bg-red-50 transition-colors text-red-600"
           >
             <LogOut className="w-5 h-5 mr-2" />

@@ -5,6 +5,7 @@ const AppError = require('../middleware/AppError');
 const ErrorCodes = require('../utils/constants/errorCodes');
 const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
+const { USER_ROLES } = require('../utils/constants/userConstants');
 
 /**
  * @swagger
@@ -59,7 +60,7 @@ exports.register = async (req, res, next) => {
             name,
             email,
             phone,
-            role: role ? role.toUpperCase() : 'CITIZEN'
+            role: role ? role.toUpperCase() : USER_ROLES.CITIZEN
         });
 
         return sendSuccess(res, SuccessCodes.REGISTER_SUCCESS, {
