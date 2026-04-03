@@ -64,7 +64,7 @@ const { USER_ROLES } = require('../utils/constants/userConstants');
  */
 exports.createIncident = async (req, res, next) => {
     try {
-        const { title, description, latitude, longitude, address, type, severity } = req.body;
+        const { title, description, latitude, longitude, address, type } = req.body;
 
         if (!latitude || !longitude) {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
@@ -74,12 +74,17 @@ exports.createIncident = async (req, res, next) => {
 
         const photos = req.files ? req.files.map(file => file.filename) : [];
 
+        const incidentId = new mongoose.Types.ObjectId();
+        const genCode = generateIncidentCode(type, incidentId.toString())
+
         const newIncident = await Incident.create({
+            _id: incidentId,
+            code: genCode,
             reportedBy: req.user._id,
             title,
             description,
             type: type || INCIDENT_TYPES.OTHER,
-            severity: severity || INCIDENT_SEVERITY.MEDIUM,
+            severity: INCIDENT_SEVERITY.MEDIUM,
             location: {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)], // [Kinh độ, Vĩ độ]
@@ -145,7 +150,12 @@ exports.createSOS = async (req, res, next) => {
 
         const address = await geoService.reverseGeocode(latitude, longitude);
 
+        const incidentId = new mongoose.Types.ObjectId();
+        const genCode = generateIncidentCode(INCIDENT_TYPES.OTHER, incidentId.toString())
+
         const sosIncident = await Incident.create({
+            _id: incidentId,
+            code: genCode,
             reportedBy: req.user._id,
             title: "YÊU CẦU CỨU HỘ KHẨN CẤP (SOS)",
             description: "ưu tiên cứu hộ khẩn cấp",
@@ -385,9 +395,9 @@ exports.deleteIncident = async (req, res, next) => {
  */
 exports.getAllIncidents = async (req, res, next) => {
     try {
-        const { page, type, severity, status } = req.query
+        const { page, limit: queryLimit, type, severity, status } = req.query
 
-        const limit = 5
+        let limit = parseInt(queryLimit) || 10;
         const currentPage = parseInt(page) || 1;
         const skip = (currentPage - 1) * limit
 
@@ -398,6 +408,7 @@ exports.getAllIncidents = async (req, res, next) => {
 
         if (req.user.role === USER_ROLES.CITIZEN) {
             filter.reportedBy = req.user._id;
+            limit = 100
         }
 
         const total = await Incident.countDocuments(filter)
@@ -583,3 +594,10 @@ exports.updateIncidentStatus = async (req, res, next) => {
         next(err)
     }
 }
+
+const generateIncidentCode = (type, id) => {
+    if (!id) return ""
+    const prefix = type ? type.slice(0, 3).toUpperCase() : "UNK";
+    const suffix = id.slice(-4).toUpperCase();
+    return `${prefix}-${suffix}`; // Kết quả: ACC-1A2B
+};

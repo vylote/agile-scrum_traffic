@@ -1,6 +1,8 @@
 const ErrorCodes = {
     // --- AUTH & USER ERRORS (1000 - 1099) ---
-    // 1001-1004: Đăng nhập & Token
+    AUTH_UNAUTHORIZED: { statusCode: 401, code: 1000, message: "Không có quyền truy cập. Vui lòng xác thực." },
+
+    // 1001-1004: Đăng nhập & Access Token
     AUTH_INVALID_CREDENTIALS: { statusCode: 401, code: 1001, message: "Tài khoản hoặc mật khẩu không chính xác." },
     AUTH_MISSING_TOKEN:        { statusCode: 401, code: 1002, message: "Vui lòng đăng nhập để truy cập." },
     AUTH_TOKEN_EXPIRED:        { statusCode: 401, code: 1003, message: "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại." },
@@ -15,8 +17,10 @@ const ErrorCodes = {
     AUTH_EMAIL_EXISTS:    { statusCode: 400, code: 1008, message: "Email này đã được đăng ký tài khoản khác." },
     AUTH_PHONE_EXISTS:    { statusCode: 400, code: 1009, message: "Số điện thoại này đã được đăng ký tài khoản khác." },
 
-    // 1010+: Tìm kiếm người dùng
-    USER_NOT_FOUND: { statusCode: 404, code: 1010, message: "Không tìm thấy người dùng trong hệ thống." },
+    // 1010-1012: Tìm kiếm người dùng & Refresh Token
+    USER_NOT_FOUND:                   { statusCode: 404, code: 1010, message: "Không tìm thấy người dùng trong hệ thống." },
+    MISSING_REFRESH_TOKEN:            { statusCode: 401, code: 1011, message: "Không tìm thấy thẻ gia hạn, vui lòng đăng nhập lại." },
+    REFRESH_TOKEN_INVALID_OR_EXPIRED: { statusCode: 403, code: 1012, message: "Phiên đăng nhập đã hết hạn hoàn toàn. Vui lòng đăng nhập lại." },
 
     // --- INCIDENT ERRORS (2000 - 2099) ---
     INCIDENT_NOT_FOUND:           { statusCode: 404, code: 2001, message: "Không tìm thấy thông tin sự cố." },

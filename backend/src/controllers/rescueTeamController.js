@@ -4,7 +4,7 @@ const AppError = require('../middleware/AppError')
 const ErrorCodes = require('../utils/constants/errorCodes')
 const SuccessCodes = require('../utils/constants/successCodes')
 const { sendSuccess } = require('../utils/response')
-const User = require('../models/Users');
+const User = require('../models/User');
 const { USER_ROLES } = require('../utils/constants/userConstants');
 
 /**

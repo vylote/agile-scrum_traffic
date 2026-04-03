@@ -1,4 +1,4 @@
-const User = require('../models/Users');
+const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const AppError = require('../middleware/AppError');
@@ -44,7 +44,7 @@ exports.register = async (req, res, next) => {
         });
 
         if (existingUser) {
-            if (existingUser.username === username) 
+            if (existingUser.username === username)
                 return next(new AppError(ErrorCodes.AUTH_USERNAME_EXISTS))
             if (existingUser.email === email)
                 return next(new AppError(ErrorCodes.AUTH_EMAIL_EXISTS))
@@ -111,20 +111,33 @@ exports.login = async (req, res, next) => {
         user.lastLogin = Date.now();
         await user.save();
 
-        const token = jwt.sign(
+        const accessToken = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1d', algorithm: 'HS256'}
+            { expiresIn: '15m', algorithm: 'HS256' }
         );
 
-        const options = {
-            expires: new Date(Date.now() +24*60*60*1000),
+        const refreshToken = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_REFRESH_SECRET,
+            { expiresIn: '7d', algorithm: 'HS256' }
+        );
+
+        const accessTokenOptions = {
+            expires: new Date(Date.now() + 15 * 60 * 1000),
             httpOnly: true,
-            // secure: true, 
-            // sameSite: 'strict'
+            secure: process.env.NODE_ENV === 'production', 
+            sameSite: 'strict' // chống CSRF
+        }
+        const refreshTokenOptions = {
+            expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', 
+            sameSite: 'strict'
         }
 
-        res.cookie('token', token, options);
+        res.cookie('token', accessToken,  accessTokenOptions);
+        res.cookie('refreshToken', refreshToken, refreshTokenOptions);
 
         return sendSuccess(res, SuccessCodes.LOGIN_SUCCESS, {
             user: {
@@ -140,12 +153,53 @@ exports.login = async (req, res, next) => {
     }
 };
 
+exports.refreshToken = async (req, res, next) => {
+    try {
+        const currentRefreshToken = req.cookies.refreshToken;
+
+        if (!currentRefreshToken) {
+            return next(new AppError(ErrorCodes.MISSING_REFRESH_TOKEN))
+        }
+
+        const decoded = jwt.verify(currentRefreshToken, process.env.JWT_REFRESH_SECRET);
+
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return next(new AppError(ErrorCodes.USER_NOT_FOUND))
+        }
+
+        const newAccessToken = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '1d', algorithm: 'HS256' }
+        );
+
+        const options = {
+            expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+        }
+
+        res.cookie('token', newAccessToken, options);
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS)
+
+    } catch (err) {
+        if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+            return next(new AppError(ErrorCodes.REFRESH_TOKEN_INVALID_OR_EXPIRED));
+        }
+        next(err)
+    }
+};
+
 exports.logout = (req, res) => {
     const options = {
         httpOnly: true,
-        // secure: process.env.NODE_ENV === 'production', 
-        // sameSite: 'strict'
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'strict'
     }
-    res.clearCookie('token',options);
+    res.clearCookie('token', options);
+    res.clearCookie('refreshToken', options);
     return sendSuccess(res, SuccessCodes.LOGOUT_SUCCESS);
 };
