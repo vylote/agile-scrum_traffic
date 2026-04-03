@@ -17,9 +17,9 @@ router.get('/track/:code', incidentController.getIncidentByCode);
 
 router.patch('/:id/status', restrictTo(USER_ROLES.CITIZEN), incidentController.updateIncidentStatus)
 
-router.patch("/:id/info",upload.array("photos", 5),incidentController.updateIncidentInfo);
+router.patch("/:id/info",upload.array("photos", 3),incidentController.updateIncidentInfo);
 
-router.get('/', restrictTo(USER_ROLES.DISPATCHER),incidentController.getAllIncidents);
+router.get('/', restrictTo(USER_ROLES.DISPATCHER, USER_ROLES.CITIZEN),incidentController.getAllIncidents);
 
 router.delete("/delete/:id",restrictTo(USER_ROLES.CITIZEN),incidentController.deleteIncident);
 

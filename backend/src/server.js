@@ -12,7 +12,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, { 
     cors: { 
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
+        origin: process.env.CLIENT_URL,
         credentials: true,
         methods: ["GET", "POST"]
     } 
@@ -34,8 +34,6 @@ const startServer = async () => {
 
         initApp();
 
-        // 2. CHẠY NGAY BÂY GIỜ: Kiểm tra rác ngay khi server vừa bật
-        // Việc này giải quyết yêu cầu "check ngay bây giờ" của bạn
         console.log('Đang kiểm tra ảnh mồ côi lần đầu...');
         cleanupOrphanPhotos(); 
 

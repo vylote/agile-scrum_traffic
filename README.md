@@ -90,6 +90,8 @@ PORT=5000
 MONGO_URI=mongodb://localhost:27017/incident_db
 MONGO_URI_TEST=mongodb://localhost:27017/incident_test_db
 JWT_SECRET=ma_bi_mat_cua_vy
+CLIENT_URL=http://localhost:5173
+GOOGLE_APPLICATION_CREDENTIALS="./config/firebase-service-account.json"
 ```
 
 ### Bước 2 — Chạy với Docker (Khuyên dùng)

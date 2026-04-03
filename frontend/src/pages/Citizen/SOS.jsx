@@ -1,28 +1,61 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X, Loader2 } from "lucide-react";
+import api from "../../services/api"
 
 export const CitizenSOS = () => {
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(3);
+  const [location, setLocation] = useState(null);
 
-  // Logic đếm ngược tự động
+  const [isSending, setIsSending] = useState(false);
+
   useEffect(() => {
-    // Nếu đếm về 0 thì tự động chuyển hướng hoặc gọi API gửi báo cáo
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error("Lỗi lấy vị trí: ", error);
+        },
+        { enableHighAccuracy: true } 
+      );
+    }
+  }, []);
+
+  useEffect(() => {
     if (countdown === 0) {
-      alert("Đã gửi tín hiệu SOS khẩn cấp tới trung tâm!");
-      navigate("/citizen/history"); // Chuyển sang lịch sử để theo dõi
+      const sendSOS = async () => {
+        setIsSending(true);
+        try {
+          const payload = {
+            latitude: location?.latitude,
+            longitude: location?.longitude,
+          };
+          // Nó sẽ tự động chuyển đổi payload đó thành chuỗi JSON
+          // Nó sẽ tự động gắn ngầm cái header Content-Type: application/json vào request trước khi gửi đi.
+          await api.post('/incidents/sos', payload);
+          navigate("/citizen/history");
+        } catch (error) {
+          setIsSending(false);
+          console.error("Lỗi khi gửi SOS", error);
+        }
+      };
+      
+      sendSOS();
       return;
     }
 
-    // Đặt bộ đếm mỗi giây giảm 1
-    const timer = setInterval(() => {
+    const timer = setTimeout(() => {
       setCountdown((prev) => prev - 1);
     }, 1000);
 
-    // Dọn dẹp timer khi component unmount
-    return () => clearInterval(timer);
-  }, [countdown, navigate]);
+    return () => clearTimeout(timer);
+  }, [countdown, location, navigate]); // Lúc này chỉ cần depend vào countdown, location và navigate
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FF3B30] font-sans text-white overflow-hidden">
@@ -53,27 +86,39 @@ export const CitizenSOS = () => {
         {/* Tiêu đề & Mô tả */}
         <div className="flex flex-col items-center gap-4 text-center">
           <h1 className="text-[32px] font-bold leading-tight">
-            Đang gửi tín hiệu SOS
+            {isSending ? "Đang kết nối..." : "Đang gửi tín hiệu SOS"}
           </h1>
           <p className="text-white/80 text-[18px] leading-relaxed max-w-[280px]">
-            Hệ thống sẽ tự động phát tín hiệu khẩn cấp trong:
+            {isSending 
+              ? "Vui lòng giữ nguyên màn hình" 
+              : "Hệ thống sẽ tự động phát tín hiệu khẩn cấp trong:"}
           </p>
         </div>
 
-        {/* Số đếm ngược khổng lồ */}
-        <div className="text-[140px] font-bold leading-none tracking-tighter tabular-nums drop-shadow-xl my-4">
-          {countdown}
+        <div className="h-[140px] flex items-center justify-center my-4">
+          {isSending ? (
+             <Loader2 className="w-24 h-24 text-white animate-spin drop-shadow-xl" />
+          ) : (
+             <div className="text-[140px] font-bold leading-none tracking-tighter tabular-nums drop-shadow-xl">
+               {countdown}
+             </div>
+          )}
         </div>
       </div>
 
       {/* 3. NÚT HỦY BỎ (Dưới cùng) */}
       <div className="px-8 pb-12 pt-4">
         <button
-          onClick={() => navigate(-1)} // Quay lại trang trước đó
-          className="w-full flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 active:bg-white/40 backdrop-blur-md text-white font-bold py-5 rounded-full text-[22px] transition-colors"
+          onClick={() => navigate(-1)}
+          disabled={isSending}
+          className={`w-full flex items-center justify-center gap-2 backdrop-blur-md font-bold py-5 rounded-full text-[22px] transition-colors ${
+            isSending 
+              ? "bg-white/10 text-white/50 cursor-not-allowed" 
+              : "bg-white/20 hover:bg-white/30 active:bg-white/40 text-white"
+          }`}
         >
           <X className="w-7 h-7" />
-          Huỷ khẩn cấp
+          {isSending ? "Đang xử lý..." : "Huỷ khẩn cấp"}
         </button>
       </div>
     </div>
