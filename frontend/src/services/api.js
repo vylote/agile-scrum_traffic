@@ -14,10 +14,12 @@ api.interceptors.response.use(
     let req = error.config; // Lưu lại toàn bộ cấu hình của request cũ (URL, data, header...)
 
     if (error.response?.status === 401 && !req._retry && req.url !== '/auth/refresh-token') { 
+      console.warn("loi 401 interceptor")
       req._retry = true; 
       
       try {
         await api.post('/auth/refresh-token');
+        console.log("goi refresh tokent thanh cong")
         return api(req); 
 
       } catch (err) {
