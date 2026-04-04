@@ -124,16 +124,16 @@ exports.login = async (req, res, next) => {
         );
 
         const accessTokenOptions = {
-            expires: new Date(Date.now() + 15 * 60 * 1000),
+            expires: new Date(Date.now() + 15 * 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', 
-            sameSite: 'strict' // chống CSRF
+            sameSite: 'lax' // chống CSRF
         }
         const refreshTokenOptions = {
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            expires: new Date(Date.now() + 7*24 * 60 * 60 * 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', 
-            sameSite: 'strict'
+            sameSite: 'lax'
         }
 
         res.cookie('token', accessToken,  accessTokenOptions);
@@ -178,7 +178,7 @@ exports.refreshToken = async (req, res, next) => {
             expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict'
+            sameSite: 'lax'
         }
 
         res.cookie('token', newAccessToken, options);
@@ -197,9 +197,33 @@ exports.logout = (req, res) => {
     const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'strict'
+        sameSite: 'lax'
     }
     res.clearCookie('token', options);
     res.clearCookie('refreshToken', options);
     return sendSuccess(res, SuccessCodes.LOGOUT_SUCCESS);
+};
+
+exports.getMe = async (req, res, next) => {
+    try {
+        // req.user đã được gán bởi middleware 'protect'
+        const user = await User.findById(req.user.id).select('-passwordHash');
+
+        if (!user) {
+            return next(new AppError(ErrorCodes.USER_NOT_FOUND));
+        }
+
+        // Trả về cấu trúc user giống hệt lúc Login để Redux dễ xử lý
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
+            user: {
+                id: user._id,
+                role: user.role,
+                name: user.name,
+                email: user.email,
+                phone: user.phone
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
 };
