@@ -21,9 +21,9 @@ const io = new Server(server, {
 app.set('io', io);
 
 io.on('connection', (socket) => {
-    console.log(`⚡ User connected: ${socket.id}`);
-    socket.on('disconnect', () => {
-        console.log('🔥 User disconnected');
+    socket.on('join_zone', (zone) => {
+        socket.join(`zone:${zone}`);
+        console.log(`Đội cứu hộ đã vào phòng zone: ${zone}`);
     });
 });
 

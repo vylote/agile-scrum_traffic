@@ -77,9 +77,10 @@ export const IncidentReport = () => {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [description, setDescription] = useState("");
-  const [photos, setPhotos] = useState([]); // Chuyển thành mảng
+  const [photos, setPhotos] = useState([]); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedType, setSelectedType] = useState(INCIDENT_TYPES.ACCIDENT);
+  const [selectedSeverity, setSelectedSeverity] = useState(INCIDENT_SEVERITY.LOW);
 
   const incidentTypes = [
     { id: 1, value: INCIDENT_TYPES.ACCIDENT, label: "Tai nạn giao thông" },
@@ -87,6 +88,13 @@ export const IncidentReport = () => {
     { id: 3, value: INCIDENT_TYPES.FLOOD, label: "Ngập nước" },
     { id: 4, value: INCIDENT_TYPES.FIRE, label: "Cháy nổ" },
     { id: 5, value: INCIDENT_TYPES.OTHER, label: "Sự cố khác" },
+  ];
+
+  const severityOptions = [
+  { id: 1, value: INCIDENT_SEVERITY.LOW, label: 'Thấp', textColor: 'text-blue-500' },
+  { id: 2, value: INCIDENT_SEVERITY.MEDIUM, label: 'Trung bình', textColor: 'text-orange-500' },
+  { id: 3, value: INCIDENT_SEVERITY.HIGH, label: 'Cao', textColor: 'text-red-500' },
+  { id: 4, value: INCIDENT_SEVERITY.CRITICAL, label: 'Nghiêm trọng', textColor: 'text-red-700' },
   ];
 
   useEffect(() => {
@@ -136,7 +144,7 @@ export const IncidentReport = () => {
       formData.append("title", finalTitle);
       formData.append("type", selectedType);
       formData.append("description", description);
-      formData.append("severity", INCIDENT_SEVERITY.LOW);
+      formData.append("severity", selectedSeverity);
       formData.append("latitude", latitude);
       formData.append("longitude", longitude);
 
@@ -224,6 +232,17 @@ export const IncidentReport = () => {
             />
           </div>
         </section>
+
+        <section className="space-y-3 relative z-20">
+      <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">Mức độ nghiêm trọng</h3>
+      <div className="bg-white p-1 rounded-[24px] shadow-sm border border-gray-100">
+        <CustomDropdown
+          value={selectedSeverity}
+          options={severityOptions}
+          onChange={setSelectedSeverity}
+        />
+      </div>
+    </section>
 
         <section className="space-y-3 relative z-10">
           <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">

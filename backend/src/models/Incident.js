@@ -47,14 +47,16 @@ const incidentSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// --- MIDDLEWARE: Tự động sinh mã Code trước khi lưu ---
+//Tự động sinh mã Code trước khi lưu
 incidentSchema.pre('save', async function(next) {
     if (!this.isNew) return next();
     
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomStr = Math.floor(1000 + Math.random() * 9000);
-    // Ví dụ: ACC-20260322-1234
-    this.code = `${this.type.slice(0, 3)}-${dateStr}-${randomStr}`;
+    
+    // Lấy 3 chữ cái đầu, ví dụ: ACCIDENT -> ACC, OTHER -> OTH
+    const prefix = this.type ? this.type.slice(0, 3).toUpperCase() : 'UNK';
+    this.code = `${prefix}-${dateStr}-${randomStr}`;
     next();
 });
 

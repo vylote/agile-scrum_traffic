@@ -1,57 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { LocateFixed } from 'lucide-react'; // Icon định vị
-import 'leaflet/dist/leaflet.css';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { useSelector } from 'react-redux';
+import { LocateFixed } from 'lucide-react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// --- ĐOẠN CODE BẮT BUỘC ĐỂ FIX LỖI MẤT ICON TRÊN VITE/REACT ---
+// --- FIX LỖI ICON MẶC ĐỊNH TRÊN MÔI TRƯỜNG VITE ---
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
-// -------------------------------------------------------------
 
-// Hằng số tọa độ mặc định (đặt ngoài component để tránh lỗi lặp)
-const defaultCenter = [21.0285, 105.8000];
-
-// Component quản lý Marker hiển thị vị trí
-const LocationMarker = ({ position }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (position) {
-      map.flyTo(position, 16, { duration: 1.5 });
-    }
-  }, [position, map]);
-
-  return position === null ? null : (
-    <Marker position={position}>
-      <Popup>
-        <div className="text-center">
-          <p className="font-bold text-sm">Vị trí hiện tại của bạn</p>
-        </div>
-      </Popup>
-    </Marker>
-  );
+// --- LAYER CHỌN VỊ TRÍ (CHỈ CHO CITIZEN KHI BÁO CÁO) ---
+const CitizenSelectionLayer = ({ onLocationSelect }) => {
+  useMapEvents({
+    click(e) {
+      onLocationSelect([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  return null;
 };
 
-// NÚT ĐỊNH VỊ NHANH 
-const LocateButton = ({ setPosition }) => {
+// --- NÚT ĐỊNH VỊ GPS VỚI LỀ BOTTOM = RIGHT ---
+const LocateButton = ({ setPosition, offset, rightOffset }) => {
   const map = useMap();
-
   const handleLocateMe = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const newPos = [pos.coords.latitude, pos.coords.longitude];
-          setPosition(newPos); // Cập nhật state
-          map.flyTo(newPos, 16, { duration: 1.5 }); // Bản đồ lướt về vị trí mới
+          setPosition(newPos);
+          map.flyTo(newPos, 16, { duration: 1.5 });
         },
-        (err) => {
-          alert("Không thể định vị. Vui lòng kiểm tra quyền truy cập GPS trên thiết bị!", err);
-        },
+        (err) => console.error("Lỗi GPS:", err),
         { enableHighAccuracy: true }
       );
     }
@@ -59,61 +42,89 @@ const LocateButton = ({ setPosition }) => {
 
   return (
     <button
+      type="button"
       onClick={handleLocateMe}
-      // Đã đổi vị trí xuống sát góc dưới cùng bên phải (bottom-8 right-4)
-      className="absolute bottom-8 right-4 z-[1000] w-12 h-12 bg-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] flex items-center justify-center text-blue-600 hover:bg-gray-50 active:scale-90 transition-all border border-gray-100"
-      title="Vị trí của tôi"
+      // Áp dụng style inline để lề dưới và lề phải luôn bằng nhau
+      style={{ 
+        bottom: `${offset}px`, 
+        right: `${rightOffset ?? offset}px` 
+      }}
+      className="absolute z-[1000] w-12 h-12 bg-white rounded-full shadow-[0_4px_15px_rgba(0,0,0,0.15)] flex items-center justify-center text-[#0088FF] active:scale-90 transition-all border border-gray-100"
     >
       <LocateFixed className="w-6 h-6" />
     </button>
   );
 };
 
-// COMPONENT CHÍNH
-const Map = () => {
-  const [position, setPosition] = useState(null);
+// --- COMPONENT CHÍNH ---
+const Map = ({ 
+  mode = 'view',            // 'view' hoặc 'report'
+  incidents = [],           // Danh sách sự cố (cho Dispatcher)
+  onLocationSelect,         // Hàm nhận tọa độ từ Map (cho Citizen Report)
+  bottomOffset = 16,
+  rightOffset = 16       // Khoảng cách lề (mặc định 16px)
+}) => {
+  const { user } = useSelector((state) => state.auth);
+  // Tọa độ mặc định: Hà Nội
+  const [position, setPosition] = useState([21.0285, 105.8000]);
 
+  // Đồng bộ vị trí ban đầu nếu được cấp quyền GPS
   useEffect(() => {
-    // Xin quyền GPS khi vừa mở app
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setPosition([pos.coords.latitude, pos.coords.longitude]);
-        },
-        (err) => {
-          console.error("Lỗi lấy GPS:", err.message);
-          setPosition(defaultCenter);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    } else {
-      setTimeout(() => setPosition(defaultCenter), 0);
+    if ("geolocation" in navigator && mode === 'view') {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setPosition([pos.coords.latitude, pos.coords.longitude]);
+      });
     }
-  }, []);
+  }, [mode]);
 
   return (
-    <div className="h-full w-full absolute inset-0 z-0 relative">
+    <div className="h-full w-full relative z-0"> 
       <MapContainer 
-        center={defaultCenter} 
-        zoom={13} 
-        scrollWheelZoom={true}
-        className="h-full w-full z-0"
-        zoomControl={false} // Tắt nút zoom mặc định cho màn hình gọn gàng
+        center={position} 
+        zoom={14} 
+        className="h-full w-full"
+        zoomControl={false}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-
-        <LocationMarker position={position} />
-
-        {/* Nút định vị nằm gọn gàng ở góc */}
-        <LocateButton setPosition={setPosition} />
-
+        
+        {/* --- LOGIC DÀNH CHO NGƯỜI DÂN (CITIZEN) --- */}
+        {user?.role === 'CITIZEN' && (
+          <>
+            <Marker position={position}>
+              <Popup>Vị trí bạn chọn</Popup>
+            </Marker>
+            
+            {/* Kích hoạt khả năng click chọn vị trí nếu đang ở mode report */}
+            {mode === 'report' && onLocationSelect && (
+              <CitizenSelectionLayer onLocationSelect={(pos) => {
+                setPosition(pos); // Cập nhật Marker cục bộ trên Map
+                onLocationSelect(pos); // Trả tọa độ về Form component cha
+              }} />
+            )}
+          </>
+        )}
+        
+        {/* --- LOGIC DÀNH CHO ĐIỀU PHỐI VIÊN (DISPATCHER) --- */}
+        {user?.role === 'DISPATCHER' && incidents.map(inc => {
+          // Lưu ý: MongoDB lưu [lng, lat], Leaflet cần [lat, lng]
+          const coords = inc.location?.coordinates;
+          if (!coords) return null;
+          
+          return (
+            <Marker key={inc._id} position={[coords[1], coords[0]]}>
+               <Popup>
+                  <div className="p-1">
+                    <p className="font-bold text-sm mb-1">{inc.title}</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">{inc.severity}</p>
+                  </div>
+               </Popup>
+            </Marker>
+          );
+        })}
+        <LocateButton setPosition={setPosition} offset={bottomOffset} rightOffset={rightOffset} />
       </MapContainer>
     </div>
   );

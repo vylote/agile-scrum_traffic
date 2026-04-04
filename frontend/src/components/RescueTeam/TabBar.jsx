@@ -29,7 +29,7 @@ export function TabBar() {
   ];
 
   return (
-    <div className="px-4 pb-6 pt-2 shrink-0 w-full">
+    <div className="pt-1 pb-0 shrink-0 w-full">
       <nav className="flex items-center justify-around bg-white/90 backdrop-blur-md rounded-[100px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 h-[65px] px-2 max-w-[343px] mx-auto">
         {tabs.map((tab) => {
           
