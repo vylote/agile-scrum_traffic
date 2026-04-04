@@ -5,10 +5,10 @@ import Map from "../../components/Public/Map";
 import { ChevronRight } from "lucide-react";
 
 export const CitizenDashboard = () => {
-  const navigate = useNavigate(); // 👈 Khởi tạo hàm điều hướng
+  const navigate = useNavigate(); 
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-24">
+    <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-32">
       {/* 1. STATUS BAR (Giữ đúng chất Mobile) */}
       <div className="flex justify-between items-center px-8 pt-5 pb-2">
         <span className="text-black font-bold text-[17px]">9:41</span>
@@ -92,10 +92,7 @@ export const CitizenDashboard = () => {
         </h2>
 
         <div className="w-full h-[280px] rounded-[30px] relative overflow-hidden bg-white shadow-md border border-gray-100">
-          {/* Component Bản đồ Leaflet của bạn */}
-          <Map />
-
-          {/* Chip thông báo nổi trên bản đồ */}
+          <Map bottomOffset={20} />
           <div className="absolute top-4 left-4 right-4 bg-white/90 backdrop-blur-md py-2.5 px-5 rounded-full flex items-center gap-2 shadow-sm border border-white/50 z-10 pointer-events-none">
             <div className="w-2 h-2 bg-[#34C759] rounded-full animate-pulse shadow-[0_0_8px_rgba(52,199,89,0.6)]"></div>
             <span className="text-black text-[14px] font-bold">
@@ -105,7 +102,6 @@ export const CitizenDashboard = () => {
         </div>
       </div>
 
-      {/* 5. NAVIGATION DƯỚI CÙNG */}
       <BottomNav />
     </div>
   );

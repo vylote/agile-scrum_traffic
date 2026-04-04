@@ -5,6 +5,8 @@ const upload = require("../middleware/upload");
 const { protect, restrictTo } = require("../middleware/auth");
 const { USER_ROLES} = require("../utils/constants/userConstants")
 
+router.get('/track/:code', incidentController.getIncidentByCode);
+
 router.use(protect);
 
 router.post('/',restrictTo(USER_ROLES.CITIZEN),upload.array("photos", 5),incidentController.createIncident);
@@ -13,7 +15,6 @@ router.post('/sos',restrictTo(USER_ROLES.CITIZEN),incidentController.createSOS);
 
 router.get("/:id", incidentController.getIncidentById);
 
-router.get('/track/:code', incidentController.getIncidentByCode);
 
 router.patch('/:id/status', restrictTo(USER_ROLES.CITIZEN), incidentController.updateIncidentStatus)
 

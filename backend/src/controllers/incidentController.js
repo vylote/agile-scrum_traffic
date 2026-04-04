@@ -9,6 +9,7 @@ const fs = require('fs').promises;
 const mongoose = require('mongoose');
 const { INCIDENT_TYPES, INCIDENT_STATUS, INCIDENT_SEVERITY, ALL_STATUS } = require('../utils/constants/incidentConstants');
 const { USER_ROLES } = require('../utils/constants/userConstants');
+const { timeStamp } = require('console');
 
 /**
  * @swagger
@@ -64,42 +65,45 @@ const { USER_ROLES } = require('../utils/constants/userConstants');
  */
 exports.createIncident = async (req, res, next) => {
     try {
-        const { title, description, latitude, longitude, address, type } = req.body;
+        const { title, description, latitude, longitude, type, severity } = req.body;
 
         if (!latitude || !longitude) {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
         }
 
-        let finalAddress = address || await geoService.reverseGeocode(latitude, longitude);
+        const address = await geoService.reverseGeocode(latitude, longitude);
 
         const photos = req.files ? req.files.map(file => file.filename) : [];
 
-        const incidentId = new mongoose.Types.ObjectId();
-        const genCode = generateIncidentCode(type, incidentId.toString())
+        const initTimeLine = [{
+            status: INCIDENT_STATUS.PENDING,
+            updatedBy: req.user._id,
+            note: 'Người dân đã báo cáo chi tiết',
+            timeStamp: Date.now()
+        }]
 
         const newIncident = await Incident.create({
-            _id: incidentId,
-            code: genCode,
             reportedBy: req.user._id,
             title,
             description,
-            type: type || INCIDENT_TYPES.OTHER,
-            severity: INCIDENT_SEVERITY.MEDIUM,
+            type: type,
+            severity: severity || INCIDENT_SEVERITY.LOW,
             location: {
                 type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)], // [Kinh độ, Vĩ độ]
-                address: finalAddress
+                coordinates: [parseFloat(longitude), parseFloat(latitude)], 
+                address: address
             },
             photos: photos,
-            status: INCIDENT_STATUS.PENDING
+            status: INCIDENT_STATUS.PENDING,
+            timeline: initTimeLine
         });
 
-        // Socket thông báo thời gian thực
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:new', {
                 message: 'Có sự cố mới vừa được báo cáo!',
-                incident: newIncident
+                incident: newIncident,
+                priority: newIncident.severity
             });
         }
 
@@ -150,31 +154,29 @@ exports.createSOS = async (req, res, next) => {
 
         const address = await geoService.reverseGeocode(latitude, longitude);
 
-        const incidentId = new mongoose.Types.ObjectId();
-        const genCode = generateIncidentCode(INCIDENT_TYPES.OTHER, incidentId.toString())
-
         const sosIncident = await Incident.create({
-            _id: incidentId,
-            code: genCode,
             reportedBy: req.user._id,
             title: "YÊU CẦU CỨU HỘ KHẨN CẤP (SOS)",
             description: "ưu tiên cứu hộ khẩn cấp",
-            type: INCIDENT_TYPES.ACCIDENT,
+            type: INCIDENT_TYPES.OTHER,
             severity: INCIDENT_SEVERITY.CRITICAL,
             location: {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)],
                 address
             },
-            status: INCIDENT_STATUS.PENDING
+            status: INCIDENT_STATUS.PENDING,
+            timeline: [{
+                status: INCIDENT_STATUS.PENDING,
+                updatedBy: req.user._id,
+                note: 'Tín hiệu SOS khẩn cấp được phát đi.',
+                timestamp: Date.now()
+            }]
         });
 
         const io = req.app.get('io');
         if (io) {
-            io.emit('alert:sos', {
-                message: 'xuât hiện sự cố khẩn cấp!',
-                incident: sosIncident
-            });
+            io.emit('alert:sos', { incident: sosIncident });
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, sosIncident);
@@ -506,6 +508,7 @@ exports.getIncidentByCode = async (req, res, next) => {
 
         const incident = await Incident.findOne({ code })
             .populate('reportedBy', 'name phone')
+            .select('title status timeLine location.address')
 
         if (!incident)
             return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));

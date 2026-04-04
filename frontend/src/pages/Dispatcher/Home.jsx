@@ -50,7 +50,7 @@ export const Home = () => {
             </div>
             {/* Vùng chứa Map */}
             <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 relative z-0">
-              <Map />
+              <Map/>
             </div>
           </section>
 
