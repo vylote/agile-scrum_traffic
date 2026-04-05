@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const http = require('http');
 const { Server } = require('socket.io');
-const app = require('./app'); 
+const app = require('./app');
 const connectDB = require('./config/db');
 const cron = require('node-cron');
 const cleanupOrphanPhotos = require('./utils/cleanupTask');
@@ -10,20 +10,47 @@ const initApp = require('./utils/initApp');
 
 const server = http.createServer(app);
 
-const io = new Server(server, { 
-    cors: { 
+const io = new Server(server, {
+    cors: {
         origin: process.env.CLIENT_URL,
         credentials: true,
         methods: ["GET", "POST"]
-    } 
+    }
 });
 
 app.set('io', io);
 
 io.on('connection', (socket) => {
+    console.log(`🔌 Thiết bị mới kết nối: ${socket.id}`);
+
     socket.on('join_zone', (zone) => {
         socket.join(`zone:${zone}`);
         console.log(`Đội cứu hộ đã vào phòng zone: ${zone}`);
+    });
+
+    socket.on('rescue:updateLocation', (data) => {
+        const { teamId, lat, lng, incidentId } = data;
+        io.to('room:dispatchers').emit('rescue:location', { teamId, lat, lng });
+        // 2. Gửi cho Người dân (Chỉ phòng của sự cố này)
+        if (incidentId) {
+            io.to(`incident_chat:${incidentId}`).emit('rescue:location_client', { lat, lng });
+        }
+    });
+
+    socket.on('chat:message', (data) => {
+        const { incidentId, text, senderName } = data;
+        const roomName = `incident_chat:${incidentId}`;
+
+        // Tham gia phòng chat nếu chưa có
+        socket.join(roomName);
+
+        // Phát lại sự kiện: chat:message (Server -> Client)
+        // Phân phối tin nhắn đến các thành viên trong kênh
+        io.to(roomName).emit('chat:message', {
+            sender: senderName,
+            text: text,
+            time: new Date().toISOString()
+        });
     });
 });
 
@@ -35,7 +62,7 @@ const startServer = async () => {
         initApp();
 
         console.log('Đang kiểm tra ảnh mồ côi lần đầu...');
-        cleanupOrphanPhotos(); 
+        cleanupOrphanPhotos();
 
         // 3. Lập lịch chạy định kỳ (3 giờ sáng mỗi ngày)
         cron.schedule('0 3 * * *', () => {

@@ -43,7 +43,8 @@ const incidentSchema = new mongoose.Schema({
     }],
 
     estimatedArrival: Date,
-    completedAt: Date
+    completedAt: Date,
+    zone: {type: String, index: true},
 
 }, { timestamps: true });
 

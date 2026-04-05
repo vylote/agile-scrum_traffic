@@ -71,7 +71,12 @@ exports.createIncident = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
         }
 
-        const address = await geoService.reverseGeocode(latitude, longitude);
+        const geoData = await geoService.reverseGeocode(latitude, longitude);
+        const address = geoData.display_name;
+        const detectedZone = geoData.zone_detected;
+
+        console.log("📍 Địa chỉ full từ OSM:", address);
+        console.log("📍 ZONE cắt ra được để lưu vào DB:", detectedZone);
 
         const photos = req.files ? req.files.map(file => file.filename) : [];
 
@@ -90,9 +95,10 @@ exports.createIncident = async (req, res, next) => {
             severity: severity || INCIDENT_SEVERITY.LOW,
             location: {
                 type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)], 
+                coordinates: [parseFloat(longitude), parseFloat(latitude)],
                 address: address
             },
+            zone: detectedZone,
             photos: photos,
             status: INCIDENT_STATUS.PENDING,
             timeline: initTimeLine
@@ -100,11 +106,8 @@ exports.createIncident = async (req, res, next) => {
 
         const io = req.app.get('io');
         if (io) {
-            io.emit('incident:new', {
-                message: 'Có sự cố mới vừa được báo cáo!',
-                incident: newIncident,
-                priority: newIncident.severity
-            });
+            io.to(`zone:${detectedZone}`).emit('incident:new', { incident: newIncident });
+            io.to('room:dispatchers').emit('incident:new', { incident: newIncident });
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, newIncident);
@@ -152,7 +155,9 @@ exports.createSOS = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
         }
 
-        const address = await geoService.reverseGeocode(latitude, longitude);
+        const geoData = await geoService.reverseGeocode(latitude, longitude);
+        const address = geoData.display_name;
+        const detectedZone = geoData.zone_detected;
 
         const sosIncident = await Incident.create({
             reportedBy: req.user._id,
@@ -163,8 +168,9 @@ exports.createSOS = async (req, res, next) => {
             location: {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)],
-                address
+                address: address
             },
+            zone: detectedZone,
             status: INCIDENT_STATUS.PENDING,
             timeline: [{
                 status: INCIDENT_STATUS.PENDING,
@@ -176,7 +182,11 @@ exports.createSOS = async (req, res, next) => {
 
         const io = req.app.get('io');
         if (io) {
-            io.emit('alert:sos', { incident: sosIncident });
+            // Cảnh báo SOS khẩn cấp toàn hệ thống với priority 'HIGH'
+            io.emit('alert:sos', {
+                incident: sosIncident,
+                priority: 'HIGH'
+            });
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, sosIncident);
@@ -397,7 +407,7 @@ exports.deleteIncident = async (req, res, next) => {
  */
 exports.getAllIncidents = async (req, res, next) => {
     try {
-        const { page, limit: queryLimit, type, severity, status } = req.query
+        const { page, limit: queryLimit, type, severity, status, zone } = req.query
 
         let limit = parseInt(queryLimit) || 10;
         const currentPage = parseInt(page) || 1;
@@ -407,6 +417,7 @@ exports.getAllIncidents = async (req, res, next) => {
         if (type) filter.type = type
         if (severity) filter.severity = severity
         if (status) filter.status = status
+        if (zone) filter.zone = zone
 
         if (req.user.role === USER_ROLES.CITIZEN) {
             filter.reportedBy = req.user._id;
@@ -558,13 +569,13 @@ exports.getIncidentByCode = async (req, res, next) => {
 exports.updateIncidentStatus = async (req, res, next) => {
     try {
         const { id } = req.params
-        const { status } = req.body
+        const { status, teamData } = req.body
 
         if (!ALL_STATUS.includes(status)) {
             return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS))
         }
 
-        const incident = await Incident.findByIdAndUpdate(
+        const updatedIncident = await Incident.findByIdAndUpdate(
             id,
             {
                 status,
@@ -581,26 +592,25 @@ exports.updateIncidentStatus = async (req, res, next) => {
             { new: true, runValidators: true }
         );
 
-        if (!incident)
+        if (!updatedIncident)
             return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND))
 
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', {
-                message: 'Sự cố đã được cập nhật!',
-                incident: incident
+                id: updatedIncident._id,
+                status: updatedIncident.status
             });
+
+            // Sự kiện: rescue:assigned (Server -> Client)
+            // Nếu bắt đầu có đội nhận ca, thông báo cho người dân & điều phối
+            if (status === 'IN_PROGRESS') {
+                io.emit('rescue:assigned', { rescueTeam: teamData });
+            }
         }
 
-        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident)
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident)
     } catch (err) {
         next(err)
     }
 }
-
-const generateIncidentCode = (type, id) => {
-    if (!id) return ""
-    const prefix = type ? type.slice(0, 3).toUpperCase() : "UNK";
-    const suffix = id.slice(-4).toUpperCase();
-    return `${prefix}-${suffix}`; // Kết quả: ACC-1A2B
-};

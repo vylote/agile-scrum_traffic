@@ -41,26 +41,22 @@ export const CitizenHistory = () => {
 
   useEffect(() => {
     const handleStatusUpdate = (payload) => {
-      // Backend gửi về: { message: '...', incident: {...} }
-      const updatedIncident = payload.incident;
+      const idToUpdate = payload.id || payload.incident?._id;
+      const newStatus = payload.status || payload.incident?.status;
 
-      console.log("🔔 Nhận cập nhật trạng thái:", updatedIncident.status);
+      console.log("🔔 Nhận cập nhật trạng thái:", newStatus);
 
       setIncidents((prevIncidents) => {
-        const index = prevIncidents.findIndex(
-          (item) => item._id === updatedIncident._id,
-        );
+        const index = prevIncidents.findIndex((item) => item._id === idToUpdate);
 
         if (index !== -1) {
-          // ... Spread Operator (Toán tử rải)
-          // đổ hết dữ liệu từ prev qua new 
           const newIncidents = [...prevIncidents];
-          newIncidents[index] = updatedIncident;
+          // Ghi đè status mới vào
+          newIncidents[index] = { ...newIncidents[index], status: newStatus };
           return newIncidents;
         }
 
-        // Nếu không tìm thấy (trường hợp sự cố mới tinh vừa được tạo): Thêm vào đầu danh sách
-        return [updatedIncident, ...prevIncidents];
+          return prevIncidents;
       });
     };
     socket.on("incident:updated", handleStatusUpdate);

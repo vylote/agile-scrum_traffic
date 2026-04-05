@@ -98,7 +98,7 @@ exports.login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
 
-        const user = await User.findOne({ username });
+        const user = await User.findOne({ username }).populate('rescueTeam');
 
         const isMatch = user && user.passwordHash
             ? await bcrypt.compare(password, user.passwordHash)
@@ -144,7 +144,8 @@ exports.login = async (req, res, next) => {
                 id: user._id,
                 role: user.role,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                rescueTeam: user.rescueTeam
             }
         });
 
@@ -207,7 +208,9 @@ exports.logout = (req, res) => {
 exports.getMe = async (req, res, next) => {
     try {
         // req.user đã được gán bởi middleware 'protect'
-        const user = await User.findById(req.user.id).select('-passwordHash');
+        const user = await User.findById(req.user.id)
+            .select('-passwordHash')
+            .populate('rescueTeam');
 
         if (!user) {
             return next(new AppError(ErrorCodes.USER_NOT_FOUND));
@@ -220,7 +223,8 @@ exports.getMe = async (req, res, next) => {
                 role: user.role,
                 name: user.name,
                 email: user.email,
-                phone: user.phone
+                phone: user.phone,
+                rescueTeam: user.rescueTeam
             }
         });
     } catch (err) {

@@ -1,24 +1,32 @@
 const axios = require('axios');
 
-const reverseGeocode = async (lat, lon) => {
-  try {
-    const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
-      params: {
-        lat: lat, 
-        lon: lon, 
-        format: 'json',
-        addressdetails: 1 //1 = true -> trả về chi tiết địa chỉ
-      },
-      headers: { 'User-Agent': 'TrafficIncidentApp/1.0' } // bắt buộc phải có header nếu k muốn bị chặn
-    });
-    /* URL thực tế sẽ trông như này 
-    https://nominatim.openstreetmap.org/reverse?lat=10.7769&lon=106.6602&format=json&addressdetails=1 */
-    console.log('đang gọi api gg street map')
-    return response.data.display_name;
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    return 'Địa chỉ không xác định';
-  }
+// Hàm chuẩn hóa: "Huyện Sóc Sơn" -> "Sóc Sơn", "Quận Cầu Giấy" -> "Cầu Giấy"
+const normalizeZoneName = (name) => {
+    if (!name) return "Unknown";
+    return name
+        .replace(/^(Quận|Huyện|Thị xã|Thành phố|Phường|Xã)\s+/i, "")
+        .trim();
 };
 
-module.exports = { reverseGeocode };
+const reverseGeocode = async (lat, lon) => {
+    try {
+        const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
+            params: { lat, lon, format: 'json', addressdetails: 1 },
+            headers: { 'User-Agent': 'TrafficIncidentApp/1.0' }
+        });
+
+        const addr = response.data.address;
+        // OSM trả về Sóc Sơn thường nằm ở 'town' hoặc 'county'
+        const rawZone = addr.suburb || addr.district || addr.town || addr.county || addr.city_district || 'Unknown';
+        
+        return {
+            display_name: response.data.display_name,
+            zone_detected: normalizeZoneName(rawZone) // Trả về tên đã chuẩn hóa
+        };
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        return { display_name: 'Địa chỉ không xác định', zone_detected: 'Unknown' };
+    }
+};
+
+module.exports = { reverseGeocode, normalizeZoneName };
