@@ -99,10 +99,6 @@ exports.createRescueTeam = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES, 'Vui lòng cung cấp tọa độ đội cứu hộ'));
         }
 
-        if (err.code === 11000) {
-            return next(new AppError(ErrorCodes.INVALID_INPUT));
-        }
-
         let validMembers = []
         if (members && Array.isArray(members) && members.length > 0) {
             for (let i = 0; i < members.length; ++i) {
@@ -146,6 +142,9 @@ exports.createRescueTeam = async (req, res, next) => {
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, newRescueTeam)
 
     } catch (err) {
+        if (err.code === 11000) {
+            return next(new AppError(ErrorCodes.INVALID_INPUT));
+        }
         next(err)
     }
 }
@@ -220,6 +219,35 @@ exports.getAllRescueTeam = async (req, res, next) => {
     }
 }
 
+/**
+   * @swagger
+   * /api/v1/rescue-teams/{id}/location:
+   *   patch:
+   *     summary: Cập nhật tọa độ GPS thực tế của đội cứu hộ
+   *     description: Dành cho App Cứu hộ gọi định kỳ (ví dụ 10s/lần) để báo cáo vị trí về trung tâm.
+   *     tags: [Rescue Teams]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string }
+   *         description: ID của đội cứu hộ
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [latitude, longitude]
+   *             properties:
+   *               latitude: { type: number, example: 21.0285 }
+   *               longitude: { type: number, example: 105.8542 }
+   *     responses:
+   *       200:
+   *         description: Cập nhật vị trí thành công, socket event `rescue:location` sẽ được phát đi.
+   */
 exports.updateLocation = async (req, res, next) => {
     try {
         const { id } = req.params;

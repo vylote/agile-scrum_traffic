@@ -1,185 +1,181 @@
+"use client";
+import React, { useState } from "react";
 import { AdminMenu } from "../../components/Admin/Menu";
-import { AdminHeader } from "../../components/Admin/AdminHeader"; 
-import { Plus, Filter, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { AdminHeader } from "../../components/Admin/AdminHeader";
+import { PartnerSidebar } from "../../components/Admin/PartnerSidebar";
+import { Plus, Filter, Edit, Trash2, Info, X, MoreVertical } from "lucide-react";
 
-// MOCK DATA: Danh sách đối tác cứu hộ
-const mockPartners = [
-  {
-    id: "0001",
-    name: "Nguyễn Văn A",
-    phone: "0123456789",
-    type: "Xe sàn trượt",
-    status: "Hoạt động",
-    avatar: "https://i.pravatar.cc/150?img=11",
-  },
-  {
-    id: "0002",
-    name: "Trần Văn B",
-    phone: "0987654321",
-    type: "Xe cẩu kéo",
-    status: "Hoạt động",
-    avatar: "https://i.pravatar.cc/150?img=12",
-  },
-  {
-    id: "0003",
-    name: "Lê Thị C",
-    phone: "0345678901",
-    type: "Sửa chữa lưu động",
-    status: "Tạm nghỉ",
-    avatar: "https://i.pravatar.cc/150?img=5",
-  },
-  {
-    id: "0004",
-    name: "Phạm Văn D",
-    phone: "0912345678",
-    type: "Xe sàn trượt",
-    status: "Hoạt động",
-    avatar: "https://i.pravatar.cc/150?img=14",
-  },
-  {
-    id: "0005",
-    name: "Hoàng Văn E",
-    phone: "0888999777",
-    type: "Xe cẩu kéo",
-    status: "Khóa",
-    avatar: "https://i.pravatar.cc/150?img=15",
-  }
-];
+// --- CÁC THÀNH PHẦN FORM (Đã sửa lỗi Impure Function) ---
+
+const FormField = ({ label, required = false, children }) => (
+  <div className="mb-4">
+    <div className="flex gap-1 items-center mb-2">
+      <label className="text-sm font-medium text-gray-700">{label}</label>
+      {required && <span className="text-red-500">*</span>}
+    </div>
+    {children}
+  </div>
+);
+
+const SelectField = ({ children }) => (
+  <div className="relative">
+    <select className="px-3 py-2 w-full h-10 text-sm text-gray-900 bg-white rounded-md border border-gray-300 cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
+      {children}
+    </select>
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+       <MoreVertical size={14} className="rotate-90"/>
+    </div>
+  </div>
+);
+
+const AddPartnerModal = ({ isOpen, onClose, onAdd }) => {
+  // SỬA LỖI: Dùng functional initializer để hàm Math.random chỉ chạy 1 lần khi mount
+  const [formData, setFormData] = useState(() => ({
+    businessName: '',
+    teamCode: `RT-${Math.floor(1000 + Math.random() * 9000)}`,
+    hotline: '',
+    area: 'Cầu Giấy',
+    capability: 'Xe Cẩu Kéo / Sàn Trượt'
+  }));
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-[570px] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-8">
+          <header className="flex justify-between items-center mb-6">
+            <h1 className="text-xl font-bold text-gray-900">Thêm đối tác cứu hộ mới</h1>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X size={20} className="text-gray-500" /></button>
+          </header>
+
+          <form onSubmit={(e) => { e.preventDefault(); onAdd(formData); }}>
+            <p className="mb-6 text-sm text-gray-500">Nhập thông tin cơ bản để tạo hồ sơ cứu hộ mới trên hệ thống.</p>
+            <FormField label="Tên doanh nghiệp / Trung tâm cứu hộ" required>
+              <input type="text" placeholder="VD: Gara Ô tô Thành Đạt" className="px-3 py-2 w-full h-10 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none" required value={formData.businessName} onChange={(e) => setFormData({...formData, businessName: e.target.value})} />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <FormField label="Mã đội"><input type="text" className="px-3 py-2 w-full h-10 text-sm rounded-md border border-gray-100 bg-gray-50 font-mono" readOnly value={formData.teamCode} /></FormField>
+              <FormField label="Hotline" required><input type="tel" placeholder="0912xx..." className="px-3 py-2 w-full h-10 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none" required value={formData.hotline} onChange={(e) => setFormData({...formData, hotline: e.target.value})} /></FormField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <FormField label="Khu vực" required><SelectField><option value="Cầu Giấy">Cầu Giấy</option></SelectField></FormField>
+              <FormField label="Năng lực" required><SelectField><option value="Xe Cẩu Kéo / Sàn Trượt">Xe Cẩu Kéo / Sàn Trượt</option></SelectField></FormField>
+            </div>
+
+            <div className="flex gap-3 items-start p-3 mb-8 bg-blue-50 rounded-lg border border-blue-100">
+              <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700 leading-relaxed">Hồ sơ đối tác sẽ được tạo ở trạng thái <b>Chờ duyệt</b>.</p>
+            </div>
+
+            <div className="flex gap-3 justify-end items-center">
+              <button type="button" onClick={onClose} className="px-6 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg">Hủy bỏ</button>
+              <button type="submit" className="px-6 py-2 text-sm font-bold text-white bg-[#0088FF] hover:bg-blue-600 rounded-lg shadow-md active:scale-95 transition-all">Đẩy lên hệ thống</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- TRANG CHÍNH ---
 
 export const Partners = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState(null); // Quản lý Sidebar
+  
+  const [partners, setPartners] = useState([
+    { id: "0001", name: "Đội cứu hộ 1", phone: "0123456789", type: "Xe sàn trượt", status: "Hoạt động", avatar: "https://i.pravatar.cc/150?img=11" },
+    { id: "0002", name: "Đội cứu hộ 2", phone: "0987654321", type: "Xe cẩu kéo", status: "Hoạt động", avatar: "https://i.pravatar.cc/150?img=12" },
+  ]);
+
+  const handleAddNewPartner = (formData) => {
+    const newPartner = {
+      id: formData.teamCode,
+      name: formData.businessName,
+      phone: formData.hotline,
+      type: formData.capability,
+      status: "Tạm nghỉ",
+      avatar: `https://i.pravatar.cc/150?u=${formData.teamCode}`
+    };
+    setPartners([newPartner, ...partners]);
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
-      
-      {/* 1. SIDEBAR ADMIN */}
       <AdminMenu />
 
-      {/* 2. NỘI DUNG CHÍNH */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <AdminHeader 
-          title="Đối tác cứu hộ"
-          subtitle="Quản lý danh sách xe và tài xế"
-          onExport={() => alert("Đang tải danh sách đối tác...")}
-        />
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <AdminHeader title="Đối tác cứu hộ" subtitle="Quản lý mạng lưới xe và tài xế" />
+        
         <div className="flex-1 overflow-y-auto px-8 pb-8">
-          
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col mt-2">
-            
-            {/* Toolbar trên cùng của Bảng */}
-            <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white rounded-t-2xl">
-              <h3 className="text-lg font-bold text-gray-900">
-                Tất cả đối tác ({mockPartners.length})
-              </h3>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col mt-2 overflow-hidden">
+            {/* Toolbar */}
+            <div className="p-5 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900">Tất cả đối tác ({partners.length})</h3>
               <div className="flex gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-sm transition-colors border border-gray-200">
-                  <Filter className="w-4 h-4" />
-                  Lọc
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-[#0088FF] hover:bg-blue-600 text-white rounded-lg font-bold text-sm transition-colors shadow-sm active:scale-95">
-                  <Plus className="w-4 h-4" />
-                  Thêm đối tác
-                </button>
+                <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold border border-gray-200"><Filter size={16} /> Lọc</button>
+                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-[#0088FF] text-white rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-all"><Plus size={16} /> Thêm đối tác</button>
               </div>
             </div>
 
-            {/* Bảng (Table) */}
+            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
-                {/* Tiêu đề cột */}
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-200">
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Mã NV</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Đối tác</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Số điện thoại</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Loại xe</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Mã Đội</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Đối tác</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Liên hệ</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase text-right">Thao tác</th>
                   </tr>
                 </thead>
-                
-                {/* Nội dung dữ liệu */}
                 <tbody className="divide-y divide-gray-100">
-                  {mockPartners.map((partner) => (
-                    <tr key={partner.id} className="hover:bg-gray-50/80 transition-colors group">
-                      
-                      {/* Cột Mã NV */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-bold text-gray-900">{partner.id}</span>
-                      </td>
-
-                      {/* Cột Tên & Avatar */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                  {partners.map((partner) => (
+                    <tr 
+                      key={partner.id} 
+                      onClick={() => setSelectedPartner(partner)} // CLICK ĐỂ MỞ SIDEBAR
+                      className="hover:bg-blue-50/40 cursor-pointer transition-all group"
+                    >
+                      <td className="px-6 py-4 font-bold text-gray-400 font-mono">{partner.id}</td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={partner.avatar} 
-                            alt={partner.name} 
-                            className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                          />
-                          <span className="font-bold text-gray-900 text-[15px]">{partner.name}</span>
+                          <img src={partner.avatar} className="w-10 h-10 rounded-full border border-gray-200" alt="" />
+                          <span className="font-bold text-gray-900">{partner.name}</span>
                         </div>
                       </td>
-
-                      {/* Cột SĐT */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-gray-600 font-medium">{partner.phone}</span>
-                      </td>
-
-                      {/* Cột Loại xe */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-md">
-                          {partner.type}
-                        </span>
-                      </td>
-
-                      {/* Cột Trạng thái */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                          partner.status === "Hoạt động" ? "bg-green-50 text-green-600 border-green-200" :
-                          partner.status === "Tạm nghỉ" ? "bg-orange-50 text-orange-600 border-orange-200" :
-                          "bg-red-50 text-red-600 border-red-200"
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            partner.status === "Hoạt động" ? "bg-green-500" :
-                            partner.status === "Tạm nghỉ" ? "bg-orange-500" : "bg-red-500"
-                          }`}></span>
-                          {partner.status}
-                        </span>
-                      </td>
-
-                      {/* Cột Thao tác */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Chỉnh sửa">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Khóa/Xóa">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
+                      <td className="px-6 py-4 text-gray-600 font-medium">{partner.phone}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16}/></button>
+                          <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
                         </div>
                       </td>
-
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            
-            {/* Phân trang (Pagination) - Mock UI */}
-            <div className="p-4 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500 bg-gray-50/50 rounded-b-2xl">
-              <span>Hiển thị 1 đến 5 của 124 đối tác</span>
-              <div className="flex gap-1">
-                <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100 disabled:opacity-50" disabled>Trước</button>
-                <button className="px-3 py-1 border border-gray-200 rounded bg-gray-900 text-white font-bold">1</button>
-                <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100">2</button>
-                <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100">3</button>
-                <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100">Sau</button>
-              </div>
-            </div>
-
           </div>
         </div>
+
+        {/* SIDEBAR CHI TIẾT */}
+        <PartnerSidebar 
+          partner={selectedPartner} 
+          onClose={() => setSelectedPartner(null)} 
+        />
+
+        {/* MODAL THÊM MỚI */}
+        <AddPartnerModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onAdd={handleAddNewPartner}
+        />
       </main>
     </div>
   );
