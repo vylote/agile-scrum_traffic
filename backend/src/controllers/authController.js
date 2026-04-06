@@ -114,7 +114,7 @@ exports.login = async (req, res, next) => {
         const accessToken = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '15s', algorithm: 'HS256' }
+            { expiresIn: '15m', algorithm: 'HS256' }
         );
 
         const refreshToken = jwt.sign(
@@ -124,7 +124,7 @@ exports.login = async (req, res, next) => {
         );
 
         const accessTokenOptions = {
-            expires: new Date(Date.now() + 15 * 1000),
+            expires: new Date(Date.now() + 15 *60* 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', 
             sameSite: 'lax' // chống CSRF
@@ -172,11 +172,11 @@ exports.refreshToken = async (req, res, next) => {
         const newAccessToken = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '15s', algorithm: 'HS256' }
+            { expiresIn: '15m', algorithm: 'HS256' }
         );
 
         const options = {
-            expires: new Date(Date.now() + 15 * 1000),
+            expires: new Date(Date.now() + 15 *60* 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax'

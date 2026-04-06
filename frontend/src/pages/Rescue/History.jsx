@@ -1,66 +1,83 @@
-import React, { useState } from "react";
-
-
+import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import TabBar from "../../components/RescueTeam/TabBar";
 import HistoryCard from "../../components/RescueTeam/HistoryCard";
+import api from "../../services/api";
 
 export function History() {
-  // Set tab mặc định đang active là 'history'
-  const [activeTab, setActiveTab] = useState('history');
+  const { user } = useSelector((state) => state.auth);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Dữ liệu giả (Mock data)
-  const historyItems = [
-    {
-      serviceType: "Hỏng xe / Chết máy",
-      status: "Hoàn thành",
-      code: "#0001",
-      time: "Hôm nay, 09:00",
-      location: "3 Cầu Giấy, Ngọc Khánh, Đống Đa, Hà Nội"
-    },
-    {
-      serviceType: "Tai nạn giao thông",
-      status: "Hoàn thành",
-      code: "#0002",
-      time: "Hôm qua, 14:30",
-      location: "Ngã tư Phạm Hùng, Nam Từ Liêm, Hà Nội"
-    },
-    {
-      serviceType: "Thay lốp dọc đường",
-      status: "Hoàn thành",
-      code: "#0003",
-      time: "12/10/2023, 21:15",
-      location: "Cao tốc Pháp Vân - Cầu Giẽ, Km192"
+  useEffect(() => {
+  // Định nghĩa luôn ở trong này
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const teamId = user?.rescueTeam?._id;
+      if (!teamId) return;
+
+      const res = await api.get(`/incidents?status=COMPLETED&assignedTeam=${teamId}`);
+      setHistoryItems(res.data.result.data || []);
+    } catch (error) {
+      console.error("Lỗi khi lấy lịch sử:", error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  fetchHistory();
+}, [user]); // ✅ Bây giờ chỉ cần 'user' là đủ, không còn lỗi linting nữa
+
+  // Hàm helper để format thời gian cho đẹp
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
 
   return (
-    // Dùng h-screen và flex-col để khóa chiều cao bằng đúng màn hình điện thoại
     <div className="relative mx-auto w-full h-screen max-w-[480px] bg-gray-50 overflow-hidden flex flex-col shadow-2xl">
       
-
-      {/* 2. Khu vực cuộn danh sách (Tự động chiếm phần diện tích còn lại) */}
-      <main className="flex-1 flex flex-col px-4 mt-2 overflow-y-auto hide-scrollbar pb-4">
+      <main className="flex-1 flex flex-col px-4 mt-8 overflow-y-auto no-scrollbar pb-24">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-6 px-1">
           Lịch sử cứu hộ
         </h1>
 
         <section className="flex flex-col gap-4">
-          {historyItems.map((item, index) => (
-            <HistoryCard
-              key={index}
-              serviceType={item.serviceType}
-              status={item.status}
-              code={item.code}
-              time={item.time}
-              location={item.location}
-            />
-          ))}
+          {loading ? (
+            // 🌀 Hiệu ứng Loading đơn giản
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-500 mb-2"></div>
+               <p>Đang tải dữ liệu...</p>
+            </div>
+          ) : historyItems.length === 0 ? (
+            // 📭 Trạng thái trống
+            <div className="text-center py-20">
+              <p className="text-gray-400">Đội của bạn chưa hoàn thành ca cứu hộ nào.</p>
+            </div>
+          ) : (
+            // ✅ Hiển thị danh sách thật
+            historyItems.map((item) => (
+              <HistoryCard
+                key={item._id}
+                serviceType={item.title}
+                status="Hoàn thành"
+                code={item.code || `#${item._id.slice(-4)}`} // Nếu ko có code thì lấy 4 số cuối ID
+                time={formatTime(item.updatedAt)}
+                location={item.location.address}
+              />
+            ))
+          )}
         </section>
       </main>
 
-      {/* 3. TabBar (Nằm cố định ở dưới đáy, tái sử dụng thẻ TabBar chuẩn) */}
-      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
-
+      <TabBar />
     </div>
   );
 }
