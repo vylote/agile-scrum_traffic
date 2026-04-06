@@ -61,14 +61,39 @@ export const RescueHome = () => {
 
   useEffect(() => {
     if (!socket) return;
+
     const handleNewIncident = (data) => {
+      const newInc = data.incident;
+
       setIncidentsQueue((prev) => {
-        if (prev.find((i) => i._id === data.incident._id)) return prev;
-        return [...prev, data.incident];
+        // 1. Nếu đã có trong danh sách rồi thì thôi
+        if (prev.find((i) => i._id === newInc._id)) return prev;
+
+        const updatedQueue = [...prev, newInc];
+
+        // 🔥 CHỖ QUAN TRỌNG NHẤT:
+        // Nếu Rescue đang rảnh (normal), thì "ép" App chuyển sang chế độ xem sự cố mới này ngay
+        if (appStateRef.current === "normal") {
+          setViewingIncident(newInc);
+          setAppState("viewing");
+
+          // Bay bản đồ tới vị trí sự cố mới
+          if (newInc.location?.coordinates) {
+            setMapFocus(newInc.location.coordinates);
+          }
+        }
+
+        return updatedQueue;
       });
     };
+
     socket.on("incident:new", handleNewIncident);
-    return () => socket.off("incident:new", handleNewIncident);
+    socket.on("alert:sos", handleNewIncident); // Đừng quên nghe cả SOS nhé Vy
+
+    return () => {
+      socket.off("incident:new", handleNewIncident);
+      socket.off("alert:sos", handleNewIncident);
+    };
   }, [socket]);
 
   // Khi click Marker, mở Slider và bay camera về sự cố đó

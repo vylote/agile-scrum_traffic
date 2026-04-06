@@ -6,7 +6,8 @@ const { USER_ROLES} = require("../utils/constants/userConstants")
 
 router.use(protect);
 router.post('/', restrictTo(USER_ROLES.ADMIN), rescueTeamController.createRescueTeam);
-router.get('/', restrictTo(USER_ROLES.DISPATCHER), rescueTeamController.getAllRescueTeam);
+router.get('/', restrictTo(USER_ROLES.DISPATCHER, USER_ROLES.ADMIN), rescueTeamController.getAllRescueTeam);
 router.patch('/:id/location', restrictTo(USER_ROLES.RESCUE), rescueTeamController.updateLocation);
+router.get('/:id/members',restrictTo(USER_ROLES.DISPATCHER, USER_ROLES.ADMIN, USER_ROLES.RESCUE), rescueTeamController.getRescueTeamMembers)
 
 module.exports = router;

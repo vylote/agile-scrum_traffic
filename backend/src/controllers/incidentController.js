@@ -407,7 +407,7 @@ exports.deleteIncident = async (req, res, next) => {
  */
 exports.getAllIncidents = async (req, res, next) => {
     try {
-        const { page, limit: queryLimit, type, severity, status, zone } = req.query
+        const { page, limit: queryLimit, type, severity, status, zone, assignedTeam } = req.query
 
         let limit = parseInt(queryLimit) || 10;
         const currentPage = parseInt(page) || 1;
@@ -417,6 +417,8 @@ exports.getAllIncidents = async (req, res, next) => {
         if (type) filter.type = type
         if (severity) filter.severity = severity
         if (zone) filter.zone = zone
+        if (assignedTeam) filter.assignedTeam = assignedTeam;
+
         if (status) {
             if (status.includes(',')) {
                 // Nếu có dấu phẩy (PENDING,ASSIGNED...), biến thành mảng và dùng $in
@@ -441,6 +443,7 @@ exports.getAllIncidents = async (req, res, next) => {
             .skip(parseInt(skip))
             .limit(parseInt(limit))
             .populate('reportedBy', 'name phone email')
+            .populate('assignedTeam', 'name code');
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
             pagination: {
@@ -584,20 +587,26 @@ exports.updateIncidentStatus = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS))
         }
 
+        const updateData = {
+            status,
+            // Dùng $push của MongoDB để nhét thêm 1 dòng lịch sử mới vào mảng timeline
+            $push: {
+                timeline: {
+                    status: status,
+                    updatedBy: req.user._id,
+                    note: `Trạng thái cập nhật thành ${status}`,
+                    timestamp: Date.now()
+                }
+            }
+        };
+
+        if (status === INCIDENT_STATUS.IN_PROGRESS && teamData?._id) {
+            updateData.assignedTeam = teamData._id;
+        }
+
         const updatedIncident = await Incident.findByIdAndUpdate(
             id,
-            {
-                status,
-                // Dùng $push của MongoDB để nhét thêm 1 dòng lịch sử mới vào mảng timeline
-                $push: {
-                    timeline: {
-                        status: status,
-                        updatedBy: req.user._id,
-                        note: `Trạng thái cập nhật thành ${status}`,
-                        timestamp: Date.now()
-                    }
-                }
-            },
+            updateData,
             { new: true, runValidators: true }
         );
 

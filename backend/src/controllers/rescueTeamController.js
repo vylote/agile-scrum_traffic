@@ -99,27 +99,26 @@ exports.createRescueTeam = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES, 'Vui lòng cung cấp tọa độ đội cứu hộ'));
         }
 
-        let validMembers = []
+        const existingTeam = await RescueTeam.findOne({ code });
+        if (existingTeam) {
+            return next(new AppError(ErrorCodes.RESCUE_TEAM_CODE_EXISTS));
+        }
+
+        let validMembers = [];
         if (members && Array.isArray(members) && members.length > 0) {
-            for (let i = 0; i < members.length; ++i) {
-                const member = members[i]
-                const user = await User.findById(member.userId)
-                if (!user)
-                    return next(new AppError(ErrorCodes.USER_NOT_FOUND))
+            for (const member of members) {
+                const user = await User.findById(member.userId);
+                if (!user) return next(new AppError(ErrorCodes.USER_NOT_FOUND));
+                if (user.role !== USER_ROLES.RESCUE) return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
+                if (user.rescueTeam) return next(new AppError(ErrorCodes.USER_ALREADY_IN_TEAM));
 
-                if (user.role != USER_ROLES.RESCUE)
-                    return next(new AppError(ErrorCodes.AUTH_FORBIDDEN))
-
-                if (user.rescueTeam)
-                    return next(new AppError(ErrorCodes.USER_ALREADY_IN_TEAM))
-
-                validMembers.push({ userId: user._id, role: member.role })
+                validMembers.push({ userId: user._id, role: member.role });
             }
         }
 
         const newRescueTeam = await RescueTeam.create({
             name,
-            code,
+            code: code.toUpperCase(), // Đảm bảo mã luôn viết hoa trong DB
             type,
             currentLocation: {
                 type: 'Point',
@@ -128,11 +127,10 @@ exports.createRescueTeam = async (req, res, next) => {
             zone,
             capabilities: capabilities || [],
             members: validMembers,
-        })
+        });
 
         if (validMembers.length > 0) {
             const userIds = validMembers.map(m => m.userId)
-
             await User.updateMany(
                 { _id: { $in: userIds } },
                 { rescueTeam: newRescueTeam._id }
@@ -429,6 +427,31 @@ exports.removeMembers = async (req, res, next) => {
             { rescueTeam: null }
         );
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedTeam);
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.getRescueTeamMembers = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
+        }
+
+        // Tìm đội và lôi thông tin User gắn với thành viên đó
+        const team = await RescueTeam.findById(id)
+            .populate({
+                path: 'members.userId',
+                select: 'name phone email avatar role status' // Chỉ lấy các trường cần thiết
+            });
+
+        if (!team) {
+            return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+        }
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, team.members);
     } catch (err) {
         next(err);
     }

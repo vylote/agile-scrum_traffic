@@ -1,134 +1,127 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
-  X, Phone, MapPin, Briefcase, Users, 
-  FileCheck, Info, Plus, Trash2, ChevronDown, 
-  CheckCircle2, UserPlus, Save 
+  X, Phone, MapPin, Users, Info, Plus, Trash2, 
+  ChevronDown, CheckCircle2, Save, ShieldCheck, Loader2 
 } from "lucide-react";
+import api from "../../services/api"; 
 
-// --- CÁC THÀNH PHẦN UI HỖ TRỢ (Lắp ráp từ snippet của bạn) ---
-
-const FormField = ({ label, required = false, children, className = "" }) => (
-  <div className={`mb-4 ${className}`}>
-    <label className="mb-2 text-sm font-medium leading-5 text-gray-900 block">
-      {label}
-      {required && <span className="text-red-500 ml-1">*</span>}
+// --- 1. COMPONENT UI HỖ TRỢ ---
+const FormField = ({ label, required = false, children }) => (
+  <div className="mb-4">
+    <label className="mb-2 text-sm font-bold text-gray-700 block">
+      {label} {required && <span className="text-red-500">*</span>}
     </label>
     {children}
   </div>
 );
 
-const SelectField = ({ value, onChange, options = [], className = "" }) => (
-  <div className="relative">
-    <select
-      value={value}
-      onChange={(e) => onChange?.(e.target.value)}
-      className={`px-3 py-2.5 w-full h-11 text-sm leading-5 text-gray-900 bg-white rounded-md border border-gray-300 cursor-pointer appearance-none focus:ring-2 focus:ring-blue-500 outline-none ${className}`}
-    >
-      <option value="" disabled>Chọn vai trò</option>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>{option.label}</option>
-      ))}
-    </select>
-    <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-  </div>
-);
-
-// --- MODAL THÊM NHÂN SỰ (Cửa sổ Pop-up) ---
-
-const AddPersonnelModal = ({ isOpen, onClose, teamName }) => {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    phoneNumber: "",
-    role: "lai-chinh",
-    defaultPassword: "cuuho123"
-  });
+const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => {
+  const [phone, setPhone] = useState("");
+  const [foundUser, setFoundUser] = useState(null); // Lưu thông tin User tìm được
+  const [roleInTeam, setRoleInTeam] = useState("Lái chính"); // Vai trò trong đội
+  const [searching, setSearching] = useState(false);
 
   if (!isOpen) return null;
 
-  const roleOptions = [
-    { value: "lai-chinh", label: "Lái chính" },
-    { value: "lai-phu", label: "Lái phụ" },
-    { value: "nhan-vien", label: "Nhân viên" }
-  ];
+  // 🔥 Hàm tìm kiếm User khi nhập đủ số điện thoại (VD: 10 số)
+  const handlePhoneChange = async (e) => {
+    const value = e.target.value.replace(/\D/g, ""); // Chỉ lấy số
+    setPhone(value);
+    setFoundUser(null); // Reset user cũ khi đổi số
+
+    if (value.length >= 10) {
+      setSearching(true);
+      try {
+        const res = await api.get(`/users/search-by-phone/${value}`);
+        setFoundUser(res.data.result);
+      } catch (error) {
+        console.log("Không tìm thấy user", error);
+      } finally {
+        setSearching(false);
+      }
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!foundUser) return alert("Vui lòng nhập đúng SĐT nhân sự đã đăng ký!");
+
+    try {
+      // Gọi API add thành viên (Sử dụng hàm patch addMembers Vy đã có ở Backend)
+      await api.patch(`/rescue-teams/${teamId}/members/add`, {
+        newMembers: [
+          { userId: foundUser._id, role: roleInTeam }
+        ]
+      });
+
+      alert(`Đã thêm ${foundUser.name} vào đội ${teamName} thành công!`);
+      onSuccess?.(); 
+      onClose();
+      // Reset form
+      setPhone(""); setFoundUser(null);
+    } catch (error) {
+      alert(error.response?.data?.message || "Lỗi khi thêm thành viên");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-      {/* Lớp nền mờ tối hơn cho riêng Modal này */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-      
-      <div className="relative w-full max-w-[500px] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-        <header className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
-          <h1 className="text-xl font-bold text-gray-900">Thêm nhân sự mới</h1>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
-            <X size={20} />
-          </button>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-[450px] bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+        <header className="px-6 py-5 border-b bg-gray-50/50">
+          <h1 className="text-lg font-black text-gray-900">Thêm thành viên vào đội</h1>
         </header>
 
-        <form className="p-6" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
-          <section className="mb-6">
-            <p className="text-sm text-gray-500">
-              Thêm vào đội: <span className="text-blue-500 font-bold ml-1">{teamName}</span>
-            </p>
-          </section>
-
-          <FormField label="Họ và tên" required>
-            <input
-              type="text"
-              placeholder="Nhập tên nhân sự"
-              className="px-3 py-2.5 w-full h-11 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              required
-              value={formData.fullName}
-              onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-            />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <FormField label="Số điện thoại" required>
+        <form className="p-8" onSubmit={handleSubmit}>
+          {/* 1. Nhập SĐT để tìm kiếm */}
+          <FormField label="Số điện thoại nhân sự" required>
+            <div className="relative">
               <input
                 type="tel"
-                placeholder="02131..."
-                className="px-3 py-2.5 w-full h-11 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="Nhập 10 số để tìm..."
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-500 outline-none font-bold transition-all"
+                value={phone}
+                onChange={handlePhoneChange}
+                maxLength={11}
                 required
-                value={formData.phoneNumber}
-                onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
               />
-            </FormField>
+              {searching && <Loader2 className="absolute right-3 top-3.5 animate-spin text-blue-500" size={20} />}
+            </div>
+          </FormField>
 
-            <FormField label="Vai trò trong đội" required>
-              <SelectField
-                value={formData.role}
-                onChange={(val) => setFormData({...formData, role: val})}
-                options={roleOptions}
-              />
-            </FormField>
-          </div>
-
-          <FormField label="Mật khẩu mặc định">
+          {/* 2. Hiện tên User (Read-only) */}
+          <FormField label="Họ và tên (Tự động nhận diện)">
             <input
               type="text"
-              value={formData.defaultPassword}
-              className="px-3 py-2.5 w-full h-11 text-sm bg-gray-50 rounded-md border border-gray-300 text-gray-500 font-mono"
               readOnly
+              className={`w-full px-4 py-3 rounded-xl border border-dashed text-sm font-bold ${
+                foundUser ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"
+              }`}
+              value={foundUser ? foundUser.name : "Chưa tìm thấy nhân sự..."}
             />
           </FormField>
 
-          <p className="mb-8 text-xs text-gray-400 italic">
-            * Tài xế có thể đổi mật khẩu này trong Cài đặt của App Mobile.
-          </p>
+          {/* 3. Chọn vai trò của ông này trong đội */}
+          <FormField label="Vai trò trong đội này" required>
+            <select 
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-white font-semibold outline-none cursor-pointer"
+              value={roleInTeam}
+              onChange={(e) => setRoleInTeam(e.target.value)}
+            >
+              <option value="Lái chính">Lái chính</option>
+              <option value="Lái phụ">Lái phụ</option>
+              <option value="Kỹ thuật viên">Kỹ thuật viên</option>
+            </select>
+          </FormField>
 
-          <footer className="flex gap-3 justify-end items-center">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2.5 text-sm font-bold text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          <footer className="flex gap-3 justify-end mt-8 border-t pt-6">
+            <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-gray-400">Hủy</button>
+            <button 
+              type="submit" 
+              disabled={!foundUser} 
+              className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg active:scale-95 disabled:bg-gray-200 disabled:shadow-none transition-all"
             >
-              Hủy bỏ
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 text-sm font-bold text-white bg-blue-500 rounded-lg hover:bg-blue-600 shadow-lg shadow-blue-100 transition-all active:scale-95"
-            >
-              Đẩy lên hệ thống
+              Xác nhận gán vào đội
             </button>
           </footer>
         </form>
@@ -137,187 +130,92 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName }) => {
   );
 };
 
-// --- COMPONENT CHÍNH PARTNER SIDEBAR ---
-
+// --- 3. COMPONENT CHÍNH PARTNER SIDEBAR ---
 export const PartnerSidebar = ({ partner, onClose }) => {
   const [activeTab, setActiveTab] = useState("organization");
   const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchMembers = useCallback(async () => {
+    if (!partner?._id) return;
+    try {
+      setLoading(true);
+      const res = await api.get(`/rescue-teams/${partner._id}/members`);
+      setStaffMembers(res.data.result || []);
+    } catch (error) {
+      console.error("Lỗi lấy nhân sự:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [partner?._id]);
+
+  useEffect(() => {
+    if (partner?._id) {
+      fetchMembers();
+      setActiveTab("organization");
+    }
+  }, [fetchMembers, partner?._id]);
 
   if (!partner) return null;
 
-  const staffMembers = [
-    { id: "101", name: "Nguyễn Văn Lái", phone: "0987654567", role: "Lái chính", status: "online" },
-    { id: "102", name: "Trần Văn Phụ", phone: "0987654321", role: "Phụ xe", status: "online" },
-  ];
-
   return (
     <div className="fixed inset-0 z-[100] flex justify-end">
-      {/* Lớp nền mờ cho Sidebar */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] transition-opacity" onClick={onClose} />
-
-      {/* Sidebar Content */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
       <aside className="relative w-full max-w-[420px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
         
-        {/* HEADER */}
-        <header className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
+        <header className="flex justify-between items-center px-6 py-5 border-b">
           <div className="flex gap-3 items-center">
-            <img
-              src={partner.avatar || "https://placehold.co/40x40/d1d5db/d1d5db"}
-              alt="Team avatar"
-              className="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm"
-            />
+            <div className="w-11 h-11 rounded-full bg-blue-50 border flex items-center justify-center font-bold text-blue-600 uppercase">{partner.name?.charAt(0)}</div>
             <div>
-              <h2 className="text-base font-bold text-gray-900 leading-tight">{partner.name}</h2>
-              <p className="text-xs text-gray-400 font-medium">Mã: {partner.id}</p>
+              <h2 className="text-base font-bold text-gray-900">{partner.name}</h2>
+              <p className="text-xs text-gray-400 font-mono">Mã: {partner.code}</p>
             </div>
           </div>
-          <div className="flex gap-2 items-center">
-            <span className="px-3 py-1 text-[11px] font-bold uppercase text-emerald-700 bg-emerald-100 rounded-md border border-emerald-200">
-              {partner.status || "Đang hoạt động"}
-            </span>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
-              <X size={20} />
-            </button>
-          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full text-gray-400"><X size={20} /></button>
         </header>
 
-        {/* TAB NAVIGATION */}
-        <nav className="flex px-6 border-b border-gray-100 bg-gray-50/50">
-          <button
-            onClick={() => setActiveTab("organization")}
-            className={`flex gap-2 items-center px-4 py-4 text-sm font-bold transition-all border-b-2 ${
-              activeTab === "organization" ? "text-blue-600 border-blue-600" : "text-gray-400 border-transparent hover:text-gray-600"
-            }`}
-          >
-            <Info size={16} /> Thông tin tổ chức
-          </button>
-          <button
-            onClick={() => setActiveTab("personnel")}
-            className={`flex gap-2 items-center px-4 py-4 text-sm font-bold transition-all border-b-2 ${
-              activeTab === "personnel" ? "text-blue-600 border-blue-600" : "text-gray-400 border-transparent hover:text-gray-600"
-            }`}
-          >
-            <Users size={16} /> Quản lý nhân sự
-          </button>
+        <nav className="flex px-6 border-b bg-gray-50/50">
+          <button onClick={() => setActiveTab("organization")} className={`flex-1 py-4 text-sm font-bold border-b-2 transition-all ${activeTab === "organization" ? "text-blue-600 border-blue-600" : "text-gray-400 border-transparent"}`}>Thông tin</button>
+          <button onClick={() => setActiveTab("personnel")} className={`flex-1 py-4 text-sm font-bold border-b-2 transition-all ${activeTab === "personnel" ? "text-blue-600 border-blue-600" : "text-gray-400 border-transparent"}`}>Nhân sự ({staffMembers.length})</button>
         </nav>
 
-        {/* CONTENT */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === "organization" ? (
-            /* TAB 1: THÔNG TIN TỔ CHỨC */
-            <div className="space-y-6 animate-in fade-in duration-200">
-              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Hồ sơ Doanh nghiệp</h3>
-              
-              <div className="space-y-4">
-                <FormField label="Tên doanh nghiệp">
-                  <input
-                    type="text"
-                    defaultValue={partner.name}
-                    className="px-4 py-2.5 w-full text-sm rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </FormField>
-
-                <FormField label="Hotline liên hệ">
-                  <input
-                    type="tel"
-                    defaultValue={partner.phone}
-                    className="px-4 py-2.5 w-full text-sm font-semibold rounded-xl border border-gray-200"
-                  />
-                </FormField>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label="Khu vực phụ trách">
-                    <div className="relative">
-                      <select className="px-4 py-2.5 w-full text-sm bg-white rounded-xl border border-gray-200 outline-none appearance-none">
-                        <option>Cầu Giấy</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3 top-3 text-gray-400" />
-                    </div>
-                  </FormField>
-                  <FormField label="Năng lực chính">
-                    <div className="relative">
-                      <select className="px-4 py-2.5 w-full text-sm bg-white rounded-xl border border-gray-200 outline-none appearance-none">
-                        <option>Xe Cẩu Kéo / Sàn Trượt</option>
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3 top-3 text-gray-400" />
-                    </div>
-                  </FormField>
+            <div className="space-y-4 animate-in fade-in">
+              <FormField label="Khu vực"><div className="px-4 py-2.5 bg-gray-50 rounded-xl text-sm border font-medium">{partner.zone}</div></FormField>
+              <FormField label="Loại hình"><div className="px-4 py-2.5 bg-gray-50 rounded-xl text-sm border font-medium">{partner.type}</div></FormField>
+              <FormField label="Năng lực">
+                <div className="flex flex-wrap gap-2">
+                  {partner.capabilities?.map((c, i) => <span key={i} className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border">{c}</span>)}
                 </div>
-
-                <div className="pt-4 border-t border-dashed border-gray-200">
-                  <h4 className="mb-3 text-sm font-bold text-gray-900 uppercase">Giấy phép ĐKKD</h4>
-                  <div className="flex items-center p-3.5 bg-emerald-50 rounded-xl border border-emerald-100 justify-between">
-                    <div className="flex gap-2 items-center">
-                      <CheckCircle2 size={18} className="text-emerald-500" />
-                      <span className="text-xs font-bold text-emerald-700 uppercase">Đã xác thực hồ sơ</span>
-                    </div>
-                    <button className="px-3 py-1.5 text-[10px] font-bold text-gray-500 bg-white rounded-lg border border-gray-200">
-                      Xem lại đơn
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition-all active:scale-[0.98]">
-                Lưu cập nhật hồ sơ
-              </button>
+              </FormField>
             </div>
           ) : (
-            /* TAB 2: QUẢN LÝ NHÂN SỰ */
-            <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-2 items-center">
-                  <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Nhân sự</span>
-                  <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">2</span>
-                </div>
-                {/* NÚT MỞ MODAL THÊM NHÂN SỰ */}
-                <button 
-                  onClick={() => setIsPersonnelModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-xs font-bold transition-all active:scale-95 shadow-md shadow-sky-100"
-                >
-                  <Plus size={14} /> Thêm nhân sự
-                </button>
+            <div className="space-y-4 animate-in fade-in">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold text-gray-400 uppercase">Danh sách đội ngũ</span>
+                <button onClick={() => setIsPersonnelModalOpen(true)} className="flex items-center gap-1 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[11px] font-bold active:scale-95"><Plus size={14} /> Thêm người</button>
               </div>
-
-              {/* List */}
-              <div className="space-y-3">
-                {staffMembers.map((staff, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-blue-200 transition-all shadow-sm group">
+              {loading ? <p className="text-center py-10 text-gray-400 text-xs italic">Đang tải dữ liệu...</p> : (
+                staffMembers.map((m, idx) => (
+                  <div key={m.userId?._id || idx} className="flex items-center justify-between p-4 bg-white border rounded-2xl group hover:border-blue-200 transition-all">
                     <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <img src={`https://i.pravatar.cc/150?img=${idx+20}`} className="w-10 h-10 rounded-full border border-gray-100 shadow-sm" alt="" />
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
-                      </div>
+                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold uppercase">{m.userId?.name?.charAt(0)}</div>
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{staff.name}</p>
-                        <p className="text-[11px] text-gray-400 font-medium uppercase tracking-tighter">
-                          {staff.role} • {staff.phone}
-                        </p>
+                        <p className="text-sm font-bold text-gray-900">{m.userId?.name || "N/A"}</p>
+                        <p className="text-[10px] text-gray-400 font-medium uppercase">{m.role} • {m.userId?.phone}</p>
                       </div>
                     </div>
-                    <button className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                      <Trash2 size={16} />
-                    </button>
+                    <button className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
                   </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 p-4 bg-sky-50 rounded-2xl border border-sky-100 border-opacity-50 mt-10">
-                <Info size={18} className="text-sky-500 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-sky-700 leading-relaxed font-medium italic">
-                  Hệ thống <b>Auto-Assign</b> sẽ quét GPS của các tài xế đang ở trạng thái Online để điều phối sự cố gần nhất.
-                </p>
-              </div>
+                ))
+              )}
             </div>
           )}
         </div>
 
-        {/* MODAL PHỤ ĐÈ LÊN SIDEBAR */}
-        <AddPersonnelModal 
-          isOpen={isPersonnelModalOpen} 
-          onClose={() => setIsPersonnelModalOpen(false)}
-          teamName={partner.name}
-        />
+        <AddPersonnelModal isOpen={isPersonnelModalOpen} onClose={() => setIsPersonnelModalOpen(false)} teamName={partner.name} teamId={partner._id} onSuccess={fetchMembers} />
       </aside>
     </div>
   );
