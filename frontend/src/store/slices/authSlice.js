@@ -1,15 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-// 1. Quét ổ cứng (localStorage) xem trước đó có ông nào đăng nhập chưa
-// vì dữ liệu dc redux lưu trên RAM->f5 thì ram clear
-const savedUser = localStorage.getItem('user') //lay ra chuoi JSON 
+const savedUser = localStorage.getItem('user') 
 
-// authSlice.js
 const authSlice = createSlice({
   name: 'auth',
+  // phần initialState sẽ ngay lập tức được chạy khi store khởi tạo
   initialState: {
     user: savedUser ? JSON.parse(savedUser) : null,
-    isInitialized: false, // <-- Thêm vào để biết khi nào App đã check xong Session
+    isInitialized: false,
   },
   reducers: {
     loginSuccess: (state, action) => {

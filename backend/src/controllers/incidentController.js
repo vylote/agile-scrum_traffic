@@ -416,8 +416,17 @@ exports.getAllIncidents = async (req, res, next) => {
         const filter = {}
         if (type) filter.type = type
         if (severity) filter.severity = severity
-        if (status) filter.status = status
         if (zone) filter.zone = zone
+        if (status) {
+            if (status.includes(',')) {
+                // Nếu có dấu phẩy (PENDING,ASSIGNED...), biến thành mảng và dùng $in
+                const statusArray = status.split(',');
+                filter.status = { $in: statusArray };
+            } else {
+                // Nếu chỉ có 1 status
+                filter.status = status;
+            }
+        }
 
         if (req.user.role === USER_ROLES.CITIZEN) {
             filter.reportedBy = req.user._id;
