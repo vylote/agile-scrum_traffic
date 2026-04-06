@@ -22,13 +22,13 @@ export const useSocket = (activeIncidentId = null) => {
         if (user.role === USER_ROLES.RESCUE && user.rescueTeam) {
             watchId.current = navigator.geolocation.watchPosition(
                 (pos) => {
-                    const { latitude, longitude } = pos.coords;
-
                     socket.emit("rescue:updateLocation", {
-                        teamId: user.rescueTeam._id || user.rescueTeam,
-                        lat: latitude,
-                        lng: longitude,
-                        incidentId: activeIncidentId
+                        teamId: user.rescueTeam._id,
+                        teamName: user.rescueTeam.name,
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        incidentId: activeIncidentId,
+                        status: user.rescueTeam.status
                     });
                 },
                 (err) => console.error("GPS Watch Error:", err),

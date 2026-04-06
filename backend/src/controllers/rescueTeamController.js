@@ -204,6 +204,7 @@ exports.getAllRescueTeam = async (req, res, next) => {
             .sort('-createdAt')
             .skip(parseInt(skip))
             .limit(parseInt(limit))
+            .populate('members.userId', 'name phone');
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
             pagination: {

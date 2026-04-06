@@ -12,6 +12,8 @@ const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
   root.render(
+    // StrictMode là một công cụ của React dành cho môi trường phát triển (Development).
+    //  Nó sẽ chủ động render lại component 2 lần và chạy useEffect 2 lần.
     <StrictMode>
       <Provider store={store}>
         <App />

@@ -29,9 +29,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on('rescue:updateLocation', (data) => {
-        const { teamId, lat, lng, incidentId } = data;
-        io.to('room:dispatchers').emit('rescue:location', { teamId, lat, lng });
-        // 2. Gửi cho Người dân (Chỉ phòng của sự cố này)
+        const { teamId, lat, lng, incidentId, status, teamName } = data;
+        // Gửi cho TOÀN BỘ Dispatcher/Admin để theo dõi đội xe (Fleet Tracking)
+        io.to('room:dispatchers').emit('rescue:location_update', { 
+            teamId, 
+            lat, 
+            lng, 
+            status,
+            teamName,
+            updatedAt: new Date()
+        });
+        // Nếu đang làm vụ nào thì gửi riêng cho người dân vụ đó
         if (incidentId) {
             io.to(`incident_chat:${incidentId}`).emit('rescue:location_client', { lat, lng });
         }
