@@ -116,7 +116,7 @@ exports.createRescueTeam = async (req, res, next) => {
             }
         }
 
-        const newRescueTeam = await RescueTeam.create({
+        let newRescueTeam = await RescueTeam.create({
             name,
             code: code.toUpperCase(), // Đảm bảo mã luôn viết hoa trong DB
             type,
@@ -128,6 +128,9 @@ exports.createRescueTeam = async (req, res, next) => {
             capabilities: capabilities || [],
             members: validMembers,
         });
+
+        // 2. 🔥 QUAN TRỌNG: Populate thông tin User ngay sau khi tạo để trả về Frontend
+        newRescueTeam = await newRescueTeam.populate('members.userId', 'name phone email');
 
         if (validMembers.length > 0) {
             const userIds = validMembers.map(m => m.userId)
@@ -185,38 +188,46 @@ exports.createRescueTeam = async (req, res, next) => {
  */
 exports.getAllRescueTeam = async (req, res, next) => {
     try {
-        const { page, type, status } = req.query
+        const { page, type, status, limit: queryLimit, activeOnly } = req.query;
 
-        const limit = 5
-        const currentPage = parseInt(page) || 1;
-        const skip = (currentPage - 1) * limit
+        const limit = parseInt(queryLimit) || 10; 
+        const currentPage = Math.max(1, parseInt(page) || 1);
+        const skip = (currentPage - 1) * limit;
 
-        const filter = {}
-        if (type) filter.type = type
-        if (status) filter.status = status
+        const filter = {};
+        if (type) filter.type = type;
+        if (status) filter.status = status;
 
-        const total = await RescueTeam.countDocuments(filter)
-        const totalPages = Math.ceil(total / limit)
+        // 🔥 CHỖ QUAN TRỌNG: Chỉ lọc nếu Frontend truyền lên "activeOnly=true"
+        // Nếu không truyền (như mặc định của Dispatcher), nó sẽ lấy cả đội "rỗng"
+        if (activeOnly === 'true') {
+            filter.members = { $exists: true, $not: { $size: 0 } }; 
+            // Có thể kết hợp thêm: filter.status = { $ne: 'OFFLINE' };
+        }
 
-        const rescueTeams = await RescueTeam.find(filter)
-            .sort('-createdAt')
-            .skip(parseInt(skip))
-            .limit(parseInt(limit))
-            .populate('members.userId', 'name phone');
+        const [total, rescueTeams] = await Promise.all([
+            RescueTeam.countDocuments(filter),
+            RescueTeam.find(filter)
+                .sort('-lastLocationUpdate') 
+                .skip(skip)
+                .limit(limit)
+                .populate('members.userId', 'name phone')
+                .lean() 
+        ]);
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
             pagination: {
                 total,
-                totalPages,
+                totalPages: Math.ceil(total / limit),
                 currentPage,
                 limit
             },
             data: rescueTeams
-        })
+        });
     } catch (err) {
-        next(err)
+        next(err);
     }
-}
+};
 
 /**
    * @swagger
@@ -354,12 +365,14 @@ exports.addMembers = async (req, res, next) => {
         if (validMembers.length === 0) {
             return next(new AppError(ErrorCodes.INVALID_INPUT));
         }
-        // Dùng $push kèm $each để nhét nhiều thành viên mới vào đuôi mảng hiện tại
         const updatedTeam = await RescueTeam.findByIdAndUpdate(
             id,
             { $push: { members: { $each: validMembers } } },
             { new: true, runValidators: true }
-        );
+        ).populate('members.userId', 'name phone email'); // Nối bảng User ngay lập tức
+
+        if (!updatedTeam) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+
         // Cập nhật rescueTeam cho các user vừa được thêm
         const userIds = validMembers.map(m => m.userId);
         await User.updateMany(

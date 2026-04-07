@@ -12,7 +12,13 @@ const RESCUE_TEAM_STATUS = {
     OFFLINE: 'OFFLINE'
 };
 
+const TEAM_ROLES = {
+    LEADER: 'LEADER',   // Người cầm lái + cầm quyền quyết định
+    MEMBER: 'MEMBER'   
+};
+
 module.exports = {
+    TEAM_ROLES,
     RESCUE_TEAM_TYPES,
     RESCUE_TEAM_STATUS,
     ALL_RESCUE_TYPES: Object.values(RESCUE_TEAM_TYPES),

@@ -15,19 +15,31 @@ const FormField = ({ label, required = false, children }) => (
   </div>
 );
 
+// --- 2. MODAL THÊM NHÂN SỰ (Gán bằng SĐT) ---
 const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => {
   const [phone, setPhone] = useState("");
-  const [foundUser, setFoundUser] = useState(null); // Lưu thông tin User tìm được
-  const [roleInTeam, setRoleInTeam] = useState("Lái chính"); // Vai trò trong đội
+  const [foundUser, setFoundUser] = useState(null); 
+  const [roleInTeam, setRoleInTeam] = useState("Lái chính"); 
   const [searching, setSearching] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
 
-  // 🔥 Hàm tìm kiếm User khi nhập đủ số điện thoại (VD: 10 số)
+  // 🔥 Hàm reset state và đóng modal
+  const handleInternalClose = () => {
+    setPhone("");
+    setFoundUser(null);
+    setErrorMsg("");
+    setSearching(false);
+    onClose();
+  };
+
+  // 🔥 Tìm kiếm User khi nhập đủ 10 số điện thoại
   const handlePhoneChange = async (e) => {
-    const value = e.target.value.replace(/\D/g, ""); // Chỉ lấy số
+    const value = e.target.value.replace(/\D/g, ""); 
     setPhone(value);
-    setFoundUser(null); // Reset user cũ khi đổi số
+    setFoundUser(null);
+    setErrorMsg("");
 
     if (value.length >= 10) {
       setSearching(true);
@@ -35,7 +47,8 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
         const res = await api.get(`/users/search-by-phone/${value}`);
         setFoundUser(res.data.result);
       } catch (error) {
-        console.log("Không tìm thấy user", error);
+        // Lấy message lỗi từ Backend (Ví dụ: "Nhân viên đã thuộc đội khác")
+        setErrorMsg(error.response?.data?.message || "Không tìm thấy nhân sự cứu hộ phù hợp.");
       } finally {
         setSearching(false);
       }
@@ -44,64 +57,66 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!foundUser) return alert("Vui lòng nhập đúng SĐT nhân sự đã đăng ký!");
+    if (!foundUser) return;
 
     try {
-      // Gọi API add thành viên (Sử dụng hàm patch addMembers Vy đã có ở Backend)
+      // ✅ CHUẨN: Dùng PATCH để cập nhật thêm thành viên vào mảng của Đội
       await api.patch(`/rescue-teams/${teamId}/members/add`, {
         newMembers: [
           { userId: foundUser._id, role: roleInTeam }
         ]
       });
 
-      alert(`Đã thêm ${foundUser.name} vào đội ${teamName} thành công!`);
-      onSuccess?.(); 
-      onClose();
-      // Reset form
-      setPhone(""); setFoundUser(null);
+      alert(`Đã gán thành công ${foundUser.name} vào đội ${teamName}!`);
+      onSuccess?.(); // Sidebar cha sẽ tự động load lại danh sách nhân viên
+      handleInternalClose(); 
     } catch (error) {
-      alert(error.response?.data?.message || "Lỗi khi thêm thành viên");
+      alert(error.response?.data?.message || "Lỗi khi gán thành viên vào hệ thống.");
     }
   };
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleInternalClose} />
       <div className="relative w-full max-w-[450px] bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-        <header className="px-6 py-5 border-b bg-gray-50/50">
-          <h1 className="text-lg font-black text-gray-900">Thêm thành viên vào đội</h1>
+        <header className="px-6 py-5 border-b bg-gray-50/50 flex justify-between items-center">
+          <h1 className="text-lg font-black text-gray-900">Gán nhân sự vào đội</h1>
+          <button onClick={handleInternalClose} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
         </header>
 
         <form className="p-8" onSubmit={handleSubmit}>
-          {/* 1. Nhập SĐT để tìm kiếm */}
-          <FormField label="Số điện thoại nhân sự" required>
+          {/* Nhập SĐT */}
+          <FormField label="Số điện thoại nhân viên" required>
             <div className="relative">
               <input
                 type="tel"
-                placeholder="Nhập 10 số để tìm..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-500 outline-none font-bold transition-all"
+                placeholder="Nhập 10 số điện thoại..."
+                className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold transition-all ${
+                  errorMsg ? "border-red-100 bg-red-50" : "border-gray-100 focus:border-blue-500"
+                }`}
                 value={phone}
                 onChange={handlePhoneChange}
                 maxLength={11}
-                required
               />
               {searching && <Loader2 className="absolute right-3 top-3.5 animate-spin text-blue-500" size={20} />}
             </div>
+            {errorMsg && <p className="mt-1.5 text-[11px] text-red-500 font-bold italic">{errorMsg}</p>}
           </FormField>
 
-          {/* 2. Hiện tên User (Read-only) */}
-          <FormField label="Họ và tên (Tự động nhận diện)">
+          {/* Tên nhân viên (Chỉ đọc) */}
+          <FormField label="Họ tên nhân sự">
             <input
               type="text"
               readOnly
+              placeholder="Hệ thống sẽ tự nhận diện..."
               className={`w-full px-4 py-3 rounded-xl border border-dashed text-sm font-bold ${
                 foundUser ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"
               }`}
-              value={foundUser ? foundUser.name : "Chưa tìm thấy nhân sự..."}
+              value={foundUser ? foundUser.name : ""}
             />
           </FormField>
 
-          {/* 3. Chọn vai trò của ông này trong đội */}
+          {/* Chọn vai trò */}
           <FormField label="Vai trò trong đội này" required>
             <select 
               className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-white font-semibold outline-none cursor-pointer"
@@ -115,7 +130,7 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
           </FormField>
 
           <footer className="flex gap-3 justify-end mt-8 border-t pt-6">
-            <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-gray-400">Hủy</button>
+            <button type="button" onClick={handleInternalClose} className="px-6 py-2.5 text-sm font-bold text-gray-400">Hủy</button>
             <button 
               type="submit" 
               disabled={!foundUser} 
@@ -195,11 +210,11 @@ export const PartnerSidebar = ({ partner, onClose }) => {
             <div className="space-y-4 animate-in fade-in">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs font-bold text-gray-400 uppercase">Danh sách đội ngũ</span>
-                <button onClick={() => setIsPersonnelModalOpen(true)} className="flex items-center gap-1 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[11px] font-bold active:scale-95"><Plus size={14} /> Thêm người</button>
+                <button onClick={() => setIsPersonnelModalOpen(true)} className="flex items-center gap-1 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[11px] font-bold active:scale-95 transition-all"><Plus size={14} /> Thêm người</button>
               </div>
               {loading ? <p className="text-center py-10 text-gray-400 text-xs italic">Đang tải dữ liệu...</p> : (
                 staffMembers.map((m, idx) => (
-                  <div key={m.userId?._id || idx} className="flex items-center justify-between p-4 bg-white border rounded-2xl group hover:border-blue-200 transition-all">
+                  <div key={m.userId?._id || idx} className="flex items-center justify-between p-4 bg-white border rounded-2xl group hover:border-blue-200 transition-all shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold uppercase">{m.userId?.name?.charAt(0)}</div>
                       <div>
@@ -207,7 +222,7 @@ export const PartnerSidebar = ({ partner, onClose }) => {
                         <p className="text-[10px] text-gray-400 font-medium uppercase">{m.role} • {m.userId?.phone}</p>
                       </div>
                     </div>
-                    <button className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
+                    <button className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
                   </div>
                 ))
               )}
