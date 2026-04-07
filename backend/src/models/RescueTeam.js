@@ -25,7 +25,7 @@ const rescueTeamSchema = new mongoose.Schema({
         role: String
     }],
     // khả năng: sơ cứu, chữa cháy, cẩu nặng
-    capablities: [String],
+    capabilities: [String],
     activeIncident:{
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Incident'},
@@ -35,7 +35,7 @@ const rescueTeamSchema = new mongoose.Schema({
         totalCompleted: { type: Number, default: 0 },
         avgResponseTime: { type: Number, default: 0 }
     },
-    lastLocationUpdate: { type: Date, default: Date.now()},
+    lastLocationUpdate: { type: Date, default: Date.now},
 
 }, { timestamps: true });
 

@@ -31,10 +31,10 @@ io.on('connection', (socket) => {
     socket.on('rescue:updateLocation', (data) => {
         const { teamId, lat, lng, incidentId, status, teamName } = data;
         // Gửi cho TOÀN BỘ Dispatcher/Admin để theo dõi đội xe (Fleet Tracking)
-        io.to('room:dispatchers').emit('rescue:location_update', { 
-            teamId, 
-            lat, 
-            lng, 
+        io.to('room:dispatchers').emit('rescue:location_update', {
+            teamId,
+            lat,
+            lng,
             status,
             teamName,
             updatedAt: new Date()
@@ -78,12 +78,12 @@ const startServer = async () => {
             cleanupOrphanPhotos();
         });
 
-        // 4. Cuối cùng mới lắng nghe các kết nối (Listen)
+        
         const PORT = process.env.PORT || 5000;
-        server.listen(PORT, () => {
+        
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`Server is running in ${process.env.NODE_ENV} mode`);
-            console.log(`Listening on: http://localhost:${PORT}`);
-            console.log(`API Docs: http://localhost:${PORT}/api-docs`);
+            console.log(`🔗 API: http://localhost:${PORT}`);
         });
 
     } catch (error) {

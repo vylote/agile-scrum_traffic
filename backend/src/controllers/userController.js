@@ -8,18 +8,17 @@ const { USER_ROLES } = require('../utils/constants/userConstants');
 exports.getAllUsers = async (req, res, next) => {
     try {
         let { page, role, search } = req.query;
-        const limit = 5; 
+        const limit = 10; // Vy nên tăng lên 10 cho khớp với giao diện máy tính
         const currentPage = Math.max(1, parseInt(page) || 1);
         const skip = (currentPage - 1) * limit;
 
-        // 1. 🔥 Đổi bộ lọc: Chỉ lấy RESCUE và DISPATCHER
         const filter = {
             role: { $in: [USER_ROLES.RESCUE, USER_ROLES.DISPATCHER] }
         };
 
         if (role) {
             const requestedRole = role.toUpperCase();
-            if ([USER_ROLES.RESCUE, USER_ROLES.DISPATCHER].includes(requestedRole)) {
+            if (filter.role.$in.includes(requestedRole)) {
                 filter.role = requestedRole;
             }
         }
@@ -33,21 +32,28 @@ exports.getAllUsers = async (req, res, next) => {
             ];
         }
 
-        const total = await User.countDocuments(filter);
-        const users = await User.find(filter)
-            .sort('-createdAt')
-            .skip(skip)
-            .limit(limit)
-            .select('-passwordHash')
-            .populate('rescueTeam', 'name code'); // 🔥 Populate thêm thông tin đội nếu là Rescue
+        // Chạy song song cho nhanh
+        const [total, users] = await Promise.all([
+            User.countDocuments(filter),
+            User.find(filter)
+                .sort('-createdAt')
+                .skip(skip)
+                .limit(limit)
+                .select('-passwordHash')
+                .populate('rescueTeam', 'name code')
+                .lean() // Giúp API trả về nhanh hơn rất nhiều
+        ]);
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
-            pagination: { total, totalPages: Math.ceil(total / limit), currentPage, limit },
+            pagination: { 
+                total, 
+                totalPages: Math.ceil(total / limit), 
+                currentPage, 
+                limit 
+            },
             data: users
         });
-    } catch (err) {
-        next(err);
-    }
+    } catch (err) { next(err); }
 };
 
 /**

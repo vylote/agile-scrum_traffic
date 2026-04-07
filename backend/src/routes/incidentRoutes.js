@@ -15,7 +15,7 @@ router.post('/sos',restrictTo(USER_ROLES.CITIZEN),incidentController.createSOS);
 
 router.get("/:id", incidentController.getIncidentById);
 
-router.patch('/:id/status', restrictTo(USER_ROLES.RESCUE), incidentController.updateIncidentStatus)
+router.patch('/:id/status',restrictTo(USER_ROLES.ADMIN, USER_ROLES.DISPATCHER, USER_ROLES.RESCUE), incidentController.updateIncidentStatus)
 
 router.patch("/:id/info",upload.array("photos", 3),incidentController.updateIncidentInfo);
 

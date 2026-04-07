@@ -407,9 +407,14 @@ exports.deleteIncident = async (req, res, next) => {
  */
 exports.getAllIncidents = async (req, res, next) => {
     try {
-        const { page, limit: queryLimit, type, severity, status, zone, assignedTeam } = req.query
+        const { page, type, severity, status, zone, assignedTeam } = req.query
 
-        let limit = parseInt(queryLimit) || 10;
+        let limit;
+        if (req.user.role === USER_ROLES.CITIZEN) {
+            limit = 100; // Người dân: cho xem nhiều để cuộn (scroll)
+        } else {
+            limit = 10;  // Dispatcher/Admin: cố định 10 dòng để giữ Layout Desktop chuẩn
+        }
         const currentPage = parseInt(page) || 1;
         const skip = (currentPage - 1) * limit
 
@@ -432,7 +437,6 @@ exports.getAllIncidents = async (req, res, next) => {
 
         if (req.user.role === USER_ROLES.CITIZEN) {
             filter.reportedBy = req.user._id;
-            limit = 100
         }
 
         const total = await Incident.countDocuments(filter)
@@ -580,55 +584,88 @@ exports.getIncidentByCode = async (req, res, next) => {
  */
 exports.updateIncidentStatus = async (req, res, next) => {
     try {
-        const { id } = req.params
-        const { status, teamData } = req.body
+        const { id } = req.params;
+        const { status, teamData, note } = req.body; 
 
         if (!ALL_STATUS.includes(status)) {
-            return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS))
+            return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS));
         }
+
+        const isAdminGroup = [USER_ROLES.ADMIN, USER_ROLES.DISPATCHER].includes(req.user.role);
+        const isRescue = req.user.role === USER_ROLES.RESCUE;
+        
+        if (isAdminGroup && status !== INCIDENT_STATUS.CANCELLED) {
+            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
+        }
+        if (isRescue && status === INCIDENT_STATUS.CANCELLED) {
+            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
+        }
+        if (req.user.role === USER_ROLES.CITIZEN) {
+            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
+        }
+
+        const statusMessages = {
+            [INCIDENT_STATUS.ASSIGNED]: "Đội cứu hộ đã tiếp nhận yêu cầu.",
+            [INCIDENT_STATUS.IN_PROGRESS]: "Đội cứu hộ đang trên đường đến hiện trường.",
+            [INCIDENT_STATUS.COMPLETED]: "Sự cố đã được xử lý hoàn tất. Cảm ơn bạn!",
+            [INCIDENT_STATUS.CANCELLED]: note || "Sự cố đã bị hủy bởi hệ thống."
+        };
 
         const updateData = {
             status,
-            // Dùng $push của MongoDB để nhét thêm 1 dòng lịch sử mới vào mảng timeline
             $push: {
                 timeline: {
                     status: status,
                     updatedBy: req.user._id,
-                    note: `Trạng thái cập nhật thành ${status}`,
+                    note: note || statusMessages[status] || `Trạng thái: ${status}`,
                     timestamp: Date.now()
                 }
             }
         };
 
-        if (status === INCIDENT_STATUS.IN_PROGRESS && teamData?._id) {
-            updateData.assignedTeam = teamData._id;
+        switch (status) {
+            case INCIDENT_STATUS.ASSIGNED:
+            case INCIDENT_STATUS.IN_PROGRESS:
+                if (teamData?._id) {
+                    updateData.assignedTeam = teamData._id;
+                }
+                break;
+            case INCIDENT_STATUS.COMPLETED:
+                updateData.resolvedAt = Date.now();
+                break;
+            case INCIDENT_STATUS.CANCELLED:
+                updateData.assignedTeam = null;
+                break;
         }
 
         const updatedIncident = await Incident.findByIdAndUpdate(
             id,
             updateData,
             { new: true, runValidators: true }
-        );
+        ).populate('assignedTeam', 'name code');
 
-        if (!updatedIncident)
-            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND))
+        if (!updatedIncident) {
+            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
+        }
 
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', {
                 id: updatedIncident._id,
-                status: updatedIncident.status
+                status: updatedIncident.status,
+                timeline: updatedIncident.timeline
             });
 
-            // Sự kiện: rescue:assigned (Server -> Client)
-            // Nếu bắt đầu có đội nhận ca, thông báo cho người dân & điều phối
-            if (status === 'IN_PROGRESS') {
-                io.emit('rescue:assigned', { rescueTeam: teamData });
+            if (status === INCIDENT_STATUS.IN_PROGRESS || status === INCIDENT_STATUS.ASSIGNED) {
+                io.emit('rescue:assigned', { 
+                    incidentId: id,
+                    rescueTeam: updatedIncident.assignedTeam 
+                });
             }
         }
 
-        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident)
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident);
     } catch (err) {
-        next(err)
+        next(err);
     }
-}
+};
