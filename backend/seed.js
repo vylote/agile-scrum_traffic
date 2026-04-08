@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
-const User = require('../backend/src/models/User'); 
+const User = require('../backend/src/models/User');
 const RescueTeam = require('../backend/src/models/RescueTeam');
 const Incident = require('../backend/src/models/Incident'); // Thêm để dọn sạch sự cố cũ
 const { USER_ROLES } = require('../backend/src/utils/constants/userConstants');
@@ -45,12 +45,13 @@ const seedData = async () => {
         });
         console.log('✅ Đã tạo Dispatcher: dispatcher_01');
 
-        // 4. DANH SÁCH KHU VỰC (Gọt sạch tiền tố Quận/Huyện)
         const districts = [
             { name: 'Cầu Giấy', code: 'CG', coords: [105.8048, 21.0285] },
             { name: 'Ba Đình', code: 'BD', coords: [105.8130, 21.0360] },
             { name: 'Hoàn Kiếm', code: 'HK', coords: [105.8523, 21.0287] },
-            { name: 'Sóc Sơn', code: 'SS', coords: [105.8242, 21.3215] }
+            { name: 'Sóc Sơn', code: 'SS', coords: [105.8242, 21.3215] },
+            // 🔥 Bổ sung Đống Đa - nơi chứa khu vực "Láng" của trường UTC
+            { name: 'Đống Đa', code: 'DD', coords: [105.8236, 21.0125] }
         ];
 
         for (let i = 0; i < districts.length; i++) {
@@ -62,7 +63,7 @@ const seedData = async () => {
             // Tạo 5 User cho mỗi đội (1 Leader + 4 Member)
             for (let j = 1; j <= 5; j++) {
                 const roleInTeam = j === 1 ? 'LEADER' : 'MEMBER';
-                
+
                 const u = await User.create({
                     username: `res_${district.code.toLowerCase()}_0${j}`,
                     name: `NV ${district.name} - ${roleInTeam === 'LEADER' ? 'Đội trưởng' : 'Thành viên ' + j}`,
@@ -109,7 +110,7 @@ const seedData = async () => {
         console.log('Citizen: citizen_vy');
         console.log('Dispatcher: dispatcher_01');
         console.log('Sóc Sơn Leader: res_ss_01');
-        
+
         process.exit();
     } catch (err) {
         console.error('❌ Lỗi Seeding:', err);

@@ -18,8 +18,13 @@ export const useSocket = (activeIncidentId = null) => {
             socket.emit("join_zone", "room:dispatchers");
         }
 
-        // 2. Logic GPS Tracking (Chỉ chạy cho RESCUE)
-        if (user.role === USER_ROLES.RESCUE && user.rescueTeam) {
+        // 🔥 CÔNG TẮC MÔ PHỎNG (SIMULATION FLAG)
+        // Set 'true' khi test bằng Postman để tắt GPS thật của trình duyệt/điện thoại
+        // Set 'false' khi mang đi Demo thật tế
+        const isSimulationMode = true; 
+
+        // 2. Logic GPS Tracking (Chỉ chạy cho RESCUE và khi KHÔNG BẬT chế độ mô phỏng)
+        if (user.role === USER_ROLES.RESCUE && user.rescueTeam && !isSimulationMode) {
             watchId.current = navigator.geolocation.watchPosition(
                 (pos) => {
                     socket.emit("rescue:updateLocation", {

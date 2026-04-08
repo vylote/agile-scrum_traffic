@@ -10,6 +10,8 @@ const mongoose = require('mongoose');
 const { INCIDENT_TYPES, INCIDENT_STATUS, INCIDENT_SEVERITY, ALL_STATUS } = require('../utils/constants/incidentConstants');
 const { USER_ROLES } = require('../utils/constants/userConstants');
 const { timeStamp } = require('console');
+const RescueTeam = require('../models/RescueTeam')
+const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants')
 
 /**
  * @swagger
@@ -158,6 +160,9 @@ exports.createSOS = async (req, res, next) => {
         const geoData = await geoService.reverseGeocode(latitude, longitude);
         const address = geoData.display_name;
         const detectedZone = geoData.zone_detected;
+
+        console.log("📍 Địa chỉ full từ OSM:", address);
+        console.log("📍 ZONE cắt ra được để lưu vào DB:", detectedZone);
 
         const sosIncident = await Incident.create({
             reportedBy: req.user._id,
@@ -628,12 +633,30 @@ exports.updateIncidentStatus = async (req, res, next) => {
             case INCIDENT_STATUS.IN_PROGRESS:
                 if (teamData?._id) {
                     updateData.assignedTeam = teamData._id;
+                    await RescueTeam.findByIdAndUpdate(teamData._id, { 
+                        status: RESCUE_TEAM_STATUS.BUSY,
+                        activeIncident: id 
+                    });
                 }
                 break;
             case INCIDENT_STATUS.COMPLETED:
                 updateData.resolvedAt = Date.now();
+                const currentInc = await Incident.findById(id);
+                if (currentInc && currentInc.assignedTeam) {
+                    await RescueTeam.findByIdAndUpdate(currentInc.assignedTeam, { 
+                        status: RESCUE_TEAM_STATUS.AVAILABLE,
+                        activeIncident: null 
+                    });
+                }
                 break;
             case INCIDENT_STATUS.CANCELLED:
+                const cancelledInc = await Incident.findById(id);
+                if (cancelledInc && cancelledInc.assignedTeam) {
+                    await RescueTeam.findByIdAndUpdate(cancelledInc.assignedTeam, { 
+                        status: RESCUE_TEAM_STATUS.AVAILABLE,
+                        activeIncident: null 
+                    });
+                }
                 updateData.assignedTeam = null;
                 break;
         }
@@ -655,11 +678,11 @@ exports.updateIncidentStatus = async (req, res, next) => {
                 status: updatedIncident.status,
                 timeline: updatedIncident.timeline
             });
-
-            if (status === INCIDENT_STATUS.IN_PROGRESS || status === INCIDENT_STATUS.ASSIGNED) {
-                io.emit('rescue:assigned', { 
-                    incidentId: id,
-                    rescueTeam: updatedIncident.assignedTeam 
+            // Báo cho Dispatcher biết xe đã đổi màu (Xanh/Đỏ)
+            if (updatedIncident.assignedTeam) {
+                io.emit('rescue:status_changed', {
+                    teamId: updatedIncident.assignedTeam._id,
+                    status: (status === RESCUE_TEAM_STATUS.COMPLETED || status === RESCUE_TEAM_STATUS.CANCELLED) ? RESCUE_TEAM_STATUS.AVAILABLE : RESCUE_TEAM_STATUS.BUSY
                 });
             }
         }
