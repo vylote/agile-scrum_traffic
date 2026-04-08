@@ -4,7 +4,10 @@ import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import Map from "../../components/Public/Map";
 import { useSocket } from "../../hooks/useSocket";
 import api from "../../services/api";
-import { INCIDENT_STATUS, INCIDENT_SEVERITY } from "../../utils/constants/incidentConstants";
+import {
+  INCIDENT_STATUS,
+  INCIDENT_SEVERITY,
+} from "../../utils/constants/incidentConstants";
 
 export const Home = () => {
   const [allIncidents, setAllIncidents] = useState([]);
@@ -22,7 +25,7 @@ export const Home = () => {
         const [incRes, teamRes] = await Promise.all([
           api.get("/incidents?status=PENDING,ASSIGNED,IN_PROGRESS"),
           // Lấy limit 100 để đảm bảo hiện đủ các đội xe rải rác trên bản đồ
-          api.get("/rescue-teams?limit=100") 
+          api.get("/rescue-teams?limit=100"),
         ]);
 
         // Xử lý danh sách sự cố
@@ -31,19 +34,22 @@ export const Home = () => {
         // Xử lý danh sách đội cứu hộ: Chuyển mảng thành Object để truy xuất cực nhanh (O(1))
         const teamsData = teamRes.data?.result?.data || [];
         console.log("SỐ XE THỰC TẾ TỪ API:", teamsData.length); // In trực tiếp độ dài mảng
-console.log("DỮ LIỆU XE SÓC SƠN:", teamsData.find(t => t.name.includes("Sóc Sơn")));
+        console.log(
+          "DỮ LIỆU XE SÓC SƠN:",
+          teamsData.find((t) => t.name.includes("Sóc Sơn")),
+        );
         const initialFleet = {};
-        
-        teamsData.forEach(team => {
+
+        teamsData.forEach((team) => {
           initialFleet[team._id] = {
             teamId: team._id,
             teamName: team.name,
             code: team.code,
             status: team.status,
             // Lưu ý: MongoDB lưu [Lng, Lat] nên ta phải gán ngược lại cho chuẩn Map
-            lat: team.currentLocation.coordinates[1], 
+            lat: team.currentLocation.coordinates[1],
             lng: team.currentLocation.coordinates[0],
-            lastUpdate: team.lastLocationUpdate
+            lastUpdate: team.lastLocationUpdate,
           };
         });
 
@@ -62,7 +68,7 @@ console.log("DỮ LIỆU XE SÓC SƠN:", teamsData.find(t => t.name.includes("S�
     // Có sự cố mới
     const handleNewIncident = (data) => {
       setAllIncidents((prev) => {
-        if (prev.find(inc => inc._id === data.incident._id)) return prev;
+        if (prev.find((inc) => inc._id === data.incident._id)) return prev;
         return [data.incident, ...prev];
       });
     };
@@ -71,7 +77,7 @@ console.log("DỮ LIỆU XE SÓC SƠN:", teamsData.find(t => t.name.includes("S�
     const handleSOS = (data) => {
       new Audio("/assets/sounds/sos-alert.mp3").play().catch(() => {});
       setAllIncidents((prev) => {
-        if (prev.find(inc => inc._id === data.incident._id)) return prev;
+        if (prev.find((inc) => inc._id === data.incident._id)) return prev;
         return [data.incident, ...prev];
       });
     };
@@ -79,26 +85,32 @@ console.log("DỮ LIỆU XE SÓC SƠN:", teamsData.find(t => t.name.includes("S�
     // Cập nhật trạng thái sự cố (Nếu hoàn thành/hủy thì xóa khỏi Dashboard)
     const handleStatusUpdate = (data) => {
       setAllIncidents((prev) => {
-        if ([INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(data.status)) {
-          return prev.filter(inc => inc._id !== data.id);
+        if (
+          [INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(
+            data.status,
+          )
+        ) {
+          return prev.filter((inc) => inc._id !== data.id);
         }
-        return prev.map((inc) => (inc._id === data.id ? { ...inc, status: data.status } : inc));
+        return prev.map((inc) =>
+          inc._id === data.id ? { ...inc, status: data.status } : inc,
+        );
       });
     };
 
     // 🔥 QUAN TRỌNG: Cập nhật vị trí đội xe khi họ di chuyển
     const handleFleetUpdate = (data) => {
-      setFleet((prev) => ({
-        ...prev,
-        // Dùng teamId từ socket để ghi đè tọa độ/trạng thái mới vào object cũ
-        [data.teamId]: { 
-          ...prev[data.teamId], 
-          lat: data.lat, 
-          lng: data.lng, 
+      setFleet((prev) => {
+        const updatedFleet = { ...prev }; // Tạo clone mảng/object mới hoàn toàn
+        updatedFleet[data.teamId] = {
+          ...prev[data.teamId],
+          lat: data.lat,
+          lng: data.lng,
           status: data.status,
-          lastUpdate: new Date() 
-        },
-      }));
+          lastUpdate: new Date(),
+        };
+        return updatedFleet; // Trả về object mới để React re-render
+      });
     };
 
     socket.on("incident:new", handleNewIncident);
@@ -136,28 +148,40 @@ console.log("DỮ LIỆU XE SÓC SƠN:", teamsData.find(t => t.name.includes("S�
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-[80px] flex items-center justify-between px-8 bg-transparent shrink-0">
           <div>
-            <h2 className="text-[22px] font-bold text-gray-900 leading-tight mb-1">Điều Phối Toàn Cục</h2>
-            <p className="text-sm text-gray-500">Giám sát hệ thống • {allIncidents.length} sự cố đang mở</p>
+            <h2 className="text-[22px] font-bold text-gray-900 leading-tight mb-1">
+              Điều Phối Toàn Cục
+            </h2>
+            <p className="text-sm text-gray-500">
+              Giám sát hệ thống • {allIncidents.length} sự cố đang mở
+            </p>
           </div>
-          <div className="w-[400px]"><SearchBar className="w-full" property1="default" /></div>
+          <div className="w-[400px]">
+            <SearchBar className="w-full" property1="default" />
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto px-8 pb-8 flex flex-col lg:flex-row gap-6 no-scrollbar">
           {/* KHU VỰC BẢN ĐỒ */}
           <section className="flex-[2] bg-white rounded-[20px] shadow-sm border border-gray-200 p-6 flex flex-col min-h-[500px]">
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-bold text-gray-900">Bản đồ Giám sát</h3>
+              <h3 className="text-lg font-bold text-gray-900">
+                Bản đồ Giám sát
+              </h3>
               <div className="flex gap-2">
-                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">● {fleetStats.available} XE RẢNH</span>
-                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">● {fleetStats.busy} XE ĐANG BẬN</span>
+                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">
+                  ● {fleetStats.available} XE RẢNH
+                </span>
+                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">
+                  ● {fleetStats.busy} XE ĐANG BẬN
+                </span>
               </div>
             </div>
             <div className="flex-1 rounded-xl overflow-hidden border border-gray-100 relative z-0 shadow-inner">
-              <Map 
-                incidents={allIncidents} 
-                fleet={fleet} 
-                focusCoords={mapFocus} 
-                onRefresh={() => setRefreshTrigger(prev => prev + 1)} 
+              <Map
+                incidents={allIncidents}
+                fleet={fleet}
+                focusCoords={mapFocus}
+                onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
               />
             </div>
           </section>
@@ -169,28 +193,45 @@ console.log("DỮ LIỆU XE SÓC SƠN:", teamsData.find(t => t.name.includes("S�
               <div className="flex-1 overflow-y-auto pr-2 space-y-3 no-scrollbar">
                 {allIncidents.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-20 opacity-30">
-                     <span className="material-icons text-5xl">task_alt</span>
-                     <p className="text-sm italic font-medium">Hiện tại không có sự cố</p>
+                    <span className="material-icons text-5xl">task_alt</span>
+                    <p className="text-sm italic font-medium">
+                      Hiện tại không có sự cố
+                    </p>
                   </div>
                 )}
                 {allIncidents.map((inc) => {
                   const isSOS = inc.severity === INCIDENT_SEVERITY.CRITICAL;
                   return (
-                    <div 
+                    <div
                       key={inc._id}
                       onClick={() => handleSelectIncident(inc)}
                       className={`cursor-pointer rounded-xl p-4 border transition-all active:scale-[0.98] hover:shadow-md ${isSOS ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-100 hover:border-blue-300"}`}
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-full ${isSOS ? "bg-red-500 text-white" : "bg-blue-100 text-blue-600"}`}>
+                        <span
+                          className={`text-[9px] font-black px-2.5 py-1 rounded-full ${isSOS ? "bg-red-500 text-white" : "bg-blue-100 text-blue-600"}`}
+                        >
                           {isSOS ? "SOS KHẨN CẤP" : inc.type.toUpperCase()}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-bold">{new Date(inc.createdAt).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
+                        <span className="text-[10px] text-gray-400 font-bold">
+                          {new Date(inc.createdAt).toLocaleTimeString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
-                      <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-1 uppercase">{inc.title}</h4>
-                      <p className="text-[11px] text-gray-500 line-clamp-2 mb-3 leading-tight">{inc.location.address}</p>
-                      <button className={`w-full text-white text-[11px] font-black py-2 rounded-lg transition-colors ${isSOS ? "bg-red-500 hover:bg-red-600" : "bg-[#1e2a5e] hover:bg-blue-900"}`}>
-                        {inc.status === INCIDENT_STATUS.PENDING ? "ĐIỀU PHỐI NGAY" : "XEM TIẾN ĐỘ: " + inc.status}
+                      <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-1 uppercase">
+                        {inc.title}
+                      </h4>
+                      <p className="text-[11px] text-gray-500 line-clamp-2 mb-3 leading-tight">
+                        {inc.location.address}
+                      </p>
+                      <button
+                        className={`w-full text-white text-[11px] font-black py-2 rounded-lg transition-colors ${isSOS ? "bg-red-500 hover:bg-red-600" : "bg-[#1e2a5e] hover:bg-blue-900"}`}
+                      >
+                        {inc.status === INCIDENT_STATUS.PENDING
+                          ? "ĐIỀU PHỐI NGAY"
+                          : "XEM TIẾN ĐỘ: " + inc.status}
                       </button>
                     </div>
                   );
