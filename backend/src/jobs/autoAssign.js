@@ -1,81 +1,80 @@
-// src/jobs/autoAssign.js
 const Queue = require('bull');
 const redisConfig = require('../config/redis');
 const Incident = require('../models/Incident');
-const RescueTeam = require('../models/RescueTeam');
 const { findBestRescueTeam } = require('../services/assignment');
+const socketService = require('../services/socket');
 const { INCIDENT_STATUS } = require('../utils/constants/incidentConstants');
-const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants');
 
-// Khởi tạo Queue
-const dispatchQueue = new Queue('auto-dispatch', { redis: redisConfig });
+// 1. Khởi tạo Queue
+const autoDispatchQueue = new Queue('auto-dispatch', redisConfig);
 
-// Định nghĩa Worker xử lý job
-dispatchQueue.process(async (job, done) => {
-    const { incidentId } = job.data;
-    console.log(`[Queue] Bắt đầu xử lý tự động phân công cho sự cố: ${incidentId}`);
+autoDispatchQueue.on('error', function (error) {
+    console.error('❌ [BullQueue] Lỗi kết nối Redis:', error);
+});
+
+autoDispatchQueue.on('ready', function () {
+    console.log('✅ [BullQueue] Đã kết nối thành công với Redis và sẵn sàng nhận Job!');
+});
+
+// 2. Logic xử lý của Worker
+autoDispatchQueue.process(async (job, done) => {
+    const { incidentId, rejectedTeamIds = [] } = job.data;
+    console.log(`[BullQueue] 🔄 Đang tìm đội cho sự cố: ${incidentId}`);
 
     try {
         const incident = await Incident.findById(incidentId);
         
-        // Kiểm tra xem sự cố có còn tồn tại và còn PENDING không
+        // Nếu sự cố không còn PENDING (đã có đội nhận, hoặc Admin đã hủy/gán tay), dừng Queue
         if (!incident || incident.status !== INCIDENT_STATUS.PENDING) {
-            console.log(`[Queue] Sự cố ${incidentId} không hợp lệ hoặc đã được xử lý.`);
+            console.log(`[BullQueue] 🛑 Sự cố ${incidentId} không còn PENDING. Hủy bỏ quy trình.`);
             return done();
         }
 
-        // Gọi service lõi để tìm đội tốt nhất
-        const result = await findBestRescueTeam(incident);
+        // Gọi thuật toán tìm đội tốt nhất, loại trừ những đội đã từ chối
+        const result = await findBestRescueTeam(incident, rejectedTeamIds);
 
         if (!result) {
-            console.log(`[Queue] Không tìm thấy đội phù hợp cho sự cố ${incidentId}. Cần điều phối thủ công.`);
-            // Bạn có thể phát một socket event ở đây báo cho Dispatcher biết phải xử lý tay
+            console.log(`[BullQueue] ⚠️ Không còn đội rảnh/phù hợp cho sự cố ${incidentId}. Cần Dispatcher can thiệp!`);
+            // Bắn còi báo động cho Dispatcher trên Web Admin
+            const io = socketService.getIO();
+            if (io) io.emit('dispatcher:manual_intervention_required', { incident });
             return done();
         }
 
         const { team: bestTeam, etaMinutes } = result;
-        console.log(`[Queue] Đã chọn được đội: ${bestTeam.name} (ETA: ${etaMinutes} phút)`);
+        console.log(`[BullQueue] 🎯 Đề xuất sự cố cho đội: ${bestTeam.name} (ETA: ${etaMinutes} phút)`);
 
-        // --- Cập nhật Database (Giống logic trong updateIncidentStatus nhưng làm ngầm) ---
-        
-        // 1. Cập nhật Incident
-        incident.status = INCIDENT_STATUS.ASSIGNED;
-        incident.assignedTeam = bestTeam._id;
-        incident.timeline.push({
-            status: INCIDENT_STATUS.ASSIGNED,
-            updatedBy: null, // Hoặc ID của System Admin
-            note: `Hệ thống tự động phân công đội ${bestTeam.name} (ETA: ~${etaMinutes} phút)`,
-            timestamp: Date.now()
-        });
-        await incident.save();
-
-        // 2. Cập nhật RescueTeam
-        await RescueTeam.findByIdAndUpdate(bestTeam._id, {
-            status: RESCUE_TEAM_STATUS.BUSY,
-            activeIncident: incident._id
+        // 🚀 BẮN SOCKET GỌI ĐỘI CỨU HỘ (KHÔNG SỬA DB THÀNH ASSIGNED Ở BƯỚC NÀY)
+        // Chúng ta vẫn giữ status PENDING, chờ họ phản hồi
+        socketService.sendRequestToTeam(bestTeam._id, {
+            message: "Bạn có yêu cầu cứu hộ mới. Vui lòng phản hồi trong 30 giây!",
+            incident: incident,
+            etaMinutes: etaMinutes,
+            timeoutSec: 30
         });
 
-        // 3. Chuẩn bị dữ liệu đầy đủ để phát Socket
-        await incident.populate('assignedTeam', 'name code');
-
-        // Lấy instance socket (cần cấu trúc lại file server/app để export io)
-        // Cách lấy io phụ thuộc vào setup của bạn. Giả sử bạn export từ app.js
-        const io = require('../../server').io; 
-
-        if (io) {
-            // Phát sự kiện cho tất cả Dispatcher để cập nhật UI
-            io.emit('incident:updated', { id: incident._id, status: INCIDENT_STATUS.ASSIGNED, incident });
-            
-            // Tùy chọn: Phát tin nhắn riêng cho đội vừa được gán để giật màn hình
-            // Màn hình RescueHome sẽ nhận qua sự kiện incident:updated, nhưng bạn có thể bắn riêng
-            // io.emit(`rescue:auto_assigned:${bestTeam._id}`, { incident });
-        }
+        // ⏱ TẠO CRONJOB ĐỂ THU HỒI NẾU ĐỘI KHÔNG TRẢ LỜI SAU 30 GIÂY
+        // Nếu sau 30s sự cố vẫn còn PENDING (tức là xe kia chưa gọi API gán ASSIGNED), ta tự động thử xe khác.
+        setTimeout(async () => {
+            const checkIncident = await Incident.findById(incidentId);
+            if (checkIncident && checkIncident.status === INCIDENT_STATUS.PENDING) {
+                console.log(`[BullQueue] ⏰ Đội ${bestTeam.name} không phản hồi. Chuyển ca sang đội khác...`);
+                // Bắn socket thu hồi popup trên máy đội trưởng
+                socketService.sendRequestToTeam(bestTeam._id, { action: "revoke_request" });
+                
+                // Ném lại job vào Queue, đẩy ID xe này vào "danh sách đen" của lượt tìm kiếm này
+                autoDispatchQueue.add({
+                    incidentId: incidentId,
+                    rejectedTeamIds: [...rejectedTeamIds, bestTeam._id]
+                });
+            }
+        }, 30000); // 30.000 ms = 30 giây
 
         done();
     } catch (error) {
-        console.error(`[Queue] Lỗi khi xử lý job ${job.id}:`, error);
-        done(error); // Báo lỗi để Bull cho vào tab failed
+        console.error(`[BullQueue] Lỗi job ${job.id}:`, error);
+        done(error);
     }
 });
 
-module.exports = dispatchQueue;
+module.exports = autoDispatchQueue;
