@@ -469,3 +469,11 @@ exports.getRescueTeamMembers = async (req, res, next) => {
         next(err);
     }
 };
+
+exports.getRescueTeamById = async (req, res, next) => {
+    try {
+        const team = await RescueTeam.findById(req.params.id);
+        if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, team);
+    } catch (err) { next(err); }
+};

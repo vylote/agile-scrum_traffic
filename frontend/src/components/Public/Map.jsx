@@ -1,4 +1,3 @@
-// [Map.jsx] - Bản hoàn thiện cho 4 Role
 import React, { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -22,7 +21,8 @@ const MapControls = ({ onRefresh, bottomOffset }) => {
   };
 
   return (
-    <div className="absolute flex flex-col gap-3 z-[1000]" style={{ bottom: `${bottomOffset}px`, right: "16px" }}>
+    // 🔥 FIX 4: Z-index cực cao để tránh bị các component khác đè
+    <div className="absolute flex flex-col gap-3 z-[9999] pointer-events-none" style={{ bottom: `${bottomOffset}px`, right: "16px", transition: 'bottom 0.3s ease' }}>
       {onRefresh && (
         <button onClick={(e) => { e.stopPropagation(); onRefresh(); }} className="w-12 h-12 bg-white rounded-full shadow-xl flex items-center justify-center text-orange-500 hover:bg-orange-50 border border-gray-100 active:scale-90 pointer-events-auto">
           <RefreshCw size={22} />
@@ -46,40 +46,26 @@ const FocusUpdater = ({ focusCoords }) => {
 };
 
 const Map = ({ incidents = [], fleet = {}, onMarkerClick, focusCoords, onRefresh, bottomOffset = 20 }) => {
-  // Tọa độ mặc định tại Hà Nội
   const [centerPos] = useState([21.0285, 105.8542]);
 
   return (
     <div className="h-full w-full relative overflow-hidden">
-      <MapContainer center={centerPos} zoom={14} className="h-full w-full" zoomControl={false}>
+      <MapContainer center={centerPos} zoom={14} className="h-full w-full z-0" zoomControl={false}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <FocusUpdater focusCoords={focusCoords} />
         <MapControls onRefresh={onRefresh} bottomOffset={bottomOffset} />
 
-        {/* 1. Marker Sự cố (Vẽ trước - nằm dưới) */}
         {incidents.map(inc => (
-          <Marker 
-            key={inc._id} 
-            position={[inc.location.coordinates[1], inc.location.coordinates[0]]} 
-            icon={incidentIcon}
-            zIndexOffset={500}
-            eventHandlers={{ click: () => onMarkerClick?.(inc) }}
-          />
+          <Marker key={inc._id} position={[inc.location.coordinates[1], inc.location.coordinates[0]]} icon={incidentIcon} zIndexOffset={500} eventHandlers={{ click: () => onMarkerClick?.(inc) }} />
         ))}
 
-        {/* 2. Marker Đội xe (Vẽ sau - đè lên trên) */}
         {Object.values(fleet).map(team => {
             const lat = parseFloat(team.lat || team.currentLocation?.coordinates?.[1]);
             const lng = parseFloat(team.lng || team.currentLocation?.coordinates?.[0]);
             if (!lat || !lng) return null;
 
             return (
-              <Marker 
-                key={`${team.teamId || team._id}-${lat}-${lng}`} 
-                position={[lat, lng]} 
-                icon={team.status === 'AVAILABLE' ? rescueAvailableIcon : rescueBusyIcon}
-                zIndexOffset={2000}
-              >
+              <Marker key={team.teamId || team._id} position={[lat, lng]} icon={team.status === 'AVAILABLE' ? rescueAvailableIcon : rescueBusyIcon} zIndexOffset={2000}>
                 <Popup><p className="font-bold text-xs">{team.teamName || team.code}</p></Popup>
               </Marker>
             );
