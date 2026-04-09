@@ -1,19 +1,16 @@
-// src/services/assignment.js
 const axios = require('axios');
 const RescueTeam = require('../models/RescueTeam');
-const { getHaversineDistance } = require('../utils/geoUtils');
 const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants');
 
-// Helper function to call OSRM
+// Helper: Gọi OSRM lấy ETA (Thời gian di chuyển thực tế)
 const getOSRMRouteETA = async (startLng, startLat, endLng, endLat) => {
     try {
         const osrmUrl = process.env.OSRM_URL || 'http://router.project-osrm.org';
         const url = `${osrmUrl}/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=false`;
         
-        const response = await axios.get(url, { timeout: 2000 }); // Set timeout to fail fast
-        
+        const response = await axios.get(url, { timeout: 2000 }); // Ép timeout 2s để không làm treo queue
         if (response.data && response.data.code === 'Ok' && response.data.routes.length > 0) {
-            return response.data.routes[0].duration; // Duration in seconds
+            return response.data.routes[0].duration; // Trả về số giây
         }
         return Infinity;
     } catch (error) {
@@ -23,55 +20,47 @@ const getOSRMRouteETA = async (startLng, startLat, endLng, endLat) => {
 };
 
 /**
- * Tìm đội cứu hộ tối ưu nhất cho sự cố.
+ * Tìm đội cứu hộ tối ưu nhất (Kết hợp Haversine của MongoDB & OSRM)
  * @param {Object} incident - Object sự cố
- * @param {Number} maxRadius - Bán kính tìm kiếm tối đa (mét)
- * @param {Number} shortlistLimit - Số lượng đội lọt vào vòng xét duyệt OSRM
+ * @param {Array} rejectedTeamIds - Mảng ID các đội đã từ chối ca này
  */
-exports.findBestRescueTeam = async (incident, maxRadius = 15000, shortlistLimit = 5) => {
+exports.findBestRescueTeam = async (incident, rejectedTeamIds = []) => {
     const incidentLng = incident.location.coordinates[0];
     const incidentLat = incident.location.coordinates[1];
     const requiredType = incident.type;
 
-    // BƯỚC 1: Lọc thô bằng MongoDB $near (Haversine tích hợp sẵn)
-    // Cách này nhanh và hiệu quả hơn việc kéo hết DB về rỗi tự tính bằng file utils
-    const availableTeams = await RescueTeam.find({
+    // BƯỚC 1: SÀNG LỌC BẰNG MONGODB $near (HAVERSINE)
+    const query = {
         status: RESCUE_TEAM_STATUS.AVAILABLE,
-        // Giả sử bảng RescueTeam có field capabilities chứa mảng các loại sự cố có thể xử lý
-        // Nếu không có, bạn có thể bỏ dòng này hoặc sửa logic match Type
-        // capabilities: { $in: [requiredType] },
+        _id: { $nin: rejectedTeamIds }, // 🚀 Bỏ qua các đội đã từ chối
         currentLocation: {
             $near: {
-                $geometry: {
-                    type: "Point",
-                    coordinates: [incidentLng, incidentLat]
-                },
-                $maxDistance: maxRadius
+                $geometry: { type: "Point", coordinates: [incidentLng, incidentLat] },
+                $maxDistance: 15000 // Bán kính 15km
             }
         }
-    }).limit(shortlistLimit);
+    };
 
-    if (availableTeams.length === 0) {
-        return null; // Không có đội nào rảnh gần đây
-    }
+    // Lấy top 5 đội rảnh và gần nhất theo đường chim bay
+    const availableTeams = await RescueTeam.find(query).limit(5);
 
-    // BƯỚC 2: Chọn lọc chính xác bằng OSRM (Định tuyến đường bộ)
+    if (availableTeams.length === 0) return null;
+
+    // BƯỚC 2: CHỌN LỌC CHÍNH XÁC BẰNG OSRM
     let bestTeam = null;
     let shortestETA = Infinity;
 
-    // Gọi OSRM song song cho tất cả các đội trong danh sách rút gọn
+    // Chạy song song OSRM cho cả 5 đội để đảm bảo tốc độ < 300ms
     const etaPromises = availableTeams.map(async (team) => {
         const teamLng = team.currentLocation.coordinates[0];
         const teamLat = team.currentLocation.coordinates[1];
-        
         const etaSeconds = await getOSRMRouteETA(teamLng, teamLat, incidentLng, incidentLat);
-        
         return { team, eta: etaSeconds };
     });
 
     const results = await Promise.all(etaPromises);
 
-    // Tìm đội có ETA nhỏ nhất
+    // Lấy đội có ETA (thời gian đến) nhỏ nhất
     for (const result of results) {
         if (result.eta < shortestETA) {
             shortestETA = result.eta;
@@ -79,10 +68,7 @@ exports.findBestRescueTeam = async (incident, maxRadius = 15000, shortlistLimit 
         }
     }
 
-    // Trả về null nếu không tìm được đường bộ thực tế (ví dụ: bị ngăn cách bởi sông không cầu)
-    if (!bestTeam || shortestETA === Infinity) {
-        return null;
-    }
+    if (!bestTeam || shortestETA === Infinity) return null;
 
     return {
         team: bestTeam,

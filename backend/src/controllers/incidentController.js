@@ -204,6 +204,16 @@ exports.createSOS = async (req, res, next) => {
             });
         }
 
+        // 🔥 THÊM ĐOẠN NÀY ĐỂ GỌI XE TỰ ĐỘNG CHO SOS:
+        const dispatchQueue = require('../jobs/autoAssign');
+        await dispatchQueue.add({
+            incidentId: sosIncident._id
+        }, {
+            delay: 500,  // Chạy nhanh hơn bình thường (0.5s)
+            attempts: 5, // Thử lại 5 lần nếu gọi OSRM lỗi
+            backoff: 3000
+        });
+
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, sosIncident);
     } catch (err) {
         next(err);

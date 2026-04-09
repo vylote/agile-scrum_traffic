@@ -8,6 +8,8 @@ const cron = require('node-cron');
 const cleanupOrphanPhotos = require('./utils/cleanupTask');
 const initApp = require('./utils/initApp');
 
+const socketService = require('./services/socket');
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -19,6 +21,10 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+
+// 🔥 THÊM 2: Khởi tạo socket service với instance io hiện tại
+// Việc này giúp các file chạy ngầm (như Bull Queue) có thể dùng được io.emit
+socketService.init(io);
 
 io.on('connection', (socket) => {
     console.log(`🔌 Thiết bị mới kết nối: ${socket.id}`);
@@ -67,12 +73,15 @@ const startServer = async () => {
         await connectDB();
         console.log('Database connected successfully');
 
+        require('./jobs/autoAssign');
+        console.log('👷 Bull Queue Worker đã được khởi động!');
+
         initApp();
 
         console.log('Đang kiểm tra ảnh mồ côi lần đầu...');
         cleanupOrphanPhotos();
 
-        // 3. Lập lịch chạy định kỳ (3 giờ sáng mỗi ngày)
+        // Lập lịch chạy định kỳ (3 giờ sáng mỗi ngày)
         cron.schedule('0 3 * * *', () => {
             console.log('[CronJob] Bắt đầu dọn dẹp định kỳ...');
             cleanupOrphanPhotos();
