@@ -18,10 +18,20 @@ const NormalOverviewCard = () => (
   </div>
 );
 
-const IncidentCard = ({ status, incident, onAction, onAccept, onComplete, myRole, currentPos }) => {
+/**
+ * Props:
+ *   status       – trạng thái card: 'new_incident' | 'moving' | 'processing' | 'done'
+ *   incident     – dữ liệu sự cố hiện tại
+ *   onAction     – chuyển appState thuần UI (không gọi API)
+ *   onAccept     – nhận ca (gọi API ASSIGNED)
+ *   onArrive     – xác nhận đến nơi (gọi API IN_PROGRESS)
+ *   onComplete   – hoàn thành (gọi API COMPLETED)
+ *   myRole       – vai trò của thành viên trong đội
+ *   currentPos   – { lat, lng } tọa độ hiện tại của xe
+ */
+const IncidentCard = ({ status, incident, onAction, onAccept, onArrive, onComplete, myRole, currentPos }) => {
   const isLeader = myRole === 'LEADER';
 
-  // 🔥 Tính khoảng cách thời gian thực (Haversine)
   const distance = useMemo(() => {
     if (!currentPos || !incident?.location?.coordinates) return null;
     return getHaversineDistance(
@@ -30,23 +40,25 @@ const IncidentCard = ({ status, incident, onAction, onAccept, onComplete, myRole
     );
   }, [currentPos, incident]);
 
-  // Kiểm tra điều kiện xác nhận đến nơi (bán kính 500m để dễ test mô phỏng)
   const canCheckIn = distance !== null && distance <= 500;
 
   const title = incident?.title || "Sự cố cứu hộ";
   const address = incident?.location?.address || "Đang xác định vị trí...";
   const reporterName = incident?.reportedBy?.name || "Người dân";
 
-  let cardConfig = {}; 
+  let cardConfig = {};
 
-  switch(status) {
+  switch (status) {
     case 'new_incident':
       cardConfig = {
         headerTitle: "SỰ CỐ MỚI TRONG KHU VỰC",
         buttons: (
           <div className="flex gap-2 w-full">
             {isLeader ? (
-              <button onClick={() => onAccept(incident)} className="flex-1 bg-[#1e2a5e] text-white py-3 rounded-xl font-bold text-xs transition-transform active:scale-95 shadow-lg shadow-blue-900/20">
+              <button
+                onClick={() => onAccept(incident)}
+                className="flex-1 bg-[#1e2a5e] text-white py-3 rounded-xl font-bold text-xs transition-transform active:scale-95 shadow-lg shadow-blue-900/20"
+              >
                 CHẤP NHẬN CỨU HỘ
               </button>
             ) : (
@@ -54,85 +66,145 @@ const IncidentCard = ({ status, incident, onAction, onAccept, onComplete, myRole
                 <ShieldAlert size={14} /> CHỜ TRƯỞNG ĐỘI NHẬN CA
               </div>
             )}
-            <button onClick={() => onAction('normal')} className="px-6 bg-gray-100 text-gray-500 py-3 rounded-xl font-bold text-xs">ĐÓNG</button>
+            <button
+              onClick={() => onAction('normal')}
+              className="px-6 bg-gray-100 text-gray-500 py-3 rounded-xl font-bold text-xs"
+            >
+              ĐÓNG
+            </button>
           </div>
         )
       };
       break;
 
     case 'moving':
-      cardConfig = { 
+      cardConfig = {
         headerTitle: "DI CHUYỂN ĐẾN HIỆN TRƯỜNG",
         buttons: (
           <div className="w-full space-y-3">
-             <div className="flex justify-between items-center bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100">
-               <span className="text-[10px] font-bold text-blue-400">KHOẢNG CÁCH:</span>
-               <span className="text-sm font-black text-blue-600">
-                 {distance !== null ? `${distance.toFixed(0)} mét` : "Đang tính..."}
-               </span>
+            <div className="flex justify-between items-center bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100">
+              <span className="text-[10px] font-bold text-blue-400">KHOẢNG CÁCH:</span>
+              <span className="text-sm font-black text-blue-600">
+                {distance !== null ? `${distance.toFixed(0)} mét` : "Đang tính..."}
+              </span>
             </div>
-            <button 
-                disabled={!canCheckIn}
-                onClick={() => onAction('processing')} 
-                className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 ${canCheckIn ? "bg-green-500 text-white shadow-lg shadow-green-200" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+            <button
+              disabled={!canCheckIn}
+              onClick={onArrive}  // ✅ Gọi API IN_PROGRESS, không chỉ đổi UI
+              className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 ${
+                canCheckIn
+                  ? "bg-green-500 text-white shadow-lg shadow-green-200"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
             >
-                {canCheckIn ? "XÁC NHẬN ĐĐ ĐẾN NƠI" : "HÃY TIẾP CẬN HIỆN TRƯỜNG (<500M)"}
-            </button> 
+              {canCheckIn ? "XÁC NHẬN ĐÃ ĐẾN NƠI" : "HÃY TIẾP CẬN HIỆN TRƯỜNG (<500M)"}
+            </button>
           </div>
         )
       };
       break;
 
     case 'processing':
-      cardConfig = { 
+      cardConfig = {
         headerTitle: "ĐANG XỬ LÝ TẠI CHỖ",
-        buttons: <button onClick={() => onAction('done')} className="w-full bg-[#ffb000] text-white py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-lg shadow-orange-200">ĐÃ XỬ LÝ XONG</button> 
+        buttons: (
+          <button
+            onClick={() => onAction('done')}
+            className="w-full bg-[#ffb000] text-white py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-lg shadow-orange-200"
+          >
+            ĐÃ XỬ LÝ XONG
+          </button>
+        )
       };
       break;
 
     case 'done':
-      cardConfig = { 
+      cardConfig = {
         headerTitle: "XÁC NHẬN HOÀN THÀNH",
-        buttons: <button onClick={onComplete} className="w-full bg-[#34c759] text-white py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-lg shadow-green-500/20">VỀ TRẠNG THÁI SẴN SÀNG</button> 
+        buttons: (
+          <button
+            onClick={onComplete}  // ✅ Gọi API COMPLETED
+            className="w-full bg-[#34c759] text-white py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-lg shadow-green-500/20"
+          >
+            VỀ TRẠNG THÁI SẴN SÀNG
+          </button>
+        )
       };
       break;
 
-    default: return null;
+    default:
+      return null;
   }
 
   return (
     <div className="bg-white rounded-[32px] p-5 shadow-2xl border border-gray-100 w-full relative pointer-events-auto overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
       {status === 'new_incident' && (
-        <button onClick={() => onAction('normal')} className="absolute top-4 right-4 text-gray-300 hover:text-gray-500 transition-colors"><X size={20} /></button>
+        <button
+          onClick={() => onAction('normal')}
+          className="absolute top-4 right-4 text-gray-300 hover:text-gray-500 transition-colors"
+        >
+          <X size={20} />
+        </button>
       )}
-      {cardConfig.headerTitle && <h2 className="text-center text-red-500 text-[10px] font-black mb-4 uppercase tracking-[0.2em]">{cardConfig.headerTitle}</h2>}
+
+      {cardConfig.headerTitle && (
+        <h2 className="text-center text-red-500 text-[10px] font-black mb-4 uppercase tracking-[0.2em]">
+          {cardConfig.headerTitle}
+        </h2>
+      )}
+
       <div className="bg-gray-50/80 rounded-[20px] p-4 mb-4 flex items-center justify-between border border-gray-100">
-          <div className="flex gap-3.5 items-center">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center shadow-inner">
-              {status === 'new_incident' ? <Car className="w-6 h-6 text-red-500 animate-pulse" /> : <span className="material-icons text-red-500 text-xl font-bold">warning</span>}
-            </div>
-            <div>
-              <p className="font-black text-gray-900 text-[15px] leading-tight uppercase line-clamp-1 max-w-[180px]">{status === 'new_incident' ? title : reporterName}</p>
-              <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">{status === 'new_incident' ? "Mức độ: Ưu tiên" : "Thông tin liên hệ"}</p>
-            </div>
+        <div className="flex gap-3.5 items-center">
+          <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center shadow-inner">
+            {status === 'new_incident'
+              ? <Car className="w-6 h-6 text-red-500 animate-pulse" />
+              : <span className="material-icons text-red-500 text-xl font-bold">warning</span>
+            }
           </div>
-          {status !== 'new_incident' && incident?.reportedBy?.phone && (
-            <a href={`tel:${incident.reportedBy.phone}`} className="w-10 h-10 rounded-full bg-[#34c759] flex items-center justify-center shadow-lg active:scale-90 transition-transform"><Phone className="w-5 h-5 text-white" /></a>
-          )}
+          <div>
+            <p className="font-black text-gray-900 text-[15px] leading-tight uppercase line-clamp-1 max-w-[180px]">
+              {status === 'new_incident' ? title : reporterName}
+            </p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">
+              {status === 'new_incident' ? "Mức độ: Ưu tiên" : "Thông tin liên hệ"}
+            </p>
+          </div>
+        </div>
+        {status !== 'new_incident' && incident?.reportedBy?.phone && (
+          <a
+            href={`tel:${incident.reportedBy.phone}`}
+            className="w-10 h-10 rounded-full bg-[#34c759] flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+          >
+            <Phone className="w-5 h-5 text-white" />
+          </a>
+        )}
       </div>
+
       <div className="flex items-start gap-2.5 mb-5 px-1">
-          <MapPin className="w-4 h-4 text-sky-500 mt-0.5 shrink-0" />
-          <p className="text-[12px] text-gray-600 leading-relaxed font-semibold line-clamp-2">{address}</p>
+        <MapPin className="w-4 h-4 text-sky-500 mt-0.5 shrink-0" />
+        <p className="text-[12px] text-gray-600 leading-relaxed font-semibold line-clamp-2">{address}</p>
       </div>
+
       {cardConfig.buttons}
     </div>
   );
 };
 
-export const OverviewCard = ({ appState, incident, onAccept, onAction, onComplete, myRole, currentPos }) => {
-  return appState === 'normal' 
+export const OverviewCard = ({ appState, incident, onAccept, onAction, onArrive, onComplete, myRole, currentPos }) => {
+  return appState === 'normal'
     ? <NormalOverviewCard />
-    : <IncidentCard status={appState} incident={incident} onAction={onAction} onAccept={onAccept} onComplete={onComplete} myRole={myRole} currentPos={currentPos} />;
+    : (
+      <IncidentCard
+        status={appState}
+        incident={incident}
+        onAction={onAction}
+        onAccept={onAccept}
+        onArrive={onArrive}
+        onComplete={onComplete}
+        myRole={myRole}
+        currentPos={currentPos}
+      />
+    );
 };
 
 export default OverviewCard;

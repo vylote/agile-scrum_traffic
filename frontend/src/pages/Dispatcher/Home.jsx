@@ -96,6 +96,37 @@ export const Home = () => {
           inc._id === data.id ? { ...inc, status: data.status } : inc,
         );
       });
+
+      // ✅ FIX: Cập nhật status của đội xe trong fleet ngay khi incident thay đổi
+      // Không cần chờ GPS mới đổi màu icon
+      const incident = data.incident;
+      if (!incident?.assignedTeam) return;
+
+      const assignedTeamId =
+        typeof incident.assignedTeam === "object"
+          ? incident.assignedTeam._id
+          : incident.assignedTeam;
+
+      if (!assignedTeamId) return;
+
+      setFleet((prev) => {
+        if (!prev[assignedTeamId]) return prev;
+
+        const newStatus = [
+          INCIDENT_STATUS.COMPLETED,
+          INCIDENT_STATUS.CANCELLED,
+        ].includes(data.status)
+          ? "AVAILABLE"
+          : "BUSY";
+
+        return {
+          ...prev,
+          [assignedTeamId]: {
+            ...prev[assignedTeamId],
+            status: newStatus,
+          },
+        };
+      });
     };
 
     // 🔥 QUAN TRỌNG: Cập nhật vị trí đội xe khi họ di chuyển

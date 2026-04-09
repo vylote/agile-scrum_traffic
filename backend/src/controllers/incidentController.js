@@ -112,6 +112,16 @@ exports.createIncident = async (req, res, next) => {
             io.to('room:dispatchers').emit('incident:new', { incident: newIncident });
         }
 
+        // THÊM VÀO ĐÂY: Đẩy vào Bull Queue để chạy ngầm
+        const dispatchQueue = require('../jobs/autoAssign');
+        await dispatchQueue.add({
+            incidentId: newIncident._id
+        }, {
+            delay: 1000, // Chờ 1 giây để đảm bảo DB đã lưu xong và Socket đã phát
+            attempts: 3, // Thử lại 3 lần nếu OSRM lỗi mạng
+            backoff: 5000 // Cách nhau 5s
+        });
+
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, newIncident);
     } catch (err) {
         next(err);
@@ -590,103 +600,121 @@ exports.getIncidentByCode = async (req, res, next) => {
 exports.updateIncidentStatus = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { status, teamData, note } = req.body; 
-
+        const { status, teamData, note } = req.body;
+ 
         if (!ALL_STATUS.includes(status)) {
             return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS));
         }
-
-        const isAdminGroup = [USER_ROLES.ADMIN, USER_ROLES.DISPATCHER].includes(req.user.role);
+ 
         const isRescue = req.user.role === USER_ROLES.RESCUE;
-        
-        if (isAdminGroup && status !== INCIDENT_STATUS.CANCELLED) {
-            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
-        }
+        if (req.user.role === USER_ROLES.CITIZEN) return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
         if (isRescue && status === INCIDENT_STATUS.CANCELLED) {
-            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
+            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN, 'Đội cứu hộ không có quyền hủy sự cố.'));
         }
-        if (req.user.role === USER_ROLES.CITIZEN) {
-            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
+ 
+        const currentInc = await Incident.findById(id);
+        if (!currentInc) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
+        const oldTeamId = currentInc.assignedTeam;
+ 
+        // ── Atomic query filter (chống race condition) ──────────────────────────
+        let updateQuery = { _id: id };
+ 
+        if (status === INCIDENT_STATUS.ASSIGNED) {
+            // Chỉ nhận khi đơn ĐANG PENDING (chưa ai nhận)
+            updateQuery.status = INCIDENT_STATUS.PENDING;
+        } else if (status === INCIDENT_STATUS.IN_PROGRESS) {
+            // Chỉ cho phép đến nơi khi đơn ĐANG ASSIGNED cho chính đội này
+            updateQuery.status = INCIDENT_STATUS.ASSIGNED;
+            updateQuery.assignedTeam = teamData?._id || oldTeamId;
         }
-
+        // COMPLETED, CANCELLED, PENDING: không filter thêm (admin có toàn quyền)
+ 
+        // ── Dữ liệu cập nhật ────────────────────────────────────────────────────
         const statusMessages = {
-            [INCIDENT_STATUS.ASSIGNED]: "Đội cứu hộ đã tiếp nhận yêu cầu.",
-            [INCIDENT_STATUS.IN_PROGRESS]: "Đội cứu hộ đang trên đường đến hiện trường.",
-            [INCIDENT_STATUS.COMPLETED]: "Sự cố đã được xử lý hoàn tất. Cảm ơn bạn!",
-            [INCIDENT_STATUS.CANCELLED]: note || "Sự cố đã bị hủy bởi hệ thống."
+            [INCIDENT_STATUS.ASSIGNED]:    'Đội cứu hộ đã tiếp nhận yêu cầu, đang trên đường.',
+            [INCIDENT_STATUS.IN_PROGRESS]: 'Đội cứu hộ đã đến hiện trường, đang xử lý.',
+            [INCIDENT_STATUS.COMPLETED]:   'Sự cố đã được xử lý hoàn tất. Cảm ơn bạn!',
+            [INCIDENT_STATUS.CANCELLED]:   note || 'Sự cố đã bị hủy bởi quản trị viên.'
         };
-
+ 
         const updateData = {
             status,
             $push: {
                 timeline: {
-                    status: status,
+                    status,
                     updatedBy: req.user._id,
                     note: note || statusMessages[status] || `Trạng thái: ${status}`,
                     timestamp: Date.now()
                 }
             }
         };
-
-        switch (status) {
-            case INCIDENT_STATUS.ASSIGNED:
-            case INCIDENT_STATUS.IN_PROGRESS:
-                if (teamData?._id) {
-                    updateData.assignedTeam = teamData._id;
-                    await RescueTeam.findByIdAndUpdate(teamData._id, { 
-                        status: RESCUE_TEAM_STATUS.BUSY,
-                        activeIncident: id 
-                    });
-                }
-                break;
-            case INCIDENT_STATUS.COMPLETED:
-                updateData.resolvedAt = Date.now();
-                const currentInc = await Incident.findById(id);
-                if (currentInc && currentInc.assignedTeam) {
-                    await RescueTeam.findByIdAndUpdate(currentInc.assignedTeam, { 
-                        status: RESCUE_TEAM_STATUS.AVAILABLE,
-                        activeIncident: null 
-                    });
-                }
-                break;
-            case INCIDENT_STATUS.CANCELLED:
-                const cancelledInc = await Incident.findById(id);
-                if (cancelledInc && cancelledInc.assignedTeam) {
-                    await RescueTeam.findByIdAndUpdate(cancelledInc.assignedTeam, { 
-                        status: RESCUE_TEAM_STATUS.AVAILABLE,
-                        activeIncident: null 
-                    });
-                }
-                updateData.assignedTeam = null;
-                break;
-        }
-
-        const updatedIncident = await Incident.findByIdAndUpdate(
-            id,
-            updateData,
-            { new: true, runValidators: true }
-        ).populate('assignedTeam', 'name code');
-
-        if (!updatedIncident) {
-            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
-        }
-
-        const io = req.app.get('io');
-        if (io) {
-            io.emit('incident:updated', {
-                id: updatedIncident._id,
-                status: updatedIncident.status,
-                timeline: updatedIncident.timeline
-            });
-            // Báo cho Dispatcher biết xe đã đổi màu (Xanh/Đỏ)
-            if (updatedIncident.assignedTeam) {
-                io.emit('rescue:status_changed', {
-                    teamId: updatedIncident.assignedTeam._id,
-                    status: (status === RESCUE_TEAM_STATUS.COMPLETED || status === RESCUE_TEAM_STATUS.CANCELLED) ? RESCUE_TEAM_STATUS.AVAILABLE : RESCUE_TEAM_STATUS.BUSY
+ 
+        // ── Sync RescueTeam ──────────────────────────────────────────────────────
+        if (status === INCIDENT_STATUS.ASSIGNED) {
+            // Gán đội vào incident & đánh BUSY ngay khi họ nhận ca
+            if (teamData?._id) {
+                updateData.assignedTeam = teamData._id;
+                await RescueTeam.findByIdAndUpdate(teamData._id, {
+                    status: RESCUE_TEAM_STATUS.BUSY,
+                    activeIncident: id
+                });
+            }
+ 
+        } else if (status === INCIDENT_STATUS.IN_PROGRESS) {
+            // Đến nơi: không cần thay đổi gì thêm, đội đã BUSY rồi
+            // (assignedTeam đã được set ở bước ASSIGNED)
+ 
+        } else if (status === INCIDENT_STATUS.COMPLETED) {
+            updateData.resolvedAt = Date.now();
+            updateData.assignedTeam = null; // ✅ Gỡ gán khỏi incident sau khi xong
+            if (oldTeamId) {
+                await RescueTeam.findByIdAndUpdate(oldTeamId, {
+                    status: RESCUE_TEAM_STATUS.AVAILABLE,
+                    activeIncident: null
+                });
+            }
+ 
+        } else if (status === INCIDENT_STATUS.CANCELLED) {
+            updateData.assignedTeam = null;
+            if (oldTeamId) {
+                await RescueTeam.findByIdAndUpdate(oldTeamId, {
+                    status: RESCUE_TEAM_STATUS.AVAILABLE,
+                    activeIncident: null
                 });
             }
         }
-
+ 
+        // ── Thực thi ────────────────────────────────────────────────────────────
+        const updatedIncident = await Incident.findOneAndUpdate(
+            updateQuery,
+            updateData,
+            { new: true, runValidators: true }
+        ).populate('assignedTeam', 'name code');
+ 
+        if (!updatedIncident) {
+            return next(new AppError(
+                ErrorCodes.INCIDENT_INVALID_STATUS,
+                'Sự cố đã được đội khác tiếp nhận hoặc không thể thay đổi trạng thái hiện tại.'
+            ));
+        }
+ 
+        // ── Socket ──────────────────────────────────────────────────────────────
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('incident:updated', { id, status, incident: updatedIncident });
+ 
+            if (status === INCIDENT_STATUS.CANCELLED && oldTeamId) {
+                io.emit(`rescue:incident_cancelled:${oldTeamId}`, {
+                    incidentId: id,
+                    message: 'Ca trực này đã bị hủy bởi quản trị viên.'
+                });
+            }
+ 
+            if (status === INCIDENT_STATUS.PENDING) {
+                io.to(`zone:${updatedIncident.zone}`).emit('incident:new', { incident: updatedIncident });
+            }
+        }
+ 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident);
     } catch (err) {
         next(err);
