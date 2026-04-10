@@ -1,4 +1,3 @@
-// Incident.jsx (Dành cho Điều phối viên) - Bản cập nhật Can thiệp thủ công
 import React, { useState, useEffect, useCallback } from "react";
 import { Menu } from "../../components/Dispatcher/Menu";
 import { SearchBar } from "../../components/Dispatcher/SearchBar";
@@ -22,6 +21,7 @@ import {
   AlertTriangle,
   RefreshCw,
   BellRing,
+  Trash2,
 } from "lucide-react";
 import api from "../../services/api";
 import { useSocket } from "../../hooks/useSocket";
@@ -41,39 +41,17 @@ const TYPE_LABELS = {
 };
 
 const STATUS_CONFIG = {
-  [INCIDENT_STATUS.PENDING]: {
-    label: "Chờ xử lý",
-    color: "bg-amber-100 text-amber-700",
-    dot: "bg-amber-400",
-  },
-  [INCIDENT_STATUS.ASSIGNED]: {
-    label: "Đã phân công",
-    color: "bg-blue-100 text-blue-700",
-    dot: "bg-blue-500",
-  },
-  [INCIDENT_STATUS.IN_PROGRESS]: {
-    label: "Đang xử lý",
-    color: "bg-violet-100 text-violet-700",
-    dot: "bg-violet-500 animate-pulse",
-  },
-  [INCIDENT_STATUS.COMPLETED]: {
-    label: "Hoàn thành",
-    color: "bg-green-100 text-green-700",
-    dot: "bg-green-500",
-  },
-  [INCIDENT_STATUS.CANCELLED]: {
-    label: "Đã hủy",
-    color: "bg-gray-100 text-gray-500",
-    dot: "bg-gray-400",
-  },
+  [INCIDENT_STATUS.PENDING]: { label: "Chờ xử lý", color: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },
+  [INCIDENT_STATUS.ASSIGNED]: { label: "Đã phân công", color: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+  [INCIDENT_STATUS.IN_PROGRESS]: { label: "Đang xử lý", color: "bg-violet-100 text-violet-700", dot: "bg-violet-500 animate-pulse" },
+  [INCIDENT_STATUS.COMPLETED]: { label: "Hoàn thành", color: "bg-green-100 text-green-700", dot: "bg-green-500" },
+  [INCIDENT_STATUS.CANCELLED]: { label: "Đã hủy", color: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
 };
 
 const StatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG[INCIDENT_STATUS.PENDING];
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${cfg.color}`}
-    >
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${cfg.color}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label}
     </span>
@@ -88,6 +66,7 @@ const IncidentSidebar = ({ incident, onClose, onCancelled, onAssigned }) => {
   const [assigning, setAssigning] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState(""); 
   const [tab, setTab] = useState("detail");
 
   const loadAvailableTeams = useCallback(async () => {
@@ -95,11 +74,8 @@ const IncidentSidebar = ({ incident, onClose, onCancelled, onAssigned }) => {
     try {
       const res = await api.get("/rescue-teams?status=AVAILABLE&limit=50");
       setAvailableTeams(res.data?.result?.data || []);
-    } catch (e) {
-      console.error("Lỗi tải đội:", e);
-    } finally {
-      setLoadingTeams(false);
-    }
+    } catch (e) { console.error("Lỗi tải đội:", e); }
+    finally { setLoadingTeams(false); }
   }, []);
 
   useEffect(() => {
@@ -113,190 +89,167 @@ const IncidentSidebar = ({ incident, onClose, onCancelled, onAssigned }) => {
       const res = await api.patch(`/incidents/${incident._id}/status`, {
         status: INCIDENT_STATUS.ASSIGNED,
         teamData: { _id: selectedTeam._id, ...selectedTeam },
-        note: `Điều phối viên chủ động can thiệp gán đội ${selectedTeam.name}`,
+        note: `ĐPV can thiệp gán đội ${selectedTeam.name}`,
       });
       onAssigned(res.data.result);
       alert("Đã can thiệp gán đội thành công!");
-    } catch (e) {
-      alert("Lỗi điều phối: " + (e.response?.data?.message || e.message));
-    } finally {
-      setAssigning(false);
-    }
+    } catch (e) { alert("Lỗi: " + (e.response?.data?.message || e.message)); }
+    finally { setAssigning(false); }
   };
 
-  const handleCancel = async () => {
-    setShowConfirmCancel(false);
+  const handleCancelAction = async () => {
+    if (!cancelReason.trim()) return alert("Vui lòng nhập lý do hủy báo cáo rác.");
     setCancelling(true);
     try {
       const res = await api.patch(`/incidents/${incident._id}/status`, {
         status: INCIDENT_STATUS.CANCELLED,
-        note: "Điều phối viên hủy sự cố.",
+        note: `ĐPV HỦY (BÁO CÁO RÁC): ${cancelReason}`,
       });
       onCancelled(res.data.result);
-    } catch (e) {
-      alert("Lỗi hủy: " + (e.response?.data?.message || e.message));
-    } finally {
-      setCancelling(false);
-    }
+      alert("Đã đóng và hủy sự cố thành công.");
+    } catch (e) { alert("Lỗi hủy: " + (e.response?.data?.message || e.message)); }
+    finally { setCancelling(false); setShowConfirmCancel(false); }
   };
 
   const isSOS = incident.severity === INCIDENT_SEVERITY.CRITICAL;
   const canAssign = incident.status === INCIDENT_STATUS.PENDING;
-  const canCancel = ![
-    INCIDENT_STATUS.COMPLETED,
-    INCIDENT_STATUS.CANCELLED,
-  ].includes(incident.status);
-  const assignedTeamName =
-    incident.assignedTeam?.name || incident.assignedTeam?.code;
+  const canCancel = ![INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(incident.status);
+  const assignedTeamName = incident.assignedTeam?.name || "N/A";
 
   return (
-    <>
-      <div className="fixed inset-0 z-[100] flex">
-        <div
-          className="flex-1 bg-black/30 backdrop-blur-sm"
-          onClick={onClose}
-        />
-        <div className="w-[480px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-          <div
-            className={`px-6 pt-6 pb-4 border-b border-gray-100 ${isSOS ? "bg-red-50" : "bg-white"}`}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {isSOS ? (
-                  <Siren size={18} className="text-red-500 animate-pulse" />
-                ) : (
-                  <Radio size={18} className="text-blue-500" />
-                )}
-                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">
-                  {isSOS
-                    ? "SOS Khẩn cấp"
-                    : TYPE_LABELS[incident.type] || "Sự cố"}
-                </span>
-              </div>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
-              >
-                <X size={16} className="text-gray-500" />
-              </button>
-            </div>
-            <h2 className="font-black text-gray-900 text-xl leading-tight mb-2 uppercase">
-              {incident.title}
-            </h2>
-            <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={incident.status} />
-              {incident.needsIntervention && (
-                <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded animate-pulse">
-                  CẦN CAN THIỆP GẤP
-                </span>
-              )}
-            </div>
+    <div className="fixed inset-0 z-[100] flex shadow-2xl">
+      <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-[480px] h-full bg-white flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl">
+        <div className={`px-6 pt-8 pb-5 border-b border-gray-100 ${isSOS ? "bg-red-50" : "bg-white"}`}>
+          <div className="flex justify-between items-start mb-4">
+             <div className="flex items-center gap-2">
+                {isSOS ? <Siren size={20} className="text-red-500 animate-pulse" /> : <Radio size={20} className="text-blue-500" />}
+                <span className="text-[12px] font-black text-gray-400 uppercase tracking-widest">{isSOS ? "Khẩn cấp" : TYPE_LABELS[incident.type]}</span>
+             </div>
+             <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center transition-all"><X size={18} /></button>
           </div>
+          <h2 className="font-black text-gray-900 text-2xl leading-tight uppercase mb-3">{incident.title}</h2>
+          <div className="flex gap-2"><StatusBadge status={incident.status} /></div>
+        </div>
 
-          <div className="flex border-b border-gray-100 px-6">
-            {[
-              { key: "detail", label: "Chi tiết", icon: AlertTriangle },
-              { key: "assign", label: "Điều phối", icon: UserCheck },
-            ].map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`flex items-center gap-1.5 py-3.5 px-1 mr-6 text-sm font-bold border-b-2 transition-colors ${tab === key ? "border-[#0088FF] text-[#0088FF]" : "border-transparent text-gray-400 hover:text-gray-700"}`}
-              >
-                <Icon size={14} /> {label}
-              </button>
-            ))}
-          </div>
+        <div className="flex border-b border-gray-100 px-6 bg-gray-50/50">
+          {[
+            { key: "detail", label: "Thông tin chi tiết", icon: AlertTriangle },
+            { key: "assign", label: "Điều phối & Can thiệp", icon: UserCheck },
+          ].map(({ key, label, icon: Icon }) => (
+            <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-2 py-4 px-1 mr-8 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${tab === key ? "border-[#0088FF] text-[#0088FF]" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5 no-scrollbar">
-            {tab === "detail" ? (
-              <div className="space-y-5">
-                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <MapPin size={16} className="text-sky-500 mt-0.5 shrink-0" />
+        <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
+          {tab === "detail" ? (
+            <div className="space-y-6">
+              <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
+                <div className="flex gap-3">
+                  <MapPin size={18} className="text-blue-500 shrink-0" />
                   <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">
-                      Địa điểm
-                    </p>
-                    <p className="text-sm text-gray-700 font-semibold">
-                      {incident.location?.address}
-                    </p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">Địa điểm</p>
+                    <p className="text-sm font-semibold text-gray-700">{incident.location?.address}</p>
                   </div>
                 </div>
-                {/* ... (Các thông tin chi tiết khác giữ nguyên) */}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {!canAssign ? (
-                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
-                    <CheckCircle2 size={18} className="text-blue-500" />
-                    <p className="text-sm text-blue-700 font-semibold">
-                      Đã gán cho <strong>{assignedTeamName}</strong>
-                    </p>
+                <div className="flex gap-3">
+                  <Phone size={18} className="text-green-500 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">Liên hệ người báo</p>
+                    <p className="text-sm font-bold text-[#0088FF]">{incident.reportedBy?.phone || "N/A"}</p>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-gray-700">
-                        Chọn đội cứu hộ thủ công
-                      </p>
-                      <button onClick={loadAvailableTeams}>
-                        <RefreshCw
-                          size={14}
-                          className={loadingTeams ? "animate-spin" : ""}
-                        />
-                      </button>
+                </div>
+              </div>
+
+              {canCancel && (
+                <div className="mt-10 pt-6 border-t-2 border-dashed border-red-100">
+                  <div className="flex items-center gap-2 mb-4 text-red-600">
+                    <ShieldOff size={16} />
+                    <span className="text-[11px] font-black uppercase tracking-[0.1em]">Khu vực quản trị cấp cao</span>
+                  </div>
+
+                  {!showConfirmCancel ? (
+                    <button onClick={() => setShowConfirmCancel(true)} className="w-full py-4 rounded-xl border-2 border-red-100 text-red-500 text-xs font-black uppercase hover:bg-red-50 transition-all flex items-center justify-center gap-2">
+                      <Trash2 size={16} /> Hủy sự cố (Báo cáo rác/Spam)
+                    </button>
+                  ) : (
+                    <div className="bg-red-50 p-5 rounded-2xl border border-red-100 animate-in zoom-in-95 duration-200">
+                      <p className="text-xs font-bold text-red-700 mb-3 uppercase">Lý do hủy sự cố:</p>
+                      <textarea
+                        autoFocus
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="Ví dụ: Báo cáo sai sự thật, spam lặp lại..."
+                        className="w-full p-4 text-sm border border-red-200 rounded-xl outline-none focus:ring-2 focus:ring-red-400 bg-white mb-4 min-h-[100px]"
+                      />
+                      <div className="flex gap-3">
+                        <button onClick={handleCancelAction} disabled={cancelling} className="flex-1 py-3 bg-red-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-red-200 disabled:opacity-50">
+                          {cancelling ? "ĐANG XỬ LÝ..." : "XÁC NHẬN HỦY VĨNH VIỄN"}
+                        </button>
+                        <button onClick={() => { setShowConfirmCancel(false); setCancelReason(""); }} className="px-6 py-3 bg-white text-gray-500 border border-gray-200 rounded-xl text-xs font-bold">
+                          QUAY LẠI
+                        </button>
+                      </div>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {!canAssign ? (
+                <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-4">
+                  <CheckCircle2 size={24} className="text-blue-500" />
+                  <p className="text-sm text-blue-700 font-bold uppercase">Sự cố đã được gán cho: <br/> <span className="text-lg">{assignedTeamName}</span></p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-black text-gray-400 uppercase">Đội cứu hộ khả dụng</p>
+                    <button onClick={loadAvailableTeams} className="p-2 hover:bg-gray-100 rounded-full transition-all">
+                        <RefreshCw size={14} className={loadingTeams ? "animate-spin text-blue-500" : "text-gray-400"} />
+                    </button>
+                  </div>
+                  <div className="grid gap-3">
+                    {availableTeams.length === 0 && !loadingTeams && <p className="text-center py-10 text-gray-400 italic text-sm">Không có đội nào đang rảnh...</p>}
                     {availableTeams.map((team) => (
-                      <button
-                        key={team._id}
-                        onClick={() => setSelectedTeam(team)}
-                        className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${selectedTeam?._id === team._id ? "border-[#0088FF] bg-blue-50" : "border-gray-100 bg-gray-50"}`}
-                      >
-                        <Car size={16} />
+                      <button key={team._id} onClick={() => setSelectedTeam(team)} className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedTeam?._id === team._id ? "border-[#0088FF] bg-blue-50/50 shadow-md" : "border-gray-50 bg-gray-50/50 hover:border-gray-200"}`}>
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm text-blue-500"><Car size={20} /></div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold">{team.name}</p>
-                          <p className="text-[10px] text-gray-400">
-                            {team.zone}
-                          </p>
+                          <p className="text-sm font-black text-gray-800 uppercase">{team.name}</p>
+                          <p className="text-[10px] text-gray-400 font-bold">{team.zone}</p>
                         </div>
-                        <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
-                          RẢNH
-                        </span>
+                        <span className="text-[9px] bg-green-100 text-green-700 px-2 py-1 rounded-md font-black uppercase">Available</span>
                       </button>
                     ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="px-6 py-4 border-t border-gray-100 bg-white">
-            {tab === "assign" && canAssign && (
-              <button
-                onClick={handleAssign}
-                disabled={!selectedTeam || assigning}
-                className="w-full py-3 rounded-2xl bg-[#0088FF] text-white font-black text-sm disabled:opacity-40 hover:bg-blue-600 transition-all shadow-lg"
-              >
-                {assigning
-                  ? "ĐANG GÁN..."
-                  : `GÁN ĐỘI: ${selectedTeam?.name || "..."}`}
-              </button>
-            )}
-          </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
+
+        {tab === "assign" && canAssign && (
+          <div className="p-6 border-t border-gray-100 bg-white">
+             <button onClick={handleAssign} disabled={!selectedTeam || assigning} className="w-full py-4 rounded-2xl bg-[#0088FF] text-white font-black text-sm disabled:opacity-40 hover:bg-blue-600 transition-all shadow-xl uppercase tracking-widest">
+                {assigning ? "ĐANG XỬ LÝ..." : `Gán đơn cho: ${selectedTeam?.name || "Chọn đội"}`}
+              </button>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Page Component ──────────────────────────────────────────────────────
 export const Incident = () => {
   const [incidents, setIncidents] = useState([]);
   const [pagination, setPagination] = useState({ totalPages: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [page, setPage] = useState(1);
-
   const socket = useSocket();
 
   const fetchIncidents = useCallback(async (pageNum) => {
@@ -306,223 +259,117 @@ export const Incident = () => {
       const { data, pagination: pagData } = res.data.result;
       setIncidents(data);
       setPagination(pagData);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); } 
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchIncidents(page);
-  }, [page, fetchIncidents]);
+  useEffect(() => { fetchIncidents(page); }, [page, fetchIncidents]);
 
-  // 🔥 REAL-TIME & MANUAL INTERVENTION LOGIC
   useEffect(() => {
     if (!socket) return;
 
-    // 🚀 BÁO ĐỘNG: Cần can thiệp thủ công từ Bull Queue
+    socket.emit('dispatcher:register');
+
+    // 🔥 FIX: Cập nhật hàm handleManualNeeded để đẩy đơn SOS mới lên đầu nếu chưa có trong list
     const handleManualNeeded = (data) => {
-      console.warn(
-        "🚨 [SYSTEM] Sự cố cần can thiệp tay ngay lập tức:",
-        data.incident._id,
-      );
+      console.warn("🚨 Nhận tín hiệu SOS can thiệp tay cho vụ:", data.incident.code);
+      
+      // 1. Phát âm thanh cảnh báo
+      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3");
+      audio.play().catch(() => {});
 
-      // 1. Phát âm thanh cảnh báo (Dispatcher alert)
-      const audio = new Audio(
-        "https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3",
-      );
-      audio.play().catch(() => console.log("Chặn âm thanh tự phát"));
-
-      // 2. Cập nhật flag needsIntervention vào đơn hàng trong list
-      setIncidents((prev) =>
-        prev.map((inc) =>
-          inc._id === data.incident._id
-            ? { ...inc, needsIntervention: true }
-            : inc,
-        ),
-      );
-    };
-
-    const handleNew = (data) => {
-      if (page === 1) {
-        setIncidents((prev) => {
-          if (prev.find((i) => i._id === data.incident._id)) return prev;
-          return [data.incident, ...prev.slice(0, 9)];
-        });
-        setPagination((prev) => ({ ...prev, total: prev.total + 1 }));
-      }
+      // 2. Cập nhật danh sách
+      setIncidents((prev) => {
+        const exists = prev.find(inc => inc._id === data.incident._id);
+        if (exists) {
+          // Nếu đơn đã có trong danh sách hiện tại, chỉ cần đánh dấu đỏ và cập nhật data mới
+          return prev.map((inc) =>
+            inc._id === data.incident._id ? { ...inc, ...data.incident, needsIntervention: true } : inc
+          );
+        } else {
+          // 🔥 QUAN TRỌNG: Nếu đơn chưa có (do mới báo hoặc ở trang khác), đẩy nó lên đầu ngay
+          return [{ ...data.incident, needsIntervention: true }, ...prev];
+        }
+      });
     };
 
     const handleUpdated = (data) => {
-      setIncidents((prev) =>
-        prev.map((inc) =>
-          inc._id === data.id
-            ? {
-                ...inc,
-                status: data.status,
-                assignedTeam: data.incident?.assignedTeam,
-                needsIntervention: false,
-              }
-            : inc,
-        ),
-      );
-      setSelectedIncident((prev) =>
-        prev?._id === data.id
-          ? {
-              ...prev,
-              status: data.status,
-              assignedTeam: data.incident?.assignedTeam,
-              needsIntervention: false,
-            }
-          : prev,
-      );
+      setIncidents((prev) => prev.map((inc) => inc._id === data.id ? { ...inc, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : inc));
+      setSelectedIncident((prev) => prev?._id === data.id ? { ...prev, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : prev);
     };
 
     socket.on("dispatcher:manual_intervention_required", handleManualNeeded);
-    socket.on("incident:new", handleNew);
-    socket.on("alert:sos", handleNew);
+    socket.on("incident:new", (d) => page === 1 && setIncidents(prev => [d.incident, ...prev.slice(0, 9)]));
     socket.on("incident:updated", handleUpdated);
 
     return () => {
       socket.off("dispatcher:manual_intervention_required", handleManualNeeded);
-      socket.off("incident:new", handleNew);
-      socket.off("alert:sos", handleNew);
-      socket.off("incident:updated", handleUpdated);
+      socket.off("incident:new");
+      socket.off("incident:updated");
     };
   }, [socket, page]);
-
-  const handleAssigned = (updated) => {
-    setIncidents((prev) =>
-      prev.map((i) => (i._id === updated._id ? updated : i)),
-    );
-    setSelectedIncident(updated);
-  };
-
-  const handleCancelled = (updated) => {
-    setIncidents((prev) =>
-      prev.map((i) => (i._id === updated._id ? updated : i)),
-    );
-    setSelectedIncident(null);
-  };
 
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
       <Menu />
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <header className="h-[80px] flex items-center justify-between px-8 bg-transparent shrink-0">
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
+        <header className="h-[80px] flex items-center justify-between px-10 bg-white/50 backdrop-blur-md border-b border-gray-100 shrink-0">
           <div>
-            <h2 className="text-[22px] font-bold text-gray-900 leading-tight mb-1">
-              Quản lý sự cố
-            </h2>
-            <p className="text-sm text-gray-500">
-              Giám sát & Điều phối can thiệp • Real-time
-            </p>
+            <h2 className="text-2xl font-black text-gray-900 tracking-tight">Quản lý sự cố</h2>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Real-time Monitoring & Intervention</p>
           </div>
-          <div className="w-[400px]">
-            <SearchBar className="w-full" />
-          </div>
+          <div className="w-[400px]"><SearchBar className="w-full" /></div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-8 pb-8 no-scrollbar">
-          <div className="max-w-5xl mx-auto flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-gray-900 mt-2">
-              Danh sách sự cố ({pagination.total})
-            </h3>
+        <div className="flex-1 overflow-y-auto px-10 py-8 no-scrollbar">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <div className="flex justify-between items-end mb-2">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Tất cả báo cáo ({pagination.total})</h3>
+            </div>
 
             {loading ? (
-              <div className="flex flex-col items-center py-20 gap-3">
-                <Loader2 size={40} className="animate-spin text-[#0088FF]" />
-              </div>
+              <div className="flex flex-col items-center py-20"><Loader2 size={40} className="animate-spin text-[#0088FF]" /></div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {incidents.map((incident) => {
-                  const isSOS =
-                    incident.severity === INCIDENT_SEVERITY.CRITICAL;
-                  const needsHelp = incident.needsIntervention;
+              <div className="space-y-4">
+                {incidents.map((incident) => (
+                  <div
+                    key={incident._id}
+                    onClick={() => setSelectedIncident(incident)}
+                    className={`relative bg-white rounded-3xl p-6 border-2 transition-all cursor-pointer flex items-center justify-between group hover:border-[#0088FF] hover:shadow-xl hover:shadow-blue-50 ${incident.needsIntervention ? "border-red-500 ring-4 ring-red-50 bg-red-50/10" : "border-transparent shadow-sm"}`}
+                  >
+                    {incident.needsIntervention && (
+                      <div className="absolute -top-3 right-8 bg-red-600 text-white text-[9px] font-black px-4 py-1.5 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
+                        <BellRing size={12} /> CẦN CAN THIỆP GẤP
+                      </div>
+                    )}
 
-                  return (
-                    <div
-                      key={incident._id}
-                      onClick={() => setSelectedIncident(incident)}
-                      className={`relative group bg-white rounded-2xl p-5 border transition-all cursor-pointer flex items-center justify-between shadow-sm hover:shadow-md ${
-                        needsHelp
-                          ? "border-red-500 ring-2 ring-red-100 bg-red-50/10"
-                          : "border-gray-100"
-                      } ${selectedIncident?._id === incident._id ? "border-[#0088FF] ring-2 ring-blue-100" : ""}`}
-                    >
-                      {needsHelp && (
-                        <div className="absolute -top-2.5 right-6 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 animate-bounce">
-                          <BellRing size={12} /> LỖI TỰ ĐỘNG - CẦN GÁN TAY
+                    <div className="flex items-center gap-6">
+                      <div className={`p-4 rounded-2xl ${incident.severity === 'CRITICAL' || incident.needsIntervention ? "bg-red-100 text-red-500" : "bg-gray-100 text-gray-400"} group-hover:scale-110 transition-transform`}>
+                        {incident.severity === 'CRITICAL' || incident.needsIntervention ? <TriangleAlert size={28} className="animate-pulse" /> : <Car size={28} />}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-4">
+                          <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight">{incident.title}</h4>
+                          <StatusBadge status={incident.status} />
                         </div>
-                      )}
-
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={`p-3 rounded-xl ${isSOS || needsHelp ? "bg-red-100 text-red-500" : "bg-gray-100 text-gray-400"}`}
-                        >
-                          {isSOS ? (
-                            <TriangleAlert
-                              size={24}
-                              className="animate-pulse"
-                            />
-                          ) : (
-                            <Car size={24} />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <h4 className="text-base font-bold text-gray-900">
-                              {incident.title}
-                            </h4>
-                            <StatusBadge status={incident.status} />
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-400">
-                            <Clock size={14} />
-                            <span>
-                              {new Date(incident.createdAt).toLocaleTimeString(
-                                "vi-VN",
-                              )}
-                            </span>
-                            <span>•</span>
-                            <span className="font-mono uppercase">
-                              {incident.code}
-                            </span>
-                            {incident.assignedTeam && (
-                              <span className="text-blue-500 font-semibold">
-                                • {incident.assignedTeam.name}
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex items-center gap-3 text-[11px] font-bold text-gray-400">
+                          <Clock size={14} /> <span>{new Date(incident.createdAt).toLocaleString("vi-VN")}</span>
+                          <span>•</span> <span className="font-mono text-blue-500">{incident.code}</span>
+                          {incident.assignedTeam && <span className="text-violet-600 uppercase tracking-wider">• {incident.assignedTeam.name}</span>}
                         </div>
                       </div>
-                      <ChevronRight className="text-gray-300" />
                     </div>
-                  );
-                })}
+                    <ChevronRight className="text-gray-200 group-hover:text-[#0088FF] group-hover:translate-x-1 transition-all" size={24} />
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Phân trang (Giữ nguyên logic cũ của bạn) */}
             {pagination.totalPages > 1 && (
-              <div className="flex justify-between mt-6">
-                <button
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="p-2 border rounded"
-                >
-                  <ChevronLeft />
-                </button>
-                <span className="text-sm">
-                  Trang {page}/{pagination.totalPages}
-                </span>
-                <button
-                  disabled={page === pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="p-2 border rounded"
-                >
-                  <ChevronRight />
-                </button>
+              <div className="flex items-center justify-center gap-8 py-10">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="p-3 bg-white rounded-2xl shadow-sm border border-gray-100 disabled:opacity-30 active:scale-90 transition-all"><ChevronLeft /></button>
+                <span className="text-sm font-black text-gray-500 uppercase tracking-widest">Trang {page} / {pagination.totalPages}</span>
+                <button disabled={page === pagination.totalPages} onClick={() => setPage(p => p + 1)} className="p-3 bg-white rounded-2xl shadow-sm border border-gray-100 disabled:opacity-30 active:scale-90 transition-all"><ChevronRight /></button>
               </div>
             )}
           </div>
@@ -532,8 +379,8 @@ export const Incident = () => {
           <IncidentSidebar
             incident={selectedIncident}
             onClose={() => setSelectedIncident(null)}
-            onAssigned={handleAssigned}
-            onCancelled={handleCancelled}
+            onAssigned={(updated) => { setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i)); setSelectedIncident(updated); }}
+            onCancelled={(updated) => { setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i)); setSelectedIncident(null); }}
           />
         )}
       </main>

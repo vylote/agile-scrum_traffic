@@ -12,6 +12,7 @@ const { USER_ROLES } = require('../utils/constants/userConstants');
 const { timeStamp } = require('console');
 const RescueTeam = require('../models/RescueTeam')
 const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants')
+const autoDispatchQueue = require('../jobs/autoAssign');
 
 /**
  * @swagger
@@ -108,7 +109,6 @@ exports.createIncident = async (req, res, next) => {
 
         const io = req.app.get('io');
         if (io) {
-            io.to(`zone:${detectedZone}`).emit('incident:new', { incident: newIncident });
             io.to('room:dispatchers').emit('incident:new', { incident: newIncident });
         }
 
@@ -611,24 +611,24 @@ exports.updateIncidentStatus = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { status, teamData, note } = req.body;
- 
+
         if (!ALL_STATUS.includes(status)) {
             return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS));
         }
- 
+
         const isRescue = req.user.role === USER_ROLES.RESCUE;
         if (req.user.role === USER_ROLES.CITIZEN) return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
         if (isRescue && status === INCIDENT_STATUS.CANCELLED) {
             return next(new AppError(ErrorCodes.AUTH_FORBIDDEN, 'Đội cứu hộ không có quyền hủy sự cố.'));
         }
- 
+
         const currentInc = await Incident.findById(id);
         if (!currentInc) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
         const oldTeamId = currentInc.assignedTeam;
- 
+
         // ── Atomic query filter (chống race condition) ──────────────────────────
         let updateQuery = { _id: id };
- 
+
         if (status === INCIDENT_STATUS.ASSIGNED) {
             // Chỉ nhận khi đơn ĐANG PENDING (chưa ai nhận)
             updateQuery.status = INCIDENT_STATUS.PENDING;
@@ -638,15 +638,15 @@ exports.updateIncidentStatus = async (req, res, next) => {
             updateQuery.assignedTeam = teamData?._id || oldTeamId;
         }
         // COMPLETED, CANCELLED, PENDING: không filter thêm (admin có toàn quyền)
- 
+
         // ── Dữ liệu cập nhật ────────────────────────────────────────────────────
         const statusMessages = {
-            [INCIDENT_STATUS.ASSIGNED]:    'Đội cứu hộ đã tiếp nhận yêu cầu, đang trên đường.',
+            [INCIDENT_STATUS.ASSIGNED]: 'Đội cứu hộ đã tiếp nhận yêu cầu, đang trên đường.',
             [INCIDENT_STATUS.IN_PROGRESS]: 'Đội cứu hộ đã đến hiện trường, đang xử lý.',
-            [INCIDENT_STATUS.COMPLETED]:   'Sự cố đã được xử lý hoàn tất. Cảm ơn bạn!',
-            [INCIDENT_STATUS.CANCELLED]:   note || 'Sự cố đã bị hủy bởi quản trị viên.'
+            [INCIDENT_STATUS.COMPLETED]: 'Sự cố đã được xử lý hoàn tất. Cảm ơn bạn!',
+            [INCIDENT_STATUS.CANCELLED]: note || 'Sự cố đã bị hủy bởi quản trị viên.'
         };
- 
+
         const updateData = {
             status,
             $push: {
@@ -658,7 +658,7 @@ exports.updateIncidentStatus = async (req, res, next) => {
                 }
             }
         };
- 
+
         // ── Sync RescueTeam ──────────────────────────────────────────────────────
         if (status === INCIDENT_STATUS.ASSIGNED) {
             // Gán đội vào incident & đánh BUSY ngay khi họ nhận ca
@@ -669,11 +669,11 @@ exports.updateIncidentStatus = async (req, res, next) => {
                     activeIncident: id
                 });
             }
- 
+
         } else if (status === INCIDENT_STATUS.IN_PROGRESS) {
             // Đến nơi: không cần thay đổi gì thêm, đội đã BUSY rồi
             // (assignedTeam đã được set ở bước ASSIGNED)
- 
+
         } else if (status === INCIDENT_STATUS.COMPLETED) {
             updateData.resolvedAt = Date.now();
             updateData.assignedTeam = null; // ✅ Gỡ gán khỏi incident sau khi xong
@@ -683,7 +683,7 @@ exports.updateIncidentStatus = async (req, res, next) => {
                     activeIncident: null
                 });
             }
- 
+
         } else if (status === INCIDENT_STATUS.CANCELLED) {
             updateData.assignedTeam = null;
             if (oldTeamId) {
@@ -693,40 +693,126 @@ exports.updateIncidentStatus = async (req, res, next) => {
                 });
             }
         }
- 
+
         // ── Thực thi ────────────────────────────────────────────────────────────
         const updatedIncident = await Incident.findOneAndUpdate(
             updateQuery,
             updateData,
             { new: true, runValidators: true }
         ).populate('assignedTeam', 'name code');
- 
+
         if (!updatedIncident) {
             return next(new AppError(
                 ErrorCodes.INCIDENT_INVALID_STATUS,
                 'Sự cố đã được đội khác tiếp nhận hoặc không thể thay đổi trạng thái hiện tại.'
             ));
         }
- 
+
         // ── Socket ──────────────────────────────────────────────────────────────
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', { id, status, incident: updatedIncident });
- 
+
             if (status === INCIDENT_STATUS.CANCELLED && oldTeamId) {
                 io.emit(`rescue:incident_cancelled:${oldTeamId}`, {
                     incidentId: id,
                     message: 'Ca trực này đã bị hủy bởi quản trị viên.'
                 });
             }
- 
+
             if (status === INCIDENT_STATUS.PENDING) {
                 io.to(`zone:${updatedIncident.zone}`).emit('incident:new', { incident: updatedIncident });
             }
         }
- 
+
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident);
     } catch (err) {
         next(err);
     }
+};
+
+exports.rejectIncident = async (req, res, next) => {
+    const incidentId = req.params.id;
+    const teamId = req.user.rescueTeam?._id;
+
+    try {
+        // 1. Blacklist đội vừa từ chối
+        const incident = await Incident.findByIdAndUpdate(
+            incidentId,
+            { $addToSet: { rejectedTeams: teamId } },
+            { new: true }
+        );
+
+        // 2. ⚡ TRUY SÁT VÀ TIÊU DIỆT JOB ĐANG TREO (Fix delay 30s)
+        const targetJobId = `dispatch_${incidentId}`;
+        const oldJob = await autoDispatchQueue.getJob(targetJobId);
+        if (oldJob) {
+            await oldJob.remove();
+            console.log(`🧹 Đã xóa sạch Job cũ [${targetJobId}]. Hết delay 30s!`);
+        }
+
+        // 3. Thu hồi popup máy vừa bấm
+        const io = req.app.get('io'); // Lấy instance io từ app
+        if (io) {
+            io.to(`team:${teamId}`).emit('rescue:revoke_request');
+        }
+
+        // 4. KIỂM TRA ĐIỀU KIỆN NHẢY ĐƠN
+        if (incident.attemptCount >= 2) {
+            console.log("🚨 Đã thử qua 2 đội. Báo SOS cho Dispatcher!");
+            if (io) {
+                io.to('room:dispatchers').emit('dispatcher:manual_intervention_required', { 
+                    incident: incident.toObject(),
+                    reason: "Cả 2 đội được gán tự động đều từ chối."
+                });
+            }
+        } else {
+            // ⏭️ Ép tạo Job mới chạy ngay (delay cực ngắn 50ms)
+            // Dùng ID mới để không bị Bull Queue chặn
+            const nextJobId = `dispatch_${incidentId}_retry_${Date.now()}`;
+            await autoDispatchQueue.add(
+                { incidentId, startTime: Date.now() },
+                { jobId: nextJobId, delay: 50, priority: 1 }
+            );
+            console.log(`⏭️ Chuyển đơn thành công! (Job: ${nextJobId})`);
+        }
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã từ chối" });
+    } catch (error) { 
+        console.error("🔥 Lỗi tại rejectIncident:", error);
+        next(error); 
+    }
+};
+
+// --- HÀM XÁC NHẬN ĐẾN HIỆN TRƯỜNG (KPI 100M) ---
+exports.confirmArrival = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { currentLat, currentLng } = req.body; // Vị trí GPS hiện tại của đội
+
+        const incident = await Incident.findById(id);
+        if (!incident) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
+
+        // 🚩 KIỂM TRA KHOẢNG CÁCH 100M
+        const distance = calculateHaversine(
+            currentLat, currentLng,
+            incident.location.coordinates[1], incident.location.coordinates[0]
+        );
+
+        if (distance > 100) {
+            return next(new AppError("Bạn phải cách hiện trường dưới 100m để xác nhận đến nơi.", 400));
+        }
+
+        // Cập nhật trạng thái
+        incident.status = INCIDENT_STATUS.IN_PROGRESS;
+        incident.timeline.push({
+            status: INCIDENT_STATUS.IN_PROGRESS,
+            updatedBy: req.user._id,
+            note: 'Đội cứu hộ đã đến hiện trường.',
+            timestamp: Date.now()
+        });
+        await incident.save();
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident);
+    } catch (error) { next(error); }
 };

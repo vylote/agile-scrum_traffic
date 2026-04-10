@@ -22,5 +22,6 @@ router.patch("/:id/info",upload.array("photos", 3),incidentController.updateInci
 router.get('/',incidentController.getAllIncidents);
 
 router.delete("/delete/:id",restrictTo(USER_ROLES.CITIZEN),incidentController.deleteIncident);
+router.patch('/:id/reject', restrictTo(USER_ROLES.RESCUE), incidentController.rejectIncident);
 
 module.exports = router;

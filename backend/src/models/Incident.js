@@ -34,6 +34,9 @@ const incidentSchema = new mongoose.Schema({
     reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
     assignedTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'RescueTeam' },
+    // Thêm trường này vào Schema hiện tại của bạn
+    rejectedTeams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'RescueTeam' }],
+    attemptCount: { type: Number, default: 0 }, // Theo dõi lần tìm đội thứ mấy
 
     timeline: [{
         status: String,
