@@ -110,6 +110,7 @@ exports.createIncident = async (req, res, next) => {
         const io = req.app.get('io');
         if (io) {
             io.to('room:dispatchers').emit('incident:new', { incident: newIncident });
+            io.to(`zone:${detectedZone}`).emit('incident:new', { incident: newIncident });
         }
 
         // THÊM VÀO ĐÂY: Đẩy vào Bull Queue để chạy ngầm
@@ -202,6 +203,7 @@ exports.createSOS = async (req, res, next) => {
                 incident: sosIncident,
                 priority: 'HIGH'
             });
+            io.to('room:dispatchers').emit('incident:new', { incident: sosIncident });
         }
 
         // 🔥 THÊM ĐOẠN NÀY ĐỂ GỌI XE TỰ ĐỘNG CHO SOS:

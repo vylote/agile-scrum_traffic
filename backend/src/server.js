@@ -30,9 +30,9 @@ io.on('connection', (socket) => {
     socket.on('rescue:register', (data) => {
         const { teamId, role } = data;
         if (teamId && role === 'LEADER') {
-            socket.join(`team:${teamId}`); 
+            socket.join(`team:${teamId}`);
             socket.registeredTeamId = teamId;
-            socketService.addOnlineMember(teamId); 
+            socketService.addOnlineMember(teamId);
             console.log(`✅ LEADER Đội [${teamId}] báo danh thành công.`);
         }
     });
@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
     socket.on('rescue:updateLocation', (data) => {
         const { teamId, lat, lng, incidentId, status, teamName } = data;
         // Gửi cho TOÀN BỘ Dispatcher/Admin để theo dõi đội xe (Fleet Tracking)
-        io.to('room:dispatchers').emit('rescue:location_update', {
+        io.emit('rescue:location', {
             teamId,
             lat,
             lng,
@@ -102,9 +102,9 @@ const startServer = async () => {
             cleanupOrphanPhotos();
         });
 
-        
+
         const PORT = process.env.PORT || 5000;
-        
+
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`Server is running in ${process.env.NODE_ENV} mode`);
             console.log(`🔗 API: http://localhost:${PORT}`);

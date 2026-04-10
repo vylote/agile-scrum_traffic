@@ -11,18 +11,12 @@ import api from "../../services/api";
 import { INCIDENT_STATUS } from "../../utils/constants/incidentConstants";
 import { ShieldOff, X, BellRing } from "lucide-react";
 
-// ─── Toast thông báo hệ thống ───────────────────────────────────────────────
+// ─── Toast thông báo hệ thống ────────────────────────────────────────────────
 const CancelledToast = ({ message, onDismiss, type = "error" }) => (
   <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] animate-in fade-in slide-in-from-top-4 duration-400 pointer-events-auto">
-    <div
-      className={`${type === "error" ? "bg-gray-900" : "bg-blue-600"} text-white rounded-2xl px-4 py-4 shadow-2xl flex items-start gap-3 border border-white/10`}
-    >
+    <div className={`${type === "error" ? "bg-gray-900" : "bg-blue-600"} text-white rounded-2xl px-4 py-4 shadow-2xl flex items-start gap-3 border border-white/10`}>
       <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-        {type === "error" ? (
-          <ShieldOff size={18} />
-        ) : (
-          <BellRing size={18} className="animate-bounce" />
-        )}
+        {type === "error" ? <ShieldOff size={18} /> : <BellRing size={18} className="animate-bounce" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-black text-sm text-white mb-0.5">
@@ -30,10 +24,7 @@ const CancelledToast = ({ message, onDismiss, type = "error" }) => (
         </p>
         <p className="text-xs text-white/80 leading-snug">{message}</p>
       </div>
-      <button
-        onClick={onDismiss}
-        className="text-white/50 hover:text-white mt-0.5"
-      >
+      <button onClick={onDismiss} className="text-white/50 hover:text-white mt-0.5">
         <X size={16} />
       </button>
     </div>
@@ -57,9 +48,7 @@ export const RescueHome = () => {
   const [mapFocus, setMapFocus] = useState(null);
   const [currentPos, setCurrentPos] = useState(null);
 
-  const [teamStatus, setTeamStatus] = useState(
-    user?.rescueTeam?.status || "AVAILABLE",
-  );
+  const [teamStatus, setTeamStatus] = useState(user?.rescueTeam?.status || "AVAILABLE");
   const [notification, setNotification] = useState(null);
 
   const bottomPanelRef = useRef(null);
@@ -67,9 +56,7 @@ export const RescueHome = () => {
   const socket = useSocket();
 
   const appStateRef = useRef(appState);
-  useEffect(() => {
-    appStateRef.current = appState;
-  }, [appState]);
+  useEffect(() => { appStateRef.current = appState; }, [appState]);
 
   const teamId = user?.rescueTeam?._id;
   const userZone = user?.rescueTeam?.zone;
@@ -77,34 +64,31 @@ export const RescueHome = () => {
   const myInternalRole = useMemo(() => {
     const currentUserId = user?.id || user?._id;
     const member = user?.rescueTeam?.members?.find(
-      (m) => (m.userId?._id || m.userId) === currentUserId,
+      (m) => (m.userId?._id || m.userId) === currentUserId
     );
     return member?.role || "MEMBER";
   }, [user]);
 
-  // 🛡️ CHỐT CHẶN 1: BỘ LỌC ĐỘC QUYỀN
-  // Ẩn các đơn đã được gán (assignedTeam) cho đội khác khỏi máy mình
+  const isLeader = myInternalRole === "LEADER";
+
+  // 🛡️ CHỐT CHẶN 1: BỘ LỌC ĐỘC QUYỀN (Ẩn đơn của đội khác)
   const visibleIncidents = useMemo(() => {
     return incidentsQueue.filter((inc) => {
       const assignedId = inc.assignedTeam?._id || inc.assignedTeam;
-      if (!assignedId) return true; // Hiện đơn tự do
-      return assignedId === teamId; // Hiện đơn của riêng mình
+      if (!assignedId) return true;
+      return assignedId === teamId;
     });
   }, [incidentsQueue, teamId]);
 
-  // ─── 1. FETCH DỮ LIỆU ĐẦU CA ─────────────────────────────────────────────
+  // ─── 2. FETCH DỮ LIỆU ĐẦU CA ─────────────────────────────────────────────
   useEffect(() => {
     if (!userZone || !teamId) return;
 
     const fetchInitialData = async () => {
       try {
         const [pendingRes, activeRes, teamRes] = await Promise.all([
-          api.get(
-            `/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`,
-          ),
-          api.get(
-            `/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`,
-          ),
+          api.get(`/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`),
+          api.get(`/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`),
           api.get(`/rescue-teams/${teamId}`),
         ]);
 
@@ -124,14 +108,12 @@ export const RescueHome = () => {
         if (activeData.length > 0) {
           const job = activeData[0];
           setActiveIncident(job);
-          setAppState(
-            job.status === INCIDENT_STATUS.ASSIGNED ? "moving" : "processing",
-          );
+          setAppState(job.status === INCIDENT_STATUS.ASSIGNED ? "moving" : "processing");
           setMapFocus(job.location.coordinates);
         } else {
           setActiveIncident(null);
+          // 🏆 Logic tự động mở Slider cho đơn tự do đầu tiên
           if (pendingData.length > 0 && appStateRef.current === "normal") {
-            // Chỉ tự động hiện Slider nếu đơn đó chưa bị gán cho ai khác
             const firstFree = pendingData.find((inc) => !inc.assignedTeam);
             if (firstFree) {
               setViewingIncident(firstFree);
@@ -141,99 +123,81 @@ export const RescueHome = () => {
           }
         }
       } catch (error) {
-        console.error(error);
+        console.error("Initial Fetch Error:", error);
       }
     };
     fetchInitialData();
   }, [userZone, teamId, refreshTrigger]);
 
-  // ─── 2. GPS & SIMULATION ───────────────────────────────────────────────
+  // ─── 3. GPS & SIMULATION (Cập nhật khoảng cách & Map real-time) ─────────
   useEffect(() => {
-    if (!teamId || isResting) return;
-    if (IS_SIMULATION_MODE) {
-      const handleSimulationLocation = (data) => {
-        if (data.teamId === teamId) {
-          setCurrentPos({ lat: data.lat, lng: data.lng });
-        }
-      };
-      socket?.on("rescue:location_update", handleSimulationLocation);
-      return () =>
-        socket?.off("rescue:location_update", handleSimulationLocation);
-    } else {
+    if (!teamId || isResting || !socket) return;
+
+    const handlePosUpdate = (data) => {
+      if (data.teamId === teamId) {
+        console.log("📍 GPS Sync:", data.lat, data.lng);
+        setCurrentPos({
+          lat: parseFloat(data.lat),
+          lng: parseFloat(data.lng),
+          _timestamp: Date.now(), // Ép React nhận diện object mới
+        });
+      }
+    };
+
+    socket.on("rescue:location", handlePosUpdate);
+
+    if (!IS_SIMULATION_MODE) {
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
-          setCurrentPos({ lat: latitude, lng: longitude });
-          api
-            .patch(`/rescue-teams/${teamId}/location`, { latitude, longitude })
-            .catch(() => {});
-          socket?.emit("rescue:updateLocation", {
-            teamId,
-            lat: latitude,
-            lng: longitude,
-            status: teamStatus,
-          });
+          api.patch(`/rescue-teams/${teamId}/location`, { latitude, longitude }).catch(() => {});
+          socket.emit("rescue:updateLocation", { teamId, lat: latitude, lng: longitude, status: teamStatus });
         },
-        null,
-        { enableHighAccuracy: true },
+        (err) => console.error(err),
+        { enableHighAccuracy: true }
       );
-      return () => navigator.geolocation.clearWatch(watchId);
+      return () => {
+        socket.off("rescue:location", handlePosUpdate);
+        navigator.geolocation.clearWatch(watchId);
+      };
     }
+
+    return () => socket.off("rescue:location", handlePosUpdate);
   }, [isResting, teamId, socket, teamStatus]);
 
-  // ─── 3. SOCKET REAL-TIME (CORE LOGIC) ──────────────────────────────────
+  // ─── 4. SOCKET REAL-TIME (KHÓA ROLE & ĐỒNG BỘ MEMBER) ────────────────────
   useEffect(() => {
     if (!socket || !teamId) return;
 
-    // Báo danh Leader để nhận đơn độc quyền
-    const isLeader = myInternalRole === "LEADER";
     if (isLeader) socket.emit("rescue:register", { teamId, role: "LEADER" });
 
-    // 🚀 A. Nhận LỆNH ĐIỀU ĐỘNG từ Bull Queue (Đích danh)
     const handleIncomingRequest = (data) => {
       const receivedAt = new Date().toLocaleTimeString();
-      console.log(
-        `%c[${receivedAt}] 📥 NHẬN LỆNH ĐIỀU ĐỘNG:`,
-        "color: #0088FF; font-weight: bold",
-        data,
-      );
+      console.log(`%c[${receivedAt}] 📥 NHẬN LỆNH ĐIỀU ĐỘNG:`, "color: #0088FF; font-weight: bold", data);
+
       if (data.action === "revoke_request") {
         setIncomingRequest(null);
         if (appStateRef.current === "incoming") {
           setAppState("normal");
-          setNotification({
-            message: "Yêu cầu đã được chuyển cho đội khác.",
-            type: "error",
-          });
+          setNotification({ message: "Yêu cầu đã được chuyển cho đội khác.", type: "error" });
         }
-      } else {
-        setIncomingRequest({
-          incident: data.incident,
-          expiresAt: Date.now() + 30000,
-        });
-        setAppState("incoming");
-        setMapFocus(data.incident.location?.coordinates);
-        if (navigator.vibrate) {
-          try {
-            navigator.vibrate([300, 100, 300]);
-          } catch (e) {
-            console.log("Rung bị chặn do chưa tương tác màn hình.");
-          }
-        }
+        return;
       }
+
+      // 🏆 KHÓA ROLE: Chỉ Leader mới hiện Popup gán đơn
+      if (!isLeader) return;
+
+      setIncomingRequest({ incident: data.incident, expiresAt: Date.now() + 30000 });
+      setAppState("incoming");
+      setMapFocus(data.incident.location?.coordinates);
+      if (navigator.vibrate) try { navigator.vibrate([300, 100, 300]); } catch (e) {}
     };
 
-    // 🚀 B. Cập nhật trạng thái & THỰC HIỆN XÓA ĐƠN REAL-TIME
     const handleUpdated = (data) => {
-      const now = new Date().toLocaleTimeString();
-      const assignedId =
-        data.incident?.assignedTeam?._id || data.incident?.assignedTeam;
+      const assignedId = data.incident?.assignedTeam?._id || data.incident?.assignedTeam;
 
-      // 🔥 LOGIC ĐỘC QUYỀN: Nếu đơn vừa gán cho đội khác -> Xóa khỏi máy mình
+      // 1. Đơn gán cho đội khác -> Xóa khỏi máy mình
       if (assignedId && assignedId !== teamId) {
-        console.log(
-          `[${now}] 🛡️ Đơn ${data.id} đã gán cho đội khác -> Ẩn khỏi Slider.`,
-        );
         setIncidentsQueue((prev) => prev.filter((i) => i._id !== data.id));
         if (viewingIncident?._id === data.id) {
           setViewingIncident(null);
@@ -242,28 +206,28 @@ export const RescueHome = () => {
         return;
       }
 
-      // Nếu đơn gán cho chính mình
-      if (data.status === INCIDENT_STATUS.ASSIGNED && assignedId === teamId) {
+      // 2. 🔥 ĐỒNG BỘ MEMBER: Leader thao tác -> Member nhảy màn hình theo
+      if (assignedId === teamId) {
+        console.log("🔄 Syncing team state:", data.status);
         setActiveIncident(data.incident);
         setIncomingRequest(null);
-        setAppState("moving");
-        setTeamStatus("BUSY");
         setViewingIncident(null);
-      }
 
-      // Xóa khỏi hàng đợi nếu đơn đã xong/hủy
-      if (
-        [INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(
-          data.status,
-        )
-      ) {
-        setIncidentsQueue((prev) => prev.filter((i) => i._id !== data.id));
+        if (data.status === INCIDENT_STATUS.ASSIGNED) {
+          setAppState("moving");
+          setTeamStatus("BUSY");
+        } else if (data.status === INCIDENT_STATUS.IN_PROGRESS) {
+          setAppState("processing");
+        } else if ([INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(data.status)) {
+          setActiveIncident(null);
+          setAppState("normal");
+          setTeamStatus("AVAILABLE");
+          setRefreshTrigger((p) => p + 1);
+        }
       }
     };
 
-    // 🚀 C. Sự cố mới (Dùng cho đơn tự do hoặc Dispatcher phát)
     const handleNewIncident = (data) => {
-      // Chỉ nhận đơn mới nếu nó chưa được khóa cho ai (đơn tự do)
       if (!data.incident.assignedTeam) {
         setIncidentsQueue((prev) => {
           if (prev.find((i) => i._id === data.incident._id)) return prev;
@@ -273,34 +237,61 @@ export const RescueHome = () => {
     };
 
     const handleRevoke = () => {
-    setIncomingRequest(null);
-    if (appStateRef.current === "incoming") {
-        setAppState("normal");
-        setNotification({
-            message: "Yêu cầu đã được chuyển cho đội khác.",
-            type: "error",
-        });
-    }
-};
+      setIncomingRequest(null);
+      if (appStateRef.current === "incoming") setAppState("normal");
+    };
 
+    // 🔥 Xử lý xóa sự cố Real-time (Khi Dispatcher chủ động xóa)
+    const handleDeleteIncident = (data) => {
+      const deletedId = data.incidentId;
+      console.log("🗑️ Phát hiện sự cố bị xóa:", deletedId);
+
+      // 1. Loại bỏ khỏi Slider (incidentsQueue)
+      setIncidentsQueue((prev) => prev.filter((i) => i._id !== deletedId));
+
+      // 2. Nếu đang xử lý hoặc đang xem vụ này -> Tắt OverviewCard ngay
+      if (activeIncident?._id === deletedId || viewingIncident?._id === deletedId) {
+        setActiveIncident(null);
+        setViewingIncident(null);
+        setAppState("normal");
+        setNotification({ message: "Sự cố đang xử lý đã bị xóa vĩnh viễn khỏi hệ thống.", type: "error" });
+      }
+    };
+
+    const handlePosUpdateSocket = (data) => {
+      if (data.teamId === teamId) {
+        console.log("📍 GPS REAL-TIME:", data.lat, data.lng);
+        setCurrentPos({
+          lat: parseFloat(data.lat),
+          lng: parseFloat(data.lng),
+          _ts: Date.now(), // Ép React nhận diện object mới
+        });
+      }
+    };
+
+    socket.on("rescue:location", handlePosUpdateSocket);
     socket.on(`rescue:incoming_request:${teamId}`, handleIncomingRequest);
+    socket.on("rescue:revoke_request", handleRevoke);
     socket.on("incident:updated", handleUpdated);
     socket.on("incident:new", handleNewIncident);
     socket.on("alert:sos", handleNewIncident);
-    socket.on("rescue:revoke_request", handleRevoke);
+    socket.on("delete_incident", handleDeleteIncident);
 
     return () => {
+      socket.off("rescue:location", handlePosUpdateSocket);
       socket.off(`rescue:incoming_request:${teamId}`);
-      socket.off("rescue:revoke_request"); 
+      socket.off("rescue:revoke_request");
       socket.off("incident:updated");
       socket.off("incident:new");
       socket.off("alert:sos");
+      socket.off("delete_incident", handleDeleteIncident);
     };
-  }, [socket, teamId, viewingIncident, myInternalRole]);
+  }, [socket, teamId, isLeader, viewingIncident, activeIncident]);
 
-  // ─── 4. HÀNH ĐỘNG ────────────────────────────────────────────────────────
+  // ─── 5. HÀNH ĐỘNG (KHÓA ROLE & TRY-CATCH) ────────────────────────────────
 
   const handleAccept = async (incident) => {
+    if (!isLeader) return alert("⚠️ Chỉ Đội trưởng mới có quyền tiếp nhận sự cố!");
     try {
       const res = await api.patch(`/incidents/${incident._id}/status`, {
         status: INCIDENT_STATUS.ASSIGNED,
@@ -320,6 +311,7 @@ export const RescueHome = () => {
   };
 
   const handleArrive = async () => {
+    if (!isLeader) return;
     try {
       const res = await api.patch(`/incidents/${activeIncident._id}/status`, {
         status: INCIDENT_STATUS.IN_PROGRESS,
@@ -328,11 +320,13 @@ export const RescueHome = () => {
       setActiveIncident(res.data.result);
       setAppState("processing");
     } catch (error) {
-      console.error(error);
+      console.error("Arrival Error:", error);
+      alert("Lỗi xác nhận đến nơi!");
     }
   };
 
   const handleComplete = async () => {
+    if (!isLeader) return;
     try {
       await api.patch(`/incidents/${activeIncident._id}/status`, {
         status: INCIDENT_STATUS.COMPLETED,
@@ -346,13 +340,25 @@ export const RescueHome = () => {
     }
   };
 
+  const handleReject = async () => {
+    if (!isLeader) return alert("⚠️ Chỉ Đội trưởng mới có quyền từ chối!");
+    if (!incomingRequest) return;
+    try {
+      await api.patch(`/incidents/${incomingRequest.incident._id}/reject`);
+    } catch (e) {
+      console.error("Reject Error:", e);
+    } finally {
+      setIncomingRequest(null);
+      setAppState("normal");
+    }
+  };
+
   const handleSliderScroll = () => {
     if (!sliderRef.current) return;
     const container = sliderRef.current;
     const index = Math.round(container.scrollLeft / container.offsetWidth);
     const focusedItem = visibleIncidents[index];
-    if (focusedItem?.location?.coordinates)
-      setMapFocus(focusedItem.location.coordinates);
+    if (focusedItem?.location?.coordinates) setMapFocus(focusedItem.location.coordinates);
   };
 
   const fleetData = useMemo(() => {
@@ -367,19 +373,7 @@ export const RescueHome = () => {
     };
   }, [currentPos, teamId, teamStatus, user.rescueTeam]);
 
-  const handleReject = async () => {
-    if (!incomingRequest) return;
-    try {
-        console.log("📤 Đang gửi lệnh từ chối lên server...");
-        await api.patch(`/incidents/${incomingRequest.incident._id}/reject`);
-    } catch (e) {
-        console.error("Lỗi khi gọi API Reject:", e);
-    } finally {
-        // Luôn xóa popup trên màn hình cho dù API có lỗi hay không
-        setIncomingRequest(null);
-        setAppState("normal");
-    }
-};
+  // ─── 6. RENDER GIAO DIỆN ──────────────────────────────────────────────────
 
   return (
     <main className="relative mx-auto w-full h-screen max-w-[480px] bg-gray-100 overflow-hidden shadow-2xl font-sans text-gray-900">
@@ -387,14 +381,11 @@ export const RescueHome = () => {
         <Map
           incidents={activeIncident ? [] : visibleIncidents}
           activeIncident={activeIncident}
-          onMarkerClick={(inc) => {
-            setViewingIncident(inc);
-            setAppState("viewing");
-          }}
-          bottomOffset={bottomHeight + 16}
+          onMarkerClick={(inc) => { setViewingIncident(inc); setAppState("viewing"); }}
           onRefresh={() => setRefreshTrigger((p) => p + 1)}
           focusCoords={mapFocus}
           fleet={fleetData}
+          bottomOffset={bottomHeight + 16}
         />
       </div>
 
@@ -419,14 +410,9 @@ export const RescueHome = () => {
           />
         </div>
 
-        <div
-          ref={bottomPanelRef}
-          className="mt-auto flex flex-col w-full pointer-events-auto pb-4"
-        >
+        <div ref={bottomPanelRef} className="mt-auto flex flex-col w-full pointer-events-auto pb-4">
           {isResting ? (
-            <div className="px-4">
-              <RestingStatus />
-            </div>
+            <div className="px-4"><RestingStatus /></div>
           ) : appState === "incoming" && incomingRequest ? (
             <div className="px-4 animate-in slide-in-from-bottom-10 duration-500">
               <OverviewCard
@@ -439,9 +425,7 @@ export const RescueHome = () => {
               />
             </div>
           ) : appState === "normal" ? (
-            <div className="px-4">
-              <OverviewCard appState="normal" myRole={myInternalRole} />
-            </div>
+            <div className="px-4"><OverviewCard appState="normal" myRole={myInternalRole} /></div>
           ) : appState === "viewing" ? (
             <div
               ref={sliderRef}
@@ -449,19 +433,13 @@ export const RescueHome = () => {
               className="flex items-center overflow-x-auto snap-x snap-mandatory no-scrollbar w-full pb-2"
             >
               {visibleIncidents.map((inc) => (
-                <div
-                  key={inc._id}
-                  className="w-full shrink-0 flex justify-center snap-center px-4"
-                >
+                <div key={inc._id} className="w-full shrink-0 flex justify-center snap-center px-4">
                   <OverviewCard
                     appState="new_incident"
                     incident={inc}
                     myRole={myInternalRole}
                     onAccept={() => handleAccept(inc)}
-                    onAction={(s) => {
-                      setAppState(s);
-                      setViewingIncident(null);
-                    }}
+                    onAction={(s) => { setAppState(s); setViewingIncident(null); }}
                   />
                 </div>
               ))}
@@ -479,9 +457,7 @@ export const RescueHome = () => {
               />
             </div>
           )}
-          <div className="px-4 mt-2">
-            <TabBar />
-          </div>
+          <div className="px-4 mt-2"><TabBar /></div>
         </div>
       </div>
     </main>
