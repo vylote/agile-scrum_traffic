@@ -45,7 +45,7 @@ const seedData = async () => {
         // 2. DANH SÁCH CÁC ĐỘI (Sóc Sơn có 2 đội để test tranh chấp)
         const teamConfigs = [
             { name: 'Sóc Sơn Đội 1', zone: 'Sóc Sơn', code: 'SS1', coords: [105.8242, 21.3215] },
-            { name: 'Sóc Sơn Đội 2', zone: 'Sóc Sơn', code: 'SS2', coords: [105.8250, 21.3220] },
+            { name: 'Sóc Sơn Đội 2', zone: 'Sóc Sơn', code: 'SS2', coords: [105.8524, 21.2858] },
             { name: 'Cầu Giấy', zone: 'Cầu Giấy', code: 'CG', coords: [105.8048, 21.0285] },
             { name: 'Đống Đa', zone: 'Đống Đa', code: 'DD', coords: [105.8236, 21.0125] }
         ];

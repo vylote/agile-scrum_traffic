@@ -1,77 +1,39 @@
-const axios = require('axios');
 const RescueTeam = require('../models/RescueTeam');
-const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants');
+const socketService = require('./socket');
 
-// Helper: Gọi OSRM lấy ETA (Thời gian di chuyển thực tế)
-const getOSRMRouteETA = async (startLng, startLat, endLng, endLat) => {
-    try {
-        const osrmUrl = process.env.OSRM_URL || 'http://router.project-osrm.org';
-        const url = `${osrmUrl}/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=false`;
-        
-        const response = await axios.get(url, { timeout: 2000 }); // Ép timeout 2s để không làm treo queue
-        if (response.data && response.data.code === 'Ok' && response.data.routes.length > 0) {
-            return response.data.routes[0].duration; // Trả về số giây
-        }
-        return Infinity;
-    } catch (error) {
-        console.error(`[OSRM Error] Không thể lấy ETA:`, error.message);
-        return Infinity;
-    }
-};
+exports.findBestRescueTeam = async (incident) => {
+    const [lng, lat] = incident.location.coordinates;
+    console.log(`\n--- 🔍 [LOG TÌM ĐỘI] BẮT ĐẦU ---`);
 
-/**
- * Tìm đội cứu hộ tối ưu nhất (Kết hợp Haversine của MongoDB & OSRM)
- * @param {Object} incident - Object sự cố
- * @param {Array} rejectedTeamIds - Mảng ID các đội đã từ chối ca này
- */
-exports.findBestRescueTeam = async (incident, rejectedTeamIds = []) => {
-    const incidentLng = incident.location.coordinates[0];
-    const incidentLat = incident.location.coordinates[1];
-    const requiredType = incident.type;
+    // 1. Log thử xem trong DB có tổng cộng bao nhiêu đội rảnh (không phân biệt khoảng cách)
+    const allAvailable = await RescueTeam.find({ status: 'AVAILABLE' });
+    console.log(`📊 Tổng số đội đang có status AVAILABLE trong DB: ${allAvailable.length}`);
+    allAvailable.forEach(t => console.log(`   - Đội: ${t.name} | ID: ${t._id} | Tọa độ: ${t.currentLocation.coordinates}`));
 
-    // BƯỚC 1: SÀNG LỌC BẰNG MONGODB $near (HAVERSINE)
+    // 2. Thực hiện tìm kiếm theo vị trí (Tăng bán kính lên 100km để test)
     const query = {
-        status: RESCUE_TEAM_STATUS.AVAILABLE,
-        _id: { $nin: rejectedTeamIds }, // 🚀 Bỏ qua các đội đã từ chối
+        status: 'AVAILABLE',
+        _id: { $nin: incident.rejectedTeams || [] },
         currentLocation: {
             $near: {
-                $geometry: { type: "Point", coordinates: [incidentLng, incidentLat] },
-                $maxDistance: 15000 // Bán kính 15km
+                $geometry: { type: "Point", coordinates: [lng, lat] },
+                $maxDistance: 100000 // Tạm thời tăng lên 100km để chắc chắn tìm thấy
             }
         }
     };
 
-    // Lấy top 5 đội rảnh và gần nhất theo đường chim bay
-    const availableTeams = await RescueTeam.find(query).limit(5);
+    const nearbyTeams = await RescueTeam.find(query).limit(10);
+    console.log(`🔎 [DB Search] Tìm thấy ${nearbyTeams.length} đội trong bán kính 100km.`);
 
-    if (availableTeams.length === 0) return null;
-
-    // BƯỚC 2: CHỌN LỌC CHÍNH XÁC BẰNG OSRM
-    let bestTeam = null;
-    let shortestETA = Infinity;
-
-    // Chạy song song OSRM cho cả 5 đội để đảm bảo tốc độ < 300ms
-    const etaPromises = availableTeams.map(async (team) => {
-        const teamLng = team.currentLocation.coordinates[0];
-        const teamLat = team.currentLocation.coordinates[1];
-        const etaSeconds = await getOSRMRouteETA(teamLng, teamLat, incidentLng, incidentLat);
-        return { team, eta: etaSeconds };
+    // 3. Lọc Online
+    const onlineTeams = nearbyTeams.filter(team => {
+        const isOnline = socketService.isTeamOnline(team._id.toString());
+        console.log(`   -> Đội: ${team.name} | Online: ${isOnline ? '✅ YES' : '❌ NO'}`);
+        return isOnline;
     });
 
-    const results = await Promise.all(etaPromises);
+    if (onlineTeams.length === 0) return null;
 
-    // Lấy đội có ETA (thời gian đến) nhỏ nhất
-    for (const result of results) {
-        if (result.eta < shortestETA) {
-            shortestETA = result.eta;
-            bestTeam = result.team;
-        }
-    }
-
-    if (!bestTeam || shortestETA === Infinity) return null;
-
-    return {
-        team: bestTeam,
-        etaMinutes: Math.round(shortestETA / 60)
-    };
+    console.log(`✅ CHỐT ĐỘI: ${onlineTeams[0].name}`);
+    return { team: onlineTeams[0] };
 };

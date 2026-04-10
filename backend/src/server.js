@@ -22,16 +22,31 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-// 🔥 THÊM 2: Khởi tạo socket service với instance io hiện tại
-// Việc này giúp các file chạy ngầm (như Bull Queue) có thể dùng được io.emit
 socketService.init(io);
 
 io.on('connection', (socket) => {
     console.log(`🔌 Thiết bị mới kết nối: ${socket.id}`);
 
-    socket.on('join_zone', (zone) => {
-        socket.join(`zone:${zone}`);
-        console.log(`Đội cứu hộ đã vào phòng zone: ${zone}`);
+    socket.on('rescue:register', (data) => {
+        const { teamId, role } = data;
+        if (teamId && role === 'LEADER') {
+            socket.join(`team:${teamId}`); 
+            socket.registeredTeamId = teamId;
+            socketService.addOnlineMember(teamId); 
+            console.log(`✅ LEADER Đội [${teamId}] báo danh thành công.`);
+        }
+    });
+
+    socket.on('dispatcher:register', () => {
+        socket.join('room:dispatchers');
+        console.log(`DISPATCHER [${socket.id}] đã vào phòng điều hành.`);
+    });
+
+    socket.on('disconnect', () => {
+        if (socket.registeredTeamId) {
+            socketService.removeOnlineMember(socket.registeredTeamId);
+            console.log(`🔴 LEADER Đội [${socket.registeredTeamId}] đã OFFLINE.`);
+        }
     });
 
     socket.on('rescue:updateLocation', (data) => {

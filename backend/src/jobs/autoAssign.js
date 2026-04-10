@@ -5,75 +5,102 @@ const { findBestRescueTeam } = require('../services/assignment');
 const socketService = require('../services/socket');
 const { INCIDENT_STATUS } = require('../utils/constants/incidentConstants');
 
-// 1. Khởi tạo Queue
-const autoDispatchQueue = new Queue('auto-dispatch', redisConfig);
-
-autoDispatchQueue.on('error', function (error) {
-    console.error('❌ [BullQueue] Lỗi kết nối Redis:', error);
+const autoDispatchQueue = new Queue('auto-dispatch', {
+    redis: { host: redisConfig.host, port: redisConfig.port }
 });
 
-autoDispatchQueue.on('ready', function () {
-    console.log('✅ [BullQueue] Đã kết nối thành công với Redis và sẵn sàng nhận Job!');
-});
+autoDispatchQueue.process(5, async (job) => {
+    // 🔥 Lấy startTime từ data, nếu không có thì dùng hiện tại
+    const { incidentId, lastTargetTeamId, startTime = Date.now() } = job.data;
+    const now = Date.now();
+    const elapsed = ((now - startTime) / 1000).toFixed(1);
+    const logPrefix = `[⏱️ T+${elapsed}s][Vụ:${incidentId}]`;
 
-// 2. Logic xử lý của Worker
-autoDispatchQueue.process(async (job, done) => {
-    const { incidentId, rejectedTeamIds = [] } = job.data;
-    console.log(`[BullQueue] 🔄 Đang tìm đội cho sự cố: ${incidentId}`);
+    console.log(`\n--- 🚀 ${logPrefix} WORKER START ---`);
+    console.log(`🔍 JobID: ${job.id} | Dữ liệu cũ: ${lastTargetTeamId || 'Không'}`);
 
     try {
-        const incident = await Incident.findById(incidentId);
-        
-        // Nếu sự cố không còn PENDING (đã có đội nhận, hoặc Admin đã hủy/gán tay), dừng Queue
-        if (!incident || incident.status !== INCIDENT_STATUS.PENDING) {
-            console.log(`[BullQueue] 🛑 Sự cố ${incidentId} không còn PENDING. Hủy bỏ quy trình.`);
-            return done();
+        let incident = await Incident.findById(incidentId);
+        if (!incident) return console.log(`${logPrefix} ❌ Lỗi: Incident không tồn tại trong DB`);
+
+        console.log(`${logPrefix} 📊 Status: ${incident.status} | Lần thử (attemptCount): ${incident.attemptCount}`);
+
+        if (incident.status !== INCIDENT_STATUS.PENDING) {
+            console.log(`${logPrefix} 🛑 Dừng: Đơn đã được xử lý (Status != PENDING)`);
+            return;
         }
 
-        // Gọi thuật toán tìm đội tốt nhất, loại trừ những đội đã từ chối
-        const result = await findBestRescueTeam(incident, rejectedTeamIds);
-
-        if (!result) {
-            console.log(`[BullQueue] ⚠️ Không còn đội rảnh/phù hợp cho sự cố ${incidentId}. Cần Dispatcher can thiệp!`);
-            // Bắn còi báo động cho Dispatcher trên Web Admin
+        // 1. Kiểm tra Escalation (Báo Dispatcher)
+        if (incident.attemptCount >= 2) {
+            console.log(`${logPrefix} 🚨 TRẠNG THÁI: KÍCH HOẠT SOS DISPATCHER`);
             const io = socketService.getIO();
-            if (io) io.emit('dispatcher:manual_intervention_required', { incident });
-            return done();
+            
+            if (io) {
+                const clients = await io.in('room:dispatchers').allSockets();
+                console.log(`${logPrefix} 👥 Số Dispatcher đang chờ trong room: ${clients.size}`);
+                io.to('room:dispatchers').emit('dispatcher:manual_intervention_required', { 
+                    incident: incident.toObject(),
+                    reason: "Đã hết lượt điều phối tự động"
+                });
+            } else {
+                console.log(`${logPrefix} ❌ LỖI: Socket IO chưa được khởi tạo!`);
+            }
+            return;
         }
 
-        const { team: bestTeam, etaMinutes } = result;
-        console.log(`[BullQueue] 🎯 Đề xuất sự cố cho đội: ${bestTeam.name} (ETA: ${etaMinutes} phút)`);
+        // 2. Blacklist đội cũ nếu có
+        if (lastTargetTeamId) {
+            console.log(`${logPrefix} ⏰ Xử lý Timeout/Blacklist cho Đội: ${lastTargetTeamId}`);
+            incident = await Incident.findByIdAndUpdate(
+                incidentId, 
+                { $addToSet: { rejectedTeams: lastTargetTeamId } }, 
+                { new: true }
+            );
+            socketService.getIO()?.to(`team:${lastTargetTeamId}`).emit('rescue:revoke_request');
+        }
 
-        // 🚀 BẮN SOCKET GỌI ĐỘI CỨU HỘ (KHÔNG SỬA DB THÀNH ASSIGNED Ở BƯỚC NÀY)
-        // Chúng ta vẫn giữ status PENDING, chờ họ phản hồi
-        socketService.sendRequestToTeam(bestTeam._id, {
-            message: "Bạn có yêu cầu cứu hộ mới. Vui lòng phản hồi trong 30 giây!",
-            incident: incident,
-            etaMinutes: etaMinutes,
-            timeoutSec: 30
-        });
+        // 3. Tìm đội mới
+        const result = await findBestRescueTeam(incident);
+        if (result) {
+            const { team } = result;
+            console.log(`${logPrefix} ✅ Tìm thấy đội phù hợp: ${team.name} (ID: ${team._id})`);
 
-        // ⏱ TẠO CRONJOB ĐỂ THU HỒI NẾU ĐỘI KHÔNG TRẢ LỜI SAU 30 GIÂY
-        // Nếu sau 30s sự cố vẫn còn PENDING (tức là xe kia chưa gọi API gán ASSIGNED), ta tự động thử xe khác.
-        setTimeout(async () => {
-            const checkIncident = await Incident.findById(incidentId);
-            if (checkIncident && checkIncident.status === INCIDENT_STATUS.PENDING) {
-                console.log(`[BullQueue] ⏰ Đội ${bestTeam.name} không phản hồi. Chuyển ca sang đội khác...`);
-                // Bắn socket thu hồi popup trên máy đội trưởng
-                socketService.sendRequestToTeam(bestTeam._id, { action: "revoke_request" });
-                
-                // Ném lại job vào Queue, đẩy ID xe này vào "danh sách đen" của lượt tìm kiếm này
-                autoDispatchQueue.add({
-                    incidentId: incidentId,
-                    rejectedTeamIds: [...rejectedTeamIds, bestTeam._id]
-                });
-            }
-        }, 30000); // 30.000 ms = 30 giây
+            const updatedInc = await Incident.findByIdAndUpdate(
+                incidentId, 
+                { assignedTeam: team._id, $inc: { attemptCount: 1 } },
+                { new: true }
+            ).populate('reportedBy', 'name phone').populate('assignedTeam', 'name code');
 
-        done();
-    } catch (error) {
-        console.error(`[BullQueue] Lỗi job ${job.id}:`, error);
-        done(error);
+            const waitingJobId = `dispatch_${incidentId}`;
+            
+            await autoDispatchQueue.add(
+                { incidentId, lastTargetTeamId: team._id.toString(), startTime },
+                { 
+                    delay: 30500, 
+                    jobId: waitingJobId,
+                    removeOnComplete: true 
+                } 
+            );
+
+            console.log(`${logPrefix} 🎯 Thực hiện gán Lần ${updatedInc.attemptCount}.`);
+
+            socketService.sendRequestToTeam(team._id.toString(), {
+                incident: updatedInc.toObject(),
+                timeout: 30
+            });
+
+            // Đồng bộ ID cố định để dễ quản lý
+            const nextJobId = `dispatch_${incidentId}_timeout_${Date.now()}`;
+await autoDispatchQueue.add(
+    { incidentId, lastTargetTeamId: team._id.toString(), startTime },
+    { delay: 30500, jobId: nextJobId }
+);
+        } else {
+            console.log(`${logPrefix} ❌ Không tìm thấy đội nào Online/Gần. Báo Dispatcher ngay.`);
+            socketService.getIO()?.to('room:dispatchers').emit('dispatcher:manual_intervention_required', { incident });
+        }
+    } catch (e) {
+        console.error(`${logPrefix} 🔥 LỖI WORKER:`, e);
     }
 });
 
