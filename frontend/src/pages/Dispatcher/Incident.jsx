@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Menu } from "../../components/Dispatcher/Menu";
 import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import {
@@ -31,6 +31,9 @@ import {
   INCIDENT_TYPES,
 } from "../../utils/constants/incidentConstants";
 
+// Import file âm thanh từ tài nguyên máy (Assets)
+import sosAlertSound from "../../../public/audio/sos_alert.mp3";
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const TYPE_LABELS = {
   [INCIDENT_TYPES.ACCIDENT]: "Tai nạn giao thông",
@@ -57,6 +60,27 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
+
+// ─── Component Thông báo nổi (Toast) ─────────────────────────────────────────
+const SOSNotification = ({ incident, onDismiss }) => (
+  <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] w-[420px] animate-in fade-in slide-in-from-top-10 duration-500">
+    <div className="bg-red-600 text-white p-6 rounded-[32px] shadow-[0_25px_60px_rgba(220,38,38,0.4)] border border-red-400/50 flex items-start gap-4 backdrop-blur-md">
+      <div className="bg-white/20 p-3.5 rounded-2xl shrink-0 animate-bounce">
+        <BellRing size={28} className="text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-black uppercase text-[10px] tracking-[0.2em] mb-1 text-red-100">Lệnh can thiệp khẩn cấp</h4>
+        <p className="font-black text-base leading-tight mb-1 truncate">{incident.title}</p>
+        <p className="text-[11px] text-white/80 font-bold flex items-center gap-1">
+            <Clock size={12}/> Vừa xong • Mã: {incident.code}
+        </p>
+      </div>
+      <button onClick={onDismiss} className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90">
+        <X size={20} />
+      </button>
+    </div>
+  </div>
+);
 
 // ─── Detail Sidebar ──────────────────────────────────────────────────────────
 const IncidentSidebar = ({ incident, onClose, onCancelled, onAssigned }) => {
@@ -250,7 +274,11 @@ export const Incident = () => {
   const [loading, setLoading] = useState(true);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [page, setPage] = useState(1);
+  const [sosToast, setSosToast] = useState(null);
   const socket = useSocket();
+
+  // 🔥 FIX 1: Khai báo audioRef từ Assets local
+  const audioRef = useRef(new Audio(sosAlertSound));
 
   const fetchIncidents = useCallback(async (pageNum) => {
     try {
@@ -270,53 +298,83 @@ export const Incident = () => {
 
     socket.emit('dispatcher:register');
 
-    // 🔥 FIX: Cập nhật hàm handleManualNeeded để đẩy đơn SOS mới lên đầu nếu chưa có trong list
-    const handleManualNeeded = (data) => {
-      console.warn("🚨 Nhận tín hiệu SOS can thiệp tay cho vụ:", data.incident.code);
-      
-      // 1. Phát âm thanh cảnh báo
-      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3");
-      audio.play().catch(() => {});
+    // 🚀 A. Nhận sự cố mới
+    const handleNewIncident = (data) => {
+        console.log("🆕 Nhận sự cố mới:", data.incident.code);
+        setIncidents((prev) => {
+            if (prev.find(inc => inc._id === data.incident._id)) return prev;
+            if (page === 1) {
+                return [data.incident, ...prev].slice(0, 10);
+            }
+            return prev;
+        });
+        setPagination(prev => ({ ...prev, total: prev.total + 1 }));
+    };
 
-      // 2. Cập nhật danh sách
+    // 🚨 B. Lệnh can thiệp (SOS) từ BULL QUEUE
+    const handleManualNeeded = (data) => {
+      console.warn("🚨 CẦN CAN THIỆP:", data.incident.code);
+
+      // 1. PHÁT ÂM THANH
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log("Âm thanh bị chặn do chưa tương tác"));
+      
+      // 2. HIỆN TOAST
+      setSosToast(data.incident);
+      setTimeout(() => setSosToast(null), 10000); // Hiện trong 10s
+
+      // 3. CẬP NHẬT DANH SÁCH (Đẩy lên đầu và tô đỏ)
       setIncidents((prev) => {
         const exists = prev.find(inc => inc._id === data.incident._id);
         if (exists) {
-          // Nếu đơn đã có trong danh sách hiện tại, chỉ cần đánh dấu đỏ và cập nhật data mới
-          return prev.map((inc) =>
+          return prev.map((inc) => 
             inc._id === data.incident._id ? { ...inc, ...data.incident, needsIntervention: true } : inc
           );
-        } else {
-          // 🔥 QUAN TRỌNG: Nếu đơn chưa có (do mới báo hoặc ở trang khác), đẩy nó lên đầu ngay
-          return [{ ...data.incident, needsIntervention: true }, ...prev];
         }
+        return [{ ...data.incident, needsIntervention: true }, ...prev];
       });
     };
 
+    // 🔄 C. Cập nhật trạng thái
     const handleUpdated = (data) => {
-      setIncidents((prev) => prev.map((inc) => inc._id === data.id ? { ...inc, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : inc));
-      setSelectedIncident((prev) => prev?._id === data.id ? { ...prev, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : prev);
+      setIncidents((prev) => prev.map((inc) => 
+        inc._id === data.id ? { ...inc, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : inc
+      ));
+      setSelectedIncident((prev) => 
+        prev?._id === data.id ? { ...prev, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : prev
+      );
     };
 
+    // 🗑️ D. Xóa sự cố Real-time
+    const handleDelete = (data) => {
+        setIncidents(prev => prev.filter(inc => inc._id !== data.incidentId));
+        setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+    };
+
+    socket.on("incident:new", handleNewIncident);
     socket.on("dispatcher:manual_intervention_required", handleManualNeeded);
-    socket.on("incident:new", (d) => page === 1 && setIncidents(prev => [d.incident, ...prev.slice(0, 9)]));
     socket.on("incident:updated", handleUpdated);
+    socket.on("delete_incident", handleDelete);
 
     return () => {
-      socket.off("dispatcher:manual_intervention_required", handleManualNeeded);
       socket.off("incident:new");
+      socket.off("dispatcher:manual_intervention_required");
       socket.off("incident:updated");
+      socket.off("delete_incident");
     };
   }, [socket, page]);
 
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
+      {/* 🔔 HIỂN THỊ TOAST KHI CÓ SOS */}
+      {sosToast && <SOSNotification incident={sosToast} onDismiss={() => setSosToast(null)} />}
+
       <Menu />
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
         <header className="h-[80px] flex items-center justify-between px-10 bg-white/50 backdrop-blur-md border-b border-gray-100 shrink-0">
           <div>
             <h2 className="text-2xl font-black text-gray-900 tracking-tight">Quản lý sự cố</h2>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Real-time Monitoring & Intervention</p>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Real-time Monitoring & InterventionCenter</p>
           </div>
           <div className="w-[400px]"><SearchBar className="w-full" /></div>
         </header>
@@ -335,7 +393,8 @@ export const Incident = () => {
                   <div
                     key={incident._id}
                     onClick={() => setSelectedIncident(incident)}
-                    className={`relative bg-white rounded-3xl p-6 border-2 transition-all cursor-pointer flex items-center justify-between group hover:border-[#0088FF] hover:shadow-xl hover:shadow-blue-50 ${incident.needsIntervention ? "border-red-500 ring-4 ring-red-50 bg-red-50/10" : "border-transparent shadow-sm"}`}
+                    className={`relative bg-white rounded-3xl p-6 border-2 transition-all cursor-pointer flex items-center justify-between group hover:border-[#0088FF] hover:shadow-xl hover:shadow-blue-50 
+                      ${incident.needsIntervention ? "border-red-500 ring-4 ring-red-50 bg-red-50/5" : "border-transparent shadow-sm"}`}
                   >
                     {incident.needsIntervention && (
                       <div className="absolute -top-3 right-8 bg-red-600 text-white text-[9px] font-black px-4 py-1.5 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
@@ -355,7 +414,7 @@ export const Incident = () => {
                         <div className="flex items-center gap-3 text-[11px] font-bold text-gray-400">
                           <Clock size={14} /> <span>{new Date(incident.createdAt).toLocaleString("vi-VN")}</span>
                           <span>•</span> <span className="font-mono text-blue-500">{incident.code}</span>
-                          {incident.assignedTeam && <span className="text-violet-600 uppercase tracking-wider">• {incident.assignedTeam.name}</span>}
+                          {incident.assignedTeam && <span className="text-violet-600 uppercase tracking-wider font-black ml-2 px-2 py-0.5 bg-violet-50 rounded-md border border-violet-100">• {incident.assignedTeam.name}</span>}
                         </div>
                       </div>
                     </div>
@@ -379,11 +438,19 @@ export const Incident = () => {
           <IncidentSidebar
             incident={selectedIncident}
             onClose={() => setSelectedIncident(null)}
-            onAssigned={(updated) => { setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i)); setSelectedIncident(updated); }}
-            onCancelled={(updated) => { setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i)); setSelectedIncident(null); }}
+            onAssigned={(updated) => { 
+                setIncidents(prev => prev.map(i => i._id === updated._id ? { ...updated, needsIntervention: false } : i)); 
+                setSelectedIncident(null); 
+            }}
+            onCancelled={(updated) => { 
+                setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i)); 
+                setSelectedIncident(null); 
+            }}
           />
         )}
       </main>
     </div>
   );
 };
+
+export default Incident
