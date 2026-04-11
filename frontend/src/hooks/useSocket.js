@@ -14,8 +14,10 @@ export const useSocket = (activeIncidentId = null) => {
 
         if (user.role === USER_ROLES.RESCUE && user.rescueTeam) {
             socket.emit("join_zone", user.rescueTeam.zone);
+            socket.emit("rescue:register", { teamId: user.rescueTeam._id, role: "LEADER" });
         } else if (user.role === USER_ROLES.DISPATCHER || user.role === USER_ROLES.ADMIN) {
             socket.emit("join_zone", "room:dispatchers");
+            socket.emit("dispatcher:register");
         }
 
         // 🔥 CÔNG TẮC MÔ PHỎNG (SIMULATION FLAG)

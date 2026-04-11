@@ -31,7 +31,6 @@ import {
   INCIDENT_TYPES,
 } from "../../utils/constants/incidentConstants";
 
-// Import file âm thanh từ tài nguyên máy (Assets)
 import sosAlertSound from "../../../public/audio/sos_alert.mp3";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -267,7 +266,6 @@ const IncidentSidebar = ({ incident, onClose, onCancelled, onAssigned }) => {
   );
 };
 
-// ─── Main Page Component ──────────────────────────────────────────────────────
 export const Incident = () => {
   const [incidents, setIncidents] = useState([]);
   const [pagination, setPagination] = useState({ totalPages: 0, total: 0 });
@@ -275,10 +273,15 @@ export const Incident = () => {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [page, setPage] = useState(1);
   const [sosToast, setSosToast] = useState(null);
+  
   const socket = useSocket();
-
-  // 🔥 FIX 1: Khai báo audioRef từ Assets local
   const audioRef = useRef(new Audio(sosAlertSound));
+
+  // 🔥 CHIÊU THỨC TỐI ƯU: Sử dụng Ref để track Sidebar mà không gây re-render Socket
+  const selectedIncidentRef = useRef(selectedIncident);
+  useEffect(() => {
+    selectedIncidentRef.current = selectedIncident;
+  }, [selectedIncident]);
 
   const fetchIncidents = useCallback(async (pageNum) => {
     try {
@@ -298,32 +301,12 @@ export const Incident = () => {
 
     socket.emit('dispatcher:register');
 
-    // 🚀 A. Nhận sự cố mới
-    const handleNewIncident = (data) => {
-        console.log("🆕 Nhận sự cố mới:", data.incident.code);
-        setIncidents((prev) => {
-            if (prev.find(inc => inc._id === data.incident._id)) return prev;
-            if (page === 1) {
-                return [data.incident, ...prev].slice(0, 10);
-            }
-            return prev;
-        });
-        setPagination(prev => ({ ...prev, total: prev.total + 1 }));
-    };
-
-    // 🚨 B. Lệnh can thiệp (SOS) từ BULL QUEUE
+    // 🚨 Handler: SOS từ Bull Queue
     const handleManualNeeded = (data) => {
-      console.warn("🚨 CẦN CAN THIỆP:", data.incident.code);
-
-      // 1. PHÁT ÂM THANH
       audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => console.log("Âm thanh bị chặn do chưa tương tác"));
-      
-      // 2. HIỆN TOAST
+      audioRef.current.play().catch(() => {});
       setSosToast(data.incident);
-      setTimeout(() => setSosToast(null), 10000); // Hiện trong 10s
-
-      // 3. CẬP NHẬT DANH SÁCH (Đẩy lên đầu và tô đỏ)
+      
       setIncidents((prev) => {
         const exists = prev.find(inc => inc._id === data.incident._id);
         if (exists) {
@@ -335,33 +318,57 @@ export const Incident = () => {
       });
     };
 
-    // 🔄 C. Cập nhật trạng thái
-    const handleUpdated = (data) => {
-      setIncidents((prev) => prev.map((inc) => 
-        inc._id === data.id ? { ...inc, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : inc
-      ));
-      setSelectedIncident((prev) => 
-        prev?._id === data.id ? { ...prev, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : prev
-      );
+    // 🆕 Handler: Nhận đơn mới
+    const handleNewIncident = (data) => {
+        if (page === 1) {
+            setIncidents(prev => {
+                if (prev.find(i => i._id === data.incident._id)) return prev;
+                return [data.incident, ...prev].slice(0, 10);
+            });
+            setPagination(p => ({ ...p, total: p.total + 1 }));
+        }
     };
 
-    // 🗑️ D. Xóa sự cố Real-time
+    // 🗑️ Handler: Xóa vụ việc (Dùng Ref để check sidebar)
     const handleDelete = (data) => {
-        setIncidents(prev => prev.filter(inc => inc._id !== data.incidentId));
+        const deletedId = data.incidentId;
+        setIncidents(prev => prev.filter(inc => inc._id !== deletedId));
         setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        
+        // 🎯 VÁ LỖI SIDEBAR: Không cần đưa selectedIncident vào dependency array nữa
+        if (selectedIncidentRef.current?._id === deletedId) {
+            setSelectedIncident(null);
+        }
     };
 
-    socket.on("incident:new", handleNewIncident);
+    // 🔄 Handler: Cập nhật trạng thái
+    const handleUpdated = (data) => {
+        setIncidents(prev => prev.map(inc => 
+            inc._id === data.id ? { ...inc, status: data.status, assignedTeam: data.incident?.assignedTeam, needsIntervention: false } : inc
+        ));
+        
+        // Cập nhật dữ liệu Sidebar nếu đang mở đúng vụ đó
+        if (selectedIncidentRef.current?._id === data.id) {
+            setSelectedIncident(prev => ({ 
+                ...prev, 
+                status: data.status, 
+                assignedTeam: data.incident?.assignedTeam 
+            }));
+        }
+    };
+
     socket.on("dispatcher:manual_intervention_required", handleManualNeeded);
-    socket.on("incident:updated", handleUpdated);
+    socket.on("incident:new", handleNewIncident);
     socket.on("delete_incident", handleDelete);
+    socket.on("incident:updated", handleUpdated);
 
     return () => {
-      socket.off("incident:new");
-      socket.off("dispatcher:manual_intervention_required");
-      socket.off("incident:updated");
-      socket.off("delete_incident");
+      socket.off("dispatcher:manual_intervention_required", handleManualNeeded);
+      socket.off("incident:new", handleNewIncident);
+      socket.off("delete_incident", handleDelete);
+      socket.off("incident:updated", handleUpdated);
     };
+    // ✅ Dependency Array sạch sẽ: listeners chỉ đăng ký lại khi đổi trang hoặc socket reconnect
   }, [socket, page]);
 
   return (
