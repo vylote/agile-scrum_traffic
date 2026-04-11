@@ -717,8 +717,7 @@ exports.updateIncidentStatus = async (req, res, next) => {
 
             if (status === INCIDENT_STATUS.CANCELLED && oldTeamId) {
                 io.emit(`rescue:incident_cancelled:${oldTeamId}`, {
-                    incidentId: id,
-                    message: 'Ca trực này đã bị hủy bởi quản trị viên.'
+                    incidentId: id
                 });
             }
 
