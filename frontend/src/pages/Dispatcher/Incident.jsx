@@ -31,7 +31,7 @@ import {
   INCIDENT_TYPES,
 } from "../../utils/constants/incidentConstants";
 
-import sosAlertSound from "../../../public/audio/sos_alert.mp3";
+import sosAlertSound from "/audio/sos_alert.mp3";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const TYPE_LABELS = {

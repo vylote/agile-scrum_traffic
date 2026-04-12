@@ -5,10 +5,12 @@ import { AppRoutes } from "./routes/AppRoutes";
 import { loginSuccess, logout, setInitialized } from "./store/slices/authSlice";
 import api from "./services/api";
 import { Loader2 } from "lucide-react";
+import { setupFCM, onMessageListener } from './services/fcmService';
+import { toast, Toaster } from "react-hot-toast";
 
 function App() {
   const dispatch = useDispatch();
-  const { isInitialized } = useSelector((state) => state.auth);
+  const { isInitialized, user } = useSelector((state) => state.auth);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,6 +45,38 @@ function App() {
     initAuth();
   }, [dispatch]);
 
+  useEffect(() => {
+    // Chỉ chạy khi đã xác thực xong và có User tồn tại
+    if (isInitialized && user) {
+      // Lấy Token và đồng bộ về Backend
+      setupFCM();
+
+      // Lắng nghe thông báo khi đang mở App (Foreground)
+      const listenForMessages = async () => {
+        try {
+          const payload = await onMessageListener();
+          console.log("🔔 Foreground Message:", payload);
+          
+          // Hiển thị thông báo nhanh cho người dùng
+          toast.success(
+            <div>
+              <b>{payload.notification.title}</b>
+              <p className="text-sm">{payload.notification.body}</p>
+            </div>,
+            { duration: 5000, position: "top-right" }
+          );
+
+          // Sau khi nhận xong 1 tin, gọi lại chính nó để đợi tin tiếp theo
+          listenForMessages();
+        } catch (err) {
+          console.error("Lỗi lắng nghe tin nhắn:", err);
+        }
+      };
+
+      listenForMessages();
+    }
+  }, [isInitialized, user]);
+
   // đang xác thực thì k có quyền xem các trang khác 
   if (loading || !isInitialized) {
     return (
@@ -57,6 +91,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Toaster />
       <AppRoutes />
     </BrowserRouter>
   );
