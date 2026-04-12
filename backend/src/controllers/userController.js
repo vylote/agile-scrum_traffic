@@ -92,3 +92,19 @@ exports.getUserByPhone = async (req, res, next) => {
         next(err);
     }
 };
+
+exports.updateFCMToken = async (req, res, next) => {
+    try {
+        const { fcmToken } = req.body;
+        
+        // Luôn cập nhật token mới nhất vì FCM Token có thể thay đổi định kỳ
+        await User.findByIdAndUpdate(req.user._id, { 
+            fcmToken: fcmToken || null, // Nếu gửi null tức là họ Logout/Tắt thông báo
+            lastLogin: Date.now() 
+        });
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã đồng bộ Token thiết bị." });
+    } catch (err) {
+        next(err);
+    }
+};

@@ -98,7 +98,11 @@ exports.login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
 
+        // console.log("Dữ liệu đang tìm ở DB tên là:", mongoose.connection.name);
+        // console.log("Tại Host:", mongoose.connection.host);
         const user = await User.findOne({ username }).populate('rescueTeam');
+        // console.log("User tìm được:", user); 
+        // console.log("Password Hash lấy được:", user?.passwordHash);
 
         const isMatch = user && user.passwordHash
             ? await bcrypt.compare(password, user.passwordHash)

@@ -13,6 +13,7 @@ const { timeStamp } = require('console');
 const RescueTeam = require('../models/RescueTeam')
 const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants')
 const autoDispatchQueue = require('../jobs/autoAssign');
+const notificationService = require('../services/notificationService');
 
 /**
  * @swagger
@@ -387,6 +388,14 @@ exports.deleteIncident = async (req, res, next) => {
         const deleteDoc = await Incident.findByIdAndDelete(id);
         if (!deleteDoc) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
 
+        if (deleteDoc.assignedTeam) {
+            await RescueTeam.findByIdAndUpdate(deleteDoc.assignedTeam, {
+                status: RESCUE_TEAM_STATUS.AVAILABLE,
+                activeIncident: null
+            });
+            console.log(`🔓 Đã giải phóng đội ${deleteDoc.assignedTeam} sau khi xóa vụ.`);
+        }
+
         if (deleteDoc.photos && deleteDoc.photos.length > 0) {
             const deletePromise = deleteDoc.photos.map(async (imgName) => {
                 const filePath = path.join(__dirname, '../../uploads', imgName)
@@ -620,28 +629,26 @@ exports.updateIncidentStatus = async (req, res, next) => {
 
         const isRescue = req.user.role === USER_ROLES.RESCUE;
         if (req.user.role === USER_ROLES.CITIZEN) return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
-        if (isRescue && status === INCIDENT_STATUS.CANCELLED) {
-            return next(new AppError(ErrorCodes.AUTH_FORBIDDEN, 'Đội cứu hộ không có quyền hủy sự cố.'));
-        }
-
+        
         const currentInc = await Incident.findById(id);
         if (!currentInc) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
         const oldTeamId = currentInc.assignedTeam;
 
-        // ── Atomic query filter (chống race condition) ──────────────────────────
+        // ── 1. Atomic query filter (Vá lỗi "Sự cố đã có đội khác nhận") ─────────
         let updateQuery = { _id: id };
 
         if (status === INCIDENT_STATUS.ASSIGNED) {
-            // Chỉ nhận khi đơn ĐANG PENDING (chưa ai nhận)
-            updateQuery.status = INCIDENT_STATUS.PENDING;
+            // Cho phép nhận nếu đơn đang PENDING hoặc đã được gán cho chính đội này (do Worker làm)
+            updateQuery.$or = [
+                { status: INCIDENT_STATUS.PENDING },
+                { status: INCIDENT_STATUS.ASSIGNED, assignedTeam: teamData?._id || req.user.rescueTeam?._id }
+            ];
         } else if (status === INCIDENT_STATUS.IN_PROGRESS) {
-            // Chỉ cho phép đến nơi khi đơn ĐANG ASSIGNED cho chính đội này
             updateQuery.status = INCIDENT_STATUS.ASSIGNED;
             updateQuery.assignedTeam = teamData?._id || oldTeamId;
         }
-        // COMPLETED, CANCELLED, PENDING: không filter thêm (admin có toàn quyền)
 
-        // ── Dữ liệu cập nhật ────────────────────────────────────────────────────
+        // ── 2. Chuẩn bị dữ liệu cập nhật ────────────────────────────────────────
         const statusMessages = {
             [INCIDENT_STATUS.ASSIGNED]: 'Đội cứu hộ đã tiếp nhận yêu cầu, đang trên đường.',
             [INCIDENT_STATUS.IN_PROGRESS]: 'Đội cứu hộ đã đến hiện trường, đang xử lý.',
@@ -661,32 +668,26 @@ exports.updateIncidentStatus = async (req, res, next) => {
             }
         };
 
-        // ── Sync RescueTeam ──────────────────────────────────────────────────────
-        if (status === INCIDENT_STATUS.ASSIGNED) {
-            // Gán đội vào incident & đánh BUSY ngay khi họ nhận ca
-            if (teamData?._id) {
-                updateData.assignedTeam = teamData._id;
-                await RescueTeam.findByIdAndUpdate(teamData._id, {
-                    status: RESCUE_TEAM_STATUS.BUSY,
-                    activeIncident: id
-                });
+        // ── 3. Sync RescueTeam & Bắn FCM (Sửa lỗi 500 tại đây) ───────────────────
+        if (status === INCIDENT_STATUS.ASSIGNED && teamData?._id) {
+            updateData.assignedTeam = teamData._id;
+            
+            // Populate members.userId để lấy fcmToken của Leader
+            const updatedTeam = await RescueTeam.findByIdAndUpdate(
+                teamData._id, 
+                { status: RESCUE_TEAM_STATUS.BUSY, activeIncident: id },
+                { new: true }
+            ).populate('members.userId'); // Lưu ý: 'members' có 's'
+
+            if (updatedTeam) {
+                const leader = updatedTeam.members.find(m => m.role === 'LEADER');
+                if (leader?.userId?.fcmToken) {
+                    // Bắn thông báo cho đội cứu hộ (dùng hàm đã sửa của Vy)
+                    notificationService.notifyRescueAssignment(leader.userId, currentInc)
+                        .catch(err => console.error("🔥 Lỗi FCM Rescue:", err.message));
+                }
             }
-
-        } else if (status === INCIDENT_STATUS.IN_PROGRESS) {
-            // Đến nơi: không cần thay đổi gì thêm, đội đã BUSY rồi
-            // (assignedTeam đã được set ở bước ASSIGNED)
-
-        } else if (status === INCIDENT_STATUS.COMPLETED) {
-            updateData.resolvedAt = Date.now();
-            updateData.assignedTeam = null; // ✅ Gỡ gán khỏi incident sau khi xong
-            if (oldTeamId) {
-                await RescueTeam.findByIdAndUpdate(oldTeamId, {
-                    status: RESCUE_TEAM_STATUS.AVAILABLE,
-                    activeIncident: null
-                });
-            }
-
-        } else if (status === INCIDENT_STATUS.CANCELLED) {
+        } else if (status === INCIDENT_STATUS.COMPLETED || status === INCIDENT_STATUS.CANCELLED) {
             updateData.assignedTeam = null;
             if (oldTeamId) {
                 await RescueTeam.findByIdAndUpdate(oldTeamId, {
@@ -694,36 +695,33 @@ exports.updateIncidentStatus = async (req, res, next) => {
                     activeIncident: null
                 });
             }
+            if (status === INCIDENT_STATUS.COMPLETED) updateData.resolvedAt = Date.now();
         }
 
-        // ── Thực thi ────────────────────────────────────────────────────────────
+        // ── 4. Thực thi cập nhật Incident ──────────────────────────────────────
         const updatedIncident = await Incident.findOneAndUpdate(
             updateQuery,
             updateData,
             { new: true, runValidators: true }
-        ).populate('assignedTeam', 'name code');
+        ).populate('assignedTeam', 'name code').populate('reportedBy');
 
         if (!updatedIncident) {
-            return next(new AppError(
-                ErrorCodes.INCIDENT_INVALID_STATUS,
-                'Sự cố đã được đội khác tiếp nhận hoặc không thể thay đổi trạng thái hiện tại.'
-            ));
+            return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS, 'Sự cố đã có đội khác nhận hoặc trạng thái không hợp lệ.'));
         }
 
-        // ── Socket ──────────────────────────────────────────────────────────────
+        // ── 5. Socket.io & Notification cho Người dân ──────────────────────────
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', { id, status, incident: updatedIncident });
-
-            if (status === INCIDENT_STATUS.CANCELLED && oldTeamId) {
-                io.emit(`rescue:incident_cancelled:${oldTeamId}`, {
-                    incidentId: id
-                });
-            }
-
             if (status === INCIDENT_STATUS.PENDING) {
                 io.to(`zone:${updatedIncident.zone}`).emit('incident:new', { incident: updatedIncident });
             }
+        }
+
+        const citizen = updatedIncident.reportedBy;
+        if (citizen?.fcmToken && statusMessages[status]) {
+            notificationService.notifyCitizenStatus(citizen, updatedIncident, statusMessages[status])
+                .catch(err => console.error("🔥 Lỗi FCM Citizen:", err.message));
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident);
@@ -762,13 +760,15 @@ exports.rejectIncident = async (req, res, next) => {
         if (incident.attemptCount >= 2) {
             console.log("🚨 Đã thử qua 2 đội. Báo SOS cho Dispatcher!");
             if (io) {
-                io.to('room:dispatchers').emit('dispatcher:manual_intervention_required', { 
+                io.to('room:dispatchers').emit('dispatcher:manual_intervention_required', {
                     incident: incident.toObject(),
-                    reason: "Cả 2 đội được gán tự động đều từ chối."
+                    reason: "Toàn bộ đội được gán tự động đều từ chối."
                 });
             }
+
+
         } else {
-            // ⏭️ Ép tạo Job mới chạy ngay (delay cực ngắn 50ms)
+            //Ép tạo Job mới chạy ngay (delay cực ngắn 50ms)
             // Dùng ID mới để không bị Bull Queue chặn
             const nextJobId = `dispatch_${incidentId}_retry_${Date.now()}`;
             await autoDispatchQueue.add(
@@ -779,9 +779,9 @@ exports.rejectIncident = async (req, res, next) => {
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã từ chối" });
-    } catch (error) { 
+    } catch (error) {
         console.error("🔥 Lỗi tại rejectIncident:", error);
-        next(error); 
+        next(error);
     }
 };
 
