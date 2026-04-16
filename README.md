@@ -4,7 +4,7 @@
 
 | Thông tin | Chi tiết |
 |---|---|
-| **Sinh viên thực hiện** | Lê Thanh Vy (231220965) |
+| **Sinh viên thực hiện** | Lê Thanh Vy (231220965) Đinh Thị Phương Anh(231210702) Đinh Văn Điệp(231230743) Nguyễn Phúc Hiếu(230220775) Vũ Quang Minh(231230843)|
 | **Lớp** | CNTT4 - K64 |
 | **Quy trình** | Agile/Scrum (Sprint 1 → Sprint 1.5: Resource Management) |
 | **Trạng thái** | ✅ Hoàn thành Logic nâng cao — 44/44 tests passed |
@@ -15,11 +15,12 @@
 
 | Vai trò | Thành viên | Trách nhiệm |
 |---|---|---|
-| **Product Owner** | Nguyễn Văn A | Quản lý Product Backlog, ưu tiên tính năng, xác nhận kết quả Sprint |
-| **Scrum Master** | Trần Thị B | Loại bỏ trở ngại, tổ chức ceremonies, đảm bảo quy trình Scrum |
-| **Backend Developer** | Lê Văn C | Node.js, Express, Socket.IO, MongoDB, REST API |
-| **Frontend Developer** | Phạm Thị D | React.js, Redux, Leaflet Maps, Responsive UI |
-| **Full-stack Developer** | Hoàng Văn E | Node.js + React.js, tích hợp API, DevOps |
+| **Product Owner** | Đinh Văn Điệp, Nguyễn Phúc Hiếu | Quản lý Product Backlog, ưu tiên tính năng, xác nhận kết quả Sprint |
+| **Scrum Master** | Đinh Thị Phương Anh, Đinh Văn Điệp, Vũ Quang Minh | Loại bỏ trở ngại, tổ chức ceremonies, đảm bảo quy trình Scrum |
+| **Backend Developer** | Lê Thanh Vy, Đinh Thị Phương Anh | Node.js, Express, Socket.IO, MongoDB, REST API |
+| **Frontend Developer** | Lê Thanh Vy, Nguyễn Phúc Hiếu, Đinh Thị Phương Anh | React.js, Redux, Leaflet Maps, Responsive UI |
+| **Full-stack Developer** | Lê Thanh Vy | Node.js + React.js, tích hợp API, DevOps |
+| **QA-Tester** | Đinh Văn Điệp, Vũ Quang Minh| Test cases, automation testing, UAT với stakeholders|
 
 ---
 
@@ -76,7 +77,7 @@ backend/
 
 ### Yêu cầu hệ thống
 
-- Node.js v18+
+- Node.js v20+
 - MongoDB v6.0+
 - Docker & Docker Compose (tùy chọn)
 
