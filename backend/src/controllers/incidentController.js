@@ -314,7 +314,13 @@ exports.updateIncidentInfo = async (req, res, next) => {
 
         let finalLocation = existIncident.location;
         if (latitude && longitude) {
-            const finalAddress = address || await geoService.reverseGeocode(latitude, longitude);
+            let finalAddress;
+            if (address) {
+                finalAddress = address;
+            } else {
+                const geoData = await geoService.reverseGeocode(latitude, longitude);
+                finalAddress = geoData.display_name;
+            }
             finalLocation = {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)],
