@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
             socket.join(`team:${teamId}`);
             socket.registeredTeamId = teamId;
             socketService.addOnlineMember(teamId);
-            console.log(`✅ LEADER Đội [${teamId}] báo danh thành công.`);
+            console.log(`LEADER Đội [${teamId}] báo danh thành công.`);
         }
     });
 
@@ -47,7 +47,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (socket.registeredTeamId) {
             socketService.removeOnlineMember(socket.registeredTeamId);
-            console.log(`🔴 LEADER Đội [${socket.registeredTeamId}] đã OFFLINE.`);
+            console.log(`LEADER Đội [${socket.registeredTeamId}] đã OFFLINE.`);
         }
     });
 
@@ -109,7 +109,7 @@ const startServer = async () => {
 
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`Server is running in ${process.env.NODE_ENV} mode`);
-            console.log(`🔗 API: http://localhost:${PORT}`);
+            console.log(`🔗 API docs: http://localhost:${PORT}/api-docs`);
         });
 
     } catch (error) {
