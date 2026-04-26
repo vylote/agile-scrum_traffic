@@ -31,7 +31,7 @@ const CancelledToast = ({ message, onDismiss, type = "error" }) => (
   </div>
 );
 
-const IS_SIMULATION_MODE = true;
+const IS_SIMULATION_MODE = false;
 
 export const RescueHome = () => {
   const { user } = useSelector((state) => state.auth);
@@ -126,7 +126,11 @@ export const RescueHome = () => {
   useEffect(() => {
     if (!socket || !teamId) return;
 
-    if (isLeader) socket.emit("rescue:register", { teamId, role: "LEADER" });
+    socket.emit("rescue:register", { 
+        teamId, 
+        role: myInternalRole, 
+        zone: userZone        
+    });
 
     // A. Xử lý tọa độ
     const handleLocationUpdate = (data) => {
@@ -217,14 +221,14 @@ export const RescueHome = () => {
         if (appStateRef.current === "normal") {
             setViewingIncident(newInc);
             setAppState("viewing");
-            setMapFocus(newInc.location?.coordinates); // 🔥 Đã khôi phục MapFocus
+            setMapFocus(newInc.location?.coordinates); 
         }
       }
     };
 
     socket.on("rescue:location_update", handleLocationUpdate);
     socket.on("rescue:location", handleLocationUpdate);
-    socket.on(`rescue:incoming_request:${teamId}`, handleIncomingRequest);
+    socket.on(`rescue:incoming_request`, handleIncomingRequest);
     socket.on("rescue:revoke_request", handleRevoke);
     socket.on("incident:updated", handleUpdated);
     socket.on("incident:new", handleNewIncident);
@@ -234,7 +238,7 @@ export const RescueHome = () => {
     return () => {
       socket.off("rescue:location_update", handleLocationUpdate);
       socket.off("rescue:location", handleLocationUpdate);
-      socket.off(`rescue:incoming_request:${teamId}`, handleIncomingRequest);
+      socket.off(`rescue:incoming_request`, handleIncomingRequest);
       socket.off("rescue:revoke_request", handleRevoke); 
       socket.off("incident:updated", handleUpdated);
       socket.off("incident:new", handleNewIncident);

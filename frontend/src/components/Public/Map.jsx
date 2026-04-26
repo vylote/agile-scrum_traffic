@@ -11,20 +11,22 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import { LocateFixed, RefreshCw } from "lucide-react";
+import rescueBusyImg from "../../assets/icons/rescue-busy.png";
+import rescueAvailableImg from "../../assets/icons/rescue-available.png";
+import incidentImg from "../../assets/icons/incident.png";
 
-/** --- CẤU HÌNH ICONS --- **/
 const rescueBusyIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png",
+  iconUrl: rescueBusyImg,
   iconSize: [32, 32],
   iconAnchor: [16, 32],
 });
 const rescueAvailableIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/1048/1048313.png",
+  iconUrl: rescueAvailableImg,
   iconSize: [32, 32],
   iconAnchor: [16, 32],
 });
 const incidentIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/5977/5977626.png",
+  iconUrl: incidentImg,
   iconSize: [30, 30],
   iconAnchor: [15, 30],
 });

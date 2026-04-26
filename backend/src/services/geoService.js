@@ -1,6 +1,5 @@
 const axios = require('axios');
 
-// Hàm chuẩn hóa: "Huyện Sóc Sơn" -> "Sóc Sơn", "Quận Cầu Giấy" -> "Cầu Giấy"
 const normalizeZoneName = (name) => {
     if (!name) return "Unknown";
     let normalized = name
@@ -49,4 +48,26 @@ const reverseGeocode = async (lat, lon) => {
     }
 };
 
-module.exports = { reverseGeocode, normalizeZoneName };
+//open source routing machine 
+const getRouteAndETA = async (startLng, startLat, endLng, endLat) => {
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=false`;
+        
+        const response = await axios.get(url, { timeout: 3000 });
+        
+        if (response.data.code === 'Ok' && response.data.routes.length > 0) {
+            const route = response.data.routes[0];
+            return {
+                distance: route.distance, // Khoảng cách (mét)
+                duration: route.duration, // Thời gian (giây)
+                eta: Math.ceil(route.duration / 60) // Quy ra phút
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("OSRM Error:", error.message);
+        return null;
+    }
+};
+
+module.exports = { reverseGeocode, normalizeZoneName, getRouteAndETA };
