@@ -7,30 +7,6 @@ const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 const { USER_ROLES } = require('../utils/constants/userConstants');
 
-/**
- * @swagger
- * /api/v1/auth/register:
- *   post:
- *     summary: Đăng ký tài khoản người dùng mới
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [username, password, name, email, phone]
- *             properties:
- *               username: { type: string, example: "vy_le_2026" }
- *               password: { type: string, format: password, example: "SecurePass123" }
- *               name: { type: string, example: "Le Thanh Vy" }
- *               email: { type: string, example: "vy.le@student.utc.edu.vn" }
- *               phone: { type: string, example: "0987654321" }
- *               role: { type: string, enum: [CITIZEN, DISPATCHER, ADMIN, RESCUE], default: CITIZEN }
- *     responses:
- *       201:
- *         description: Đăng ký thành công
- */
 exports.register = async (req, res, next) => {
     try {
         const { username, password, role, name, email, phone } = req.body;
@@ -74,35 +50,11 @@ exports.register = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/auth/login:
- *   post:
- *     summary: Đăng nhập để lấy Token JWT
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [username, password]
- *             properties:
- *               username: { type: string, example: "vy_le_2026" }
- *               password: { type: string, format: password, example: "SecurePass123" }
- *     responses:
- *       200:
- *         description: Đăng nhập thành công
- */
 exports.login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
 
-        // console.log("Dữ liệu đang tìm ở DB tên là:", mongoose.connection.name);
-        // console.log("Tại Host:", mongoose.connection.host);
         const user = await User.findOne({ username }).populate('rescueTeam');
-        // console.log("User tìm được:", user); 
-        // console.log("Password Hash lấy được:", user?.passwordHash);
 
         const isMatch = user && user.passwordHash
             ? await bcrypt.compare(password, user.passwordHash)
@@ -211,7 +163,6 @@ exports.logout = (req, res) => {
 
 exports.getMe = async (req, res, next) => {
     try {
-        // req.user đã được gán bởi middleware 'protect'
         const user = await User.findById(req.user.id)
             .select('-passwordHash')
             .populate('rescueTeam');
@@ -220,7 +171,6 @@ exports.getMe = async (req, res, next) => {
             return next(new AppError(ErrorCodes.USER_NOT_FOUND));
         }
 
-        // Trả về cấu trúc user giống hệt lúc Login để Redux dễ xử lý
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
             user: {
                 id: user._id,

@@ -3,6 +3,7 @@ const AppError = require('../middleware/AppError');
 const ErrorCodes = require('../utils/constants/errorCodes');
 const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
+const { calculateHaversine } = require('../utils/geoUtils');
 const geoService = require('../services/geoService');
 const path = require('path');
 const fs = require('fs').promises;
@@ -15,58 +16,6 @@ const { RESCUE_TEAM_STATUS } = require('../utils/constants/rescueConstants')
 const autoDispatchQueue = require('../jobs/autoAssign');
 const notificationService = require('../services/notificationService');
 
-/**
- * @swagger
- * /api/v1/incidents/:
- *   post:
- *     summary: Báo cáo sự cố mới
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     description: Chỉ dành cho người dùng có role **CITIZEN**. Cho phép tải lên tối đa 5 ảnh.
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required: [title, latitude, longitude, type]
- *             properties:
- *               title:
- *                 type: string
- *                 example: "Tai nạn giao thông"
- *               description:
- *                 type: string
- *                 example: "Va chạm giữa xe máy và ô tô"
- *               type:
- *                 type: string
- *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER]
- *                 example: ACCIDENT
- *               severity:
- *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
- *                 example: MEDIUM
- *               latitude:
- *                 type: number
- *                 example: 21.0285
- *               longitude:
- *                 type: number
- *                 example: 105.8542
- *               photos:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *     responses:
- *       201:
- *         description: Tạo sự cố thành công
- *       400:
- *         description: Thiếu tọa độ latitude/longitude
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- *       403:
- *         description: Không có quyền truy cập (không phải CITIZEN)
- */
 exports.createIncident = async (req, res, next) => {
     try {
         const { title, description, latitude, longitude, type, severity } = req.body;
@@ -114,7 +63,6 @@ exports.createIncident = async (req, res, next) => {
             io.to(`zone:${detectedZone}`).emit('incident:new', { incident: newIncident });
         }
 
-        // THÊM VÀO ĐÂY: Đẩy vào Bull Queue để chạy ngầm
         const dispatchQueue = require('../jobs/autoAssign');
         await dispatchQueue.add({
             incidentId: newIncident._id
@@ -130,37 +78,6 @@ exports.createIncident = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents/sos:
- *   post:
- *     summary: Gửi tín hiệu SOS khẩn cấp
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     description: Tạo ngay một sự cố với mức độ **CRITICAL** và loại **ACCIDENT**. Không cần tiêu đề hay mô tả.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [latitude, longitude]
- *             properties:
- *               latitude:
- *                 type: number
- *                 example: 21.0285
- *               longitude:
- *                 type: number
- *                 example: 105.8542
- *     responses:
- *       200:
- *         description: Gửi SOS thành công, socket event `incident:sos` được phát đi
- *       400:
- *         description: Thiếu tọa độ latitude/longitude
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- */
 exports.createSOS = async (req, res, next) => {
     try {
         const { latitude, longitude } = req.body;
@@ -223,61 +140,6 @@ exports.createSOS = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents/{id}/info:
- *   patch:
- *     summary: Cập nhật thông tin sự cố
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *         description: ID của sự cố cần cập nhật
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *                 example: "Tai nạn đã được xử lý"
- *               description:
- *                 type: string
- *               type:
- *                 type: string
- *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER]
- *               severity:
- *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
- *               status:
- *                 type: string
- *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED]
- *               latitude:
- *                 type: number
- *               longitude:
- *                 type: number
- *               keepPhotos:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Danh sách TÊN các ảnh cũ muốn giữ lại (ví dụ ["image-123.jpg"])
- *               photos:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *                 description: Tải lên các ảnh MỚI (nếu có)
- *     responses:
- *       200:
- *         description: Cập nhật thành công
- *       404:
- *         description: Không tìm thấy sự cố
- */
 exports.updateIncidentInfo = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -365,28 +227,6 @@ exports.updateIncidentInfo = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents/delete/{id}:
- *   delete:
- *     summary: Xóa sự cố và ảnh vật lý liên quan
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *         description: ID của sự cố cần xóa
- *     responses:
- *       200:
- *         description: Xóa thành công
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- *       404:
- *         description: Không tìm thấy sự cố
- */
 exports.deleteIncident = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -433,20 +273,6 @@ exports.deleteIncident = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents:
- *   get:
- *     summary: Lấy danh sách tất cả sự cố
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách sự cố, sắp xếp mới nhất lên đầu
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- */
 exports.getAllIncidents = async (req, res, next) => {
     try {
         const { page, type, severity, status, zone, assignedTeam } = req.query
@@ -543,28 +369,6 @@ exports.getIncidentById = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents/track/{code}:
- *   get:
- *     summary: Lấy chi tiết một sự cố theo code
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: code
- *         required: true
- *         schema: { type: string }
- *         description: Mã của sự cố cần xem
- *     responses:
- *       200:
- *         description: Chi tiết sự cố
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- *       404:
- *         description: Không tìm thấy sự cố
- */
 exports.getIncidentByCode = async (req, res, next) => {
     try {
         const { code } = req.params;
@@ -588,42 +392,6 @@ exports.getIncidentByCode = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents/{id}/status:
- *   patch:
- *     summary: Cập nhật trạng thái sự cố
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: MongoDB ObjectId của sự cố
- *         example: "664f1b2c9a4e2d001f3a7b12"
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [status]
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED]
- *                 example: IN_PROGRESS
- *     responses:
- *       200:
- *         description: Cập nhật trạng thái thành công
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- *       404:
- *         description: Không tìm thấy sự cố
- */
 exports.updateIncidentStatus = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -741,19 +509,25 @@ exports.rejectIncident = async (req, res, next) => {
     const teamId = req.user.rescueTeam?._id;
 
     try {
-        // 1. Blacklist đội vừa từ chối
         const incident = await Incident.findByIdAndUpdate(
             incidentId,
             { $addToSet: { rejectedTeams: teamId } },
             { new: true }
         );
 
-        // 2. ⚡ TRUY SÁT VÀ TIÊU DIỆT JOB ĐANG TREO (Fix delay 30s)
-        const targetJobId = `dispatch_${incidentId}`;
-        const oldJob = await autoDispatchQueue.getJob(targetJobId);
-        if (oldJob) {
-            await oldJob.remove();
-            console.log(`🧹 Đã xóa sạch Job cũ [${targetJobId}]. Hết delay 30s!`);
+        const ghostJobIds = [
+            `dispatch_${incidentId}_step_1`,
+            `dispatch_${incidentId}_step_2`,
+            `dispatch_${incidentId}_broadcast`
+        ];
+
+        for (const ghostId of ghostJobIds) {
+            const oldJob = await autoDispatchQueue.getJob(ghostId);
+            if (oldJob) {
+                // Phải gọi remove() để xóa nó khỏi Redis hoàn toàn
+                await oldJob.remove();
+                console.log(`Đã tiêu diệt Ghost Job đang đếm ngược: [${ghostId}]`);
+            }
         }
 
         // 3. Thu hồi popup máy vừa bấm
@@ -764,7 +538,7 @@ exports.rejectIncident = async (req, res, next) => {
 
         // 4. KIỂM TRA ĐIỀU KIỆN NHẢY ĐƠN
         if (incident.attemptCount >= 2) {
-            console.log("🚨 Đã thử qua 2 đội. Báo SOS cho Dispatcher!");
+            console.log("Đã thử qua 2 đội. Báo SOS cho Dispatcher!");
             if (io) {
                 io.to('room:dispatchers').emit('dispatcher:manual_intervention_required', {
                     incident: incident.toObject(),
@@ -781,12 +555,12 @@ exports.rejectIncident = async (req, res, next) => {
                 { incidentId, startTime: Date.now() },
                 { jobId: nextJobId, delay: 50, priority: 1 }
             );
-            console.log(`⏭️ Chuyển đơn thành công! (Job: ${nextJobId})`);
+            console.log(`Chuyển đơn thành công! (Job: ${nextJobId})`);
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã từ chối" });
     } catch (error) {
-        console.error("🔥 Lỗi tại rejectIncident:", error);
+        console.error("Lỗi tại rejectIncident:", error);
         next(error);
     }
 };
