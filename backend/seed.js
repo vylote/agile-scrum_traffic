@@ -54,7 +54,7 @@ const seedData = async () => {
             const config = teamConfigs[i];
             const teamMembersData = [];
 
-            console.log(`🚛 Đang tạo ${config.name} (Zone: ${config.zone})...`);
+            console.log(`Đang tạo ${config.name} (Zone: ${config.zone})...`);
 
             // Mỗi đội tạo 2 người thôi cho nhẹ máy (1 Đội trưởng + 1 Thành viên)
             for (let j = 1; j <= 2; j++) {

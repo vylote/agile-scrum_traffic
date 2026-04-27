@@ -31,9 +31,9 @@ const incidentIcon = new L.Icon({
   iconAnchor: [15, 30],
 });
 
-/** --- 1. COMPONENT VẼ ĐƯỜNG ĐI (OSRM) --- **/
 const RoutingOverlay = ({ start, end }) => {
   const [points, setPoints] = useState([]);
+  const [isFallback, setIsFallback] = useState(false);
 
   useEffect(() => {
     if (!start?.lat || !start?.lng || !end) return;
@@ -50,9 +50,16 @@ const RoutingOverlay = ({ start, end }) => {
             (coord) => [coord[1], coord[0]],
           );
           setPoints(coordinates);
+          setIsFallback(false); // Thành công -> Bỏ cờ fallback
         }
       } catch (e) {
         console.error("Lỗi lấy đường đi OSRM:", e);
+
+        setPoints([
+            [start.lat, start.lng], // Điểm bắt đầu (Đội cứu hộ)
+            [end[1], end[0]]        // Điểm kết thúc (Sự cố) - Lưu ý end là mảng [lng, lat]
+        ]);
+        setIsFallback(true)
       }
     };
 
@@ -64,8 +71,10 @@ const RoutingOverlay = ({ start, end }) => {
       positions={points}
       color="#ef4444"
       weight={6}
-      opacity={0.7}
-      dashArray="10, 15"
+      opacity={0.8}
+      dashArray={isFallback ? "15, 15" : undefined} 
+      lineCap="round"
+      lineJoin="round"
     />
   ) : null;
 };

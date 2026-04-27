@@ -422,7 +422,6 @@ exports.updateIncidentStatus = async (req, res, next) => {
             updateQuery.assignedTeam = teamData?._id || oldTeamId;
         }
 
-        // ── 2. Chuẩn bị dữ liệu cập nhật ────────────────────────────────────────
         const statusMessages = {
             [INCIDENT_STATUS.ASSIGNED]: 'Đội cứu hộ đã tiếp nhận yêu cầu, đang trên đường.',
             [INCIDENT_STATUS.IN_PROGRESS]: 'Đội cứu hộ đã đến hiện trường, đang xử lý.',
@@ -442,7 +441,6 @@ exports.updateIncidentStatus = async (req, res, next) => {
             }
         };
 
-        // ── 3. Sync RescueTeam & Bắn FCM (Sửa lỗi 500 tại đây) ───────────────────
         if (status === INCIDENT_STATUS.ASSIGNED && teamData?._id) {
             updateData.assignedTeam = teamData._id;
             
@@ -462,7 +460,9 @@ exports.updateIncidentStatus = async (req, res, next) => {
                 }
             }
         } else if (status === INCIDENT_STATUS.COMPLETED || status === INCIDENT_STATUS.CANCELLED) {
-            updateData.assignedTeam = null;
+            if (status === INCIDENT_STATUS.CANCELLED) {
+                updateData.assignedTeam = null; 
+            }
             if (oldTeamId) {
                 await RescueTeam.findByIdAndUpdate(oldTeamId, {
                     status: RESCUE_TEAM_STATUS.AVAILABLE,

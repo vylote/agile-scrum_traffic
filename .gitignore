@@ -5,6 +5,8 @@ node_modules/
 # 2. Biến môi trường và Bảo mật (Secrets) - CỰC KỲ QUAN TRỌNG
 .env
 **/.env
+**/.env.local
+**/.env.production
 firebase-service-account.json
 **/firebase-service-account.json
 backend/src/config/firebase-service-account.json

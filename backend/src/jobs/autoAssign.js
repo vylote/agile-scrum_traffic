@@ -94,7 +94,8 @@ autoDispatchQueue.process(5, async (job) => {
         const result = await findBestRescueTeam(incident);
         
         if (result) {
-            const { team } = result;
+            //ES6 object destructuring syntax
+            const { team } = result; 
             //ATOMIC UPDATE TRONG WORKER (OPTIMISTIC LOCK) khóa lạc quan
             const updatedInc = await Incident.findOneAndUpdate(
                 { _id: incidentId, status: INCIDENT_STATUS.PENDING},
@@ -110,6 +111,8 @@ autoDispatchQueue.process(5, async (job) => {
             // 1. Socket: Gửi popup yêu cầu trực tiếp tới Leader
             socketService.sendRequestToTeam(team._id.toString(), {
                 incident: updatedInc.toObject(),
+                etaMinutes: result.eta,
+                distance: result.distance,
                 timeout: 30
             });
 
