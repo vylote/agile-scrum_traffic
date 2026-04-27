@@ -157,7 +157,7 @@ const startServer = async () => {
 
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`Server is running in ${process.env.NODE_ENV} mode`);
-            console.log(`🔗 API docs: http://localhost:${PORT}/api-docs`);
+            console.log(`API docs: http://localhost:${PORT}/api-docs`);
         });
 
     } catch (error) {
