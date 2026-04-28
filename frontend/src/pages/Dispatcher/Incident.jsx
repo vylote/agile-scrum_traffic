@@ -301,7 +301,6 @@ export const Incident = () => {
 
     socket.emit('dispatcher:register');
 
-    // 🚨 Handler: SOS từ Bull Queue
     const handleManualNeeded = (data) => {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(() => {});
