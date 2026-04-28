@@ -85,7 +85,6 @@ const IncidentCard = ({
 }) => {
   const isLeader = myRole === "LEADER";
 
-  // 🔥 Tính toán khoảng cách (Trigger mỗi khi currentPos đổi)
   const distance = useMemo(() => {
     if (!currentPos || !incident?.location?.coordinates) return null;
     return getHaversineDistance(

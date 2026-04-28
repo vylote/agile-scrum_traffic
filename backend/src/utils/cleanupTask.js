@@ -4,7 +4,7 @@ const Incident = require('../models/Incident');
 
 const cleanupOrphanPhotos = async () => {
     try {
-        console.log('--- Đang bắt đầu quét ảnh mồ côi... ---');
+        console.log('Đang bắt đầu quét ảnh mồ côi');
         
         const uploadDir = path.join(__dirname, '../../uploads');
         

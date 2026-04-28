@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useSelector } from "react-redux";
+import { ShieldOff, X, BellRing } from "lucide-react";
+
 import Map from "../../components/Public/Map";
 import StatusBar from "../../components/RescueTeam/StatusBar";
 import UserProfile from "../../components/RescueTeam/UserProfile";
@@ -9,9 +11,13 @@ import RestingStatus from "../../components/RescueTeam/RestingStatus";
 import { useSocket } from "../../hooks/useSocket";
 import api from "../../services/api";
 import { INCIDENT_STATUS } from "../../utils/constants/incidentConstants";
-import { ShieldOff, X, BellRing } from "lucide-react";
 
-// ─── 1. Toast thông báo hệ thống ─────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+
+const IS_SIMULATION_MODE = false;
+
+// ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
+
 const CancelledToast = ({ message, onDismiss, type = "error" }) => (
   <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-32px)] animate-in fade-in slide-in-from-top-4 duration-400 pointer-events-auto">
     <div
@@ -40,39 +46,15 @@ const CancelledToast = ({ message, onDismiss, type = "error" }) => (
   </div>
 );
 
-const IS_SIMULATION_MODE = false;
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export const RescueHome = () => {
   const { user } = useSelector((state) => state.auth);
-
-  const [incidentsQueue, setIncidentsQueue] = useState([]);
-  const [activeIncident, setActiveIncident] = useState(null);
-  const [viewingIncident, setViewingIncident] = useState(null);
-  const [incomingRequest, setIncomingRequest] = useState(null);
-
-  const [appState, setAppState] = useState("normal");
-  const [isResting, setIsResting] = useState(false);
-  const [bottomHeight, setBottomHeight] = useState(160);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [mapFocus, setMapFocus] = useState(null);
-  const [currentPos, setCurrentPos] = useState(null);
-
-  const [teamStatus, setTeamStatus] = useState(
-    user?.rescueTeam?.status || "AVAILABLE",
-  );
-  const [notification, setNotification] = useState(null);
-
-  const bottomPanelRef = useRef(null);
-  const sliderRef = useRef(null);
-  const socket = useSocket();
-
-  const appStateRef = useRef(appState);
-  useEffect(() => {
-    appStateRef.current = appState;
-  }, [appState]);
-
   const teamId = user?.rescueTeam?._id;
   const userZone = user?.rescueTeam?.zone;
+  const socket = useSocket();
+
+  // ─── DERIVED STATE ───────────────────────────────────────────────────────
 
   const myInternalRole = useMemo(() => {
     const currentUserId = user?.id || user?._id;
@@ -84,7 +66,38 @@ export const RescueHome = () => {
 
   const isLeader = myInternalRole === "LEADER";
 
-  // 🛡️ CHỐT CHẶN BỘ LỌC
+  // ─── STATE ───────────────────────────────────────────────────────────────
+
+  const [incidentsQueue, setIncidentsQueue] = useState([]);
+  const [activeIncident, setActiveIncident] = useState(null);
+  const [viewingIncident, setViewingIncident] = useState(null);
+  const [incomingRequest, setIncomingRequest] = useState(null);
+
+  const [appState, setAppState] = useState("normal");
+  const [isResting, setIsResting] = useState(false);
+  const [teamStatus, setTeamStatus] = useState(
+    user?.rescueTeam?.status || "AVAILABLE",
+  );
+  const [notification, setNotification] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [mapFocus, setMapFocus] = useState(null);
+  const [currentPos, setCurrentPos] = useState(null);
+  const [bottomHeight, setBottomHeight] = useState(160);
+
+  // ─── REFS ────────────────────────────────────────────────────────────────
+
+  const bottomPanelRef = useRef(null);
+  const sliderRef = useRef(null);
+  /* Dùng ref để đọc appState bên trong socket callback 
+  mà không bị stale closure — đây là pattern quan trọng khi dùng socket với React hooks. */
+  const appStateRef = useRef(appState);
+
+  useEffect(() => {
+    appStateRef.current = appState;
+  }, [appState]);
+
+  // ─── DERIVED / MEMO ──────────────────────────────────────────────────────
+
   const visibleIncidents = useMemo(() => {
     return incidentsQueue.filter((inc) => {
       const assignedId = inc.assignedTeam?._id || inc.assignedTeam;
@@ -92,19 +105,28 @@ export const RescueHome = () => {
     });
   }, [incidentsQueue, teamId]);
 
-  // ─── 2. FETCH DỮ LIỆU ĐẦU CA ─────────────────────────────────────────────
+  const fleetData = useMemo(() => {
+    if (!currentPos || !teamId) return {};
+    return {
+      [teamId]: {
+        ...user.rescueTeam,
+        lat: currentPos.lat,
+        lng: currentPos.lng,
+        status: teamStatus,
+      },
+    };
+  }, [currentPos, teamId, teamStatus, user.rescueTeam]);
+
+  // ─── EFFECTS: INITIAL DATA FETCH ─────────────────────────────────────────
+
   useEffect(() => {
     if (!userZone || !teamId) return;
 
     const fetchInitialData = async () => {
       try {
         const [pendingRes, activeRes, teamRes] = await Promise.all([
-          api.get(
-            `/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`,
-          ),
-          api.get(
-            `/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`,
-          ),
+          api.get(`/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`),
+          api.get(`/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`),
           api.get(`/rescue-teams/${teamId}`),
         ]);
 
@@ -119,6 +141,7 @@ export const RescueHome = () => {
             lng: myTeamData.currentLocation.coordinates[0],
           });
         }
+
         setIncidentsQueue(pendingData);
 
         if (activeData.length > 0) {
@@ -140,15 +163,16 @@ export const RescueHome = () => {
         console.error("Initial Fetch Error:", error);
       }
     };
+
     fetchInitialData();
   }, [userZone, teamId, refreshTrigger]);
+
+  // ─── EFFECTS: SOCKET REGISTRATION ────────────────────────────────────────
 
   useEffect(() => {
     if (!socket || !teamId || !userZone) return;
 
     const registerTeam = () => {
-      // 🔥 LƯU VÀO SOCKET: Kiểm tra xem chính cái object socket này đã gán cờ chưa
-      // Nếu ID đã lưu trùng với ID hiện tại -> Nghĩa là đường ống này đã báo danh rồi
       if (!socket.id || socket._lastRegisteredId === socket.id) return;
 
       socket.emit("rescue:register", {
@@ -156,21 +180,19 @@ export const RescueHome = () => {
         role: myInternalRole,
         zone: userZone,
       });
-      // Gắn thẳng cờ "Đã báo danh" vào bản thân object socket
       socket._lastRegisteredId = socket.id;
       console.log(`Đã báo danh với Socket ID: ${socket.id}`);
     };
 
-    if (socket.connected) {
-      registerTeam();
-    }
+    if (socket.connected) registerTeam();
 
     socket.on("connect", registerTeam);
-
     return () => {
       socket.off("connect", registerTeam);
     };
   }, [socket, teamId, myInternalRole, userZone]);
+
+  // ─── EFFECTS: SOCKET EVENT HANDLERS ──────────────────────────────────────
 
   useEffect(() => {
     if (!socket || !teamId) return;
@@ -188,7 +210,7 @@ export const RescueHome = () => {
     const handleIncomingRequest = (data) => {
       const receivedAt = new Date().toLocaleTimeString();
       console.log(
-        `%c[${receivedAt}] 📥 NHẬN LỆNH ĐIỀU ĐỘNG:`,
+        `%c[${receivedAt}] NHẬN LỆNH ĐIỀU ĐỘNG:`,
         "color: #0088FF; font-weight: bold",
         data,
       );
@@ -221,16 +243,19 @@ export const RescueHome = () => {
     const handleDeleteIncident = (data) => {
       const deletedId = data.incidentId;
       setIncidentsQueue((prev) => prev.filter((i) => i._id !== deletedId));
-      if (
-        activeIncident?._id === deletedId ||
-        viewingIncident?._id === deletedId
-      ) {
+
+      const isDeletingActive = activeIncident?._id === deletedId;
+      const isDeletingViewing = viewingIncident?._id === deletedId;
+      const isDeletingIncoming = incomingRequest?.incident?._id === deletedId;
+
+      if (isDeletingActive || isDeletingViewing || isDeletingIncoming) {
         setActiveIncident(null);
         setViewingIncident(null);
+        setIncomingRequest(null);
         setAppState("normal");
         setTeamStatus("AVAILABLE");
         setNotification({
-          message: "Sự cố đã bị xóa khỏi hệ thống.",
+          message: "Sự cố đã bị xóa khỏi hệ thống bởi Điều phối viên.",
           type: "error",
         });
         setTimeout(() => setNotification(null), 5000);
@@ -238,12 +263,44 @@ export const RescueHome = () => {
     };
 
     const handleUpdated = (data) => {
+      const updatedIncId = data.id;
+      const newStatus = data.status;
       const assignedId =
         data.incident?.assignedTeam?._id || data.incident?.assignedTeam;
 
+      if (
+        [INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(
+          newStatus,
+        )
+      ) {
+        const isMyActive = activeIncident?._id === updatedIncId;
+        const isMyIncoming = incomingRequest?.incident?._id === updatedIncId;
+        const isMyViewing = viewingIncident?._id === updatedIncId;
+
+        if (isMyActive || isMyIncoming || isMyViewing) {
+          setActiveIncident(null);
+          setIncomingRequest(null);
+          setViewingIncident(null);
+          setAppState("normal");
+          setTeamStatus("AVAILABLE");
+          setRefreshTrigger((p) => p + 1);
+
+          if (newStatus === INCIDENT_STATUS.CANCELLED) {
+            setNotification({
+              message: "Sự cố này vừa bị Điều phối viên HỦY.",
+              type: "error",
+            });
+            setTimeout(() => setNotification(null), 5000);
+          }
+        }
+
+        setIncidentsQueue((prev) => prev.filter((i) => i._id !== updatedIncId));
+        return;
+      }
+
       if (assignedId && assignedId !== teamId) {
-        setIncidentsQueue((prev) => prev.filter((i) => i._id !== data.id));
-        if (viewingIncident?._id === data.id) {
+        setIncidentsQueue((prev) => prev.filter((i) => i._id !== updatedIncId));
+        if (viewingIncident?._id === updatedIncId) {
           setViewingIncident(null);
           if (appStateRef.current === "viewing") setAppState("normal");
         }
@@ -255,21 +312,12 @@ export const RescueHome = () => {
         setIncomingRequest(null);
         setViewingIncident(null);
 
-        if (data.status === INCIDENT_STATUS.ASSIGNED) {
+        if (newStatus === INCIDENT_STATUS.ASSIGNED) {
           setAppState("moving");
           setTeamStatus("BUSY");
-        } else if (data.status === INCIDENT_STATUS.IN_PROGRESS) {
+        } else if (newStatus === INCIDENT_STATUS.IN_PROGRESS) {
           setAppState("processing");
           setTeamStatus("BUSY");
-        } else if (
-          [INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(
-            data.status,
-          )
-        ) {
-          setActiveIncident(null);
-          setAppState("normal");
-          setTeamStatus("AVAILABLE");
-          setRefreshTrigger((p) => p + 1);
         }
       }
     };
@@ -291,7 +339,7 @@ export const RescueHome = () => {
 
     socket.on("rescue:location_update", handleLocationUpdate);
     socket.on("rescue:location", handleLocationUpdate);
-    socket.on(`rescue:incoming_request`, handleIncomingRequest);
+    socket.on("rescue:incoming_request", handleIncomingRequest);
     socket.on("rescue:revoke_request", handleRevoke);
     socket.on("incident:updated", handleUpdated);
     socket.on("incident:new", handleNewIncident);
@@ -301,16 +349,17 @@ export const RescueHome = () => {
     return () => {
       socket.off("rescue:location_update", handleLocationUpdate);
       socket.off("rescue:location", handleLocationUpdate);
-      socket.off(`rescue:incoming_request`, handleIncomingRequest);
+      socket.off("rescue:incoming_request", handleIncomingRequest);
       socket.off("rescue:revoke_request", handleRevoke);
       socket.off("incident:updated", handleUpdated);
       socket.off("incident:new", handleNewIncident);
       socket.off("alert:sos", handleNewIncident);
       socket.off("delete_incident", handleDeleteIncident);
     };
-  }, [socket, teamId, isLeader, activeIncident, viewingIncident]);
+  }, [socket, teamId, isLeader, activeIncident, viewingIncident, incomingRequest]);
 
-  // ─── 4. GPS NATIVE (Demo thực tế) ────────────────────────────────────────
+  // ─── EFFECTS: GPS TRACKING ────────────────────────────────────────────────
+
   useEffect(() => {
     if (!teamId || isResting || !socket || IS_SIMULATION_MODE) return;
 
@@ -325,16 +374,27 @@ export const RescueHome = () => {
           lat: latitude,
           lng: longitude,
           status: teamStatus,
-          teamName: user.rescueTeam.name,
+          teamName: user?.rescueTeam?.name,
         });
       },
-      (err) => console.error(err),
-      { enableHighAccuracy: true, distanceFilter: 10 },
+      (err) => {
+        if (err.code === 1) console.warn("GPS: Người dùng từ chối cấp quyền.");
+        if (err.code === 2) console.warn("GPS: Tạm thời không lấy được vị trí (Sensor đang chuyển đổi...).");
+        if (err.code === 3) console.warn("GPS: Hết thời gian chờ (Timeout).");
+      },
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 10,
+        timeout: 10000,
+        maximumAge: 0,
+      },
     );
+
     return () => navigator.geolocation.clearWatch(watchId);
   }, [isResting, teamId, socket, teamStatus, user?.rescueTeam?.name]);
 
-  // ─── 5. HÀNH ĐỘNG (Đã vá MapFocus cho handleAccept) ──────────────────────
+  // ─── HANDLERS ────────────────────────────────────────────────────────────
+
   const handleAccept = async (incident) => {
     if (!isLeader) return alert("Chỉ Đội trưởng mới được quyền nhận!");
     try {
@@ -347,9 +407,9 @@ export const RescueHome = () => {
       setViewingIncident(null);
       setAppState("moving");
       setTeamStatus("BUSY");
-      setMapFocus(incident.location.coordinates); // 🔥 Đã khôi phục MapFocus
+      setMapFocus(incident.location.coordinates);
     } catch (error) {
-      alert("⚠️ Sự cố đã có đội khác nhận!");
+      alert("Sự cố đã có đội khác nhận!");
       setRefreshTrigger((p) => p + 1);
     }
   };
@@ -384,8 +444,7 @@ export const RescueHome = () => {
   };
 
   const handleReject = async () => {
-    if (!isLeader) return;
-    if (!incomingRequest) return;
+    if (!isLeader || !incomingRequest) return;
     try {
       await api.patch(`/incidents/${incomingRequest.incident._id}/reject`);
     } catch (e) {
@@ -405,19 +464,8 @@ export const RescueHome = () => {
       setMapFocus(focusedItem.location.coordinates);
   };
 
-  const fleetData = useMemo(() => {
-    if (!currentPos || !teamId) return {};
-    return {
-      [teamId]: {
-        ...user.rescueTeam,
-        lat: currentPos.lat,
-        lng: currentPos.lng,
-        status: teamStatus,
-      },
-    };
-  }, [currentPos, teamId, teamStatus, user.rescueTeam]);
+  // ─── RENDER ───────────────────────────────────────────────────────────────
 
-  // ─── 6. RENDER ──────────────────────────────────────────────────────────
   return (
     <main className="relative mx-auto w-full h-screen max-w-[480px] bg-gray-100 overflow-hidden shadow-2xl font-sans text-gray-900">
       <div className="absolute inset-0 z-0">
@@ -516,6 +564,7 @@ export const RescueHome = () => {
               />
             </div>
           )}
+
           <div className="px-4 mt-2">
             <TabBar />
           </div>

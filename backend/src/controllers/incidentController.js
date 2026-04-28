@@ -239,7 +239,7 @@ exports.deleteIncident = async (req, res, next) => {
                 status: RESCUE_TEAM_STATUS.AVAILABLE,
                 activeIncident: null
             });
-            console.log(`🔓 Đã giải phóng đội ${deleteDoc.assignedTeam} sau khi xóa vụ.`);
+            console.log(`Đã giải phóng đội ${deleteDoc.assignedTeam} sau khi xóa vụ.`);
         }
 
         if (deleteDoc.photos && deleteDoc.photos.length > 0) {
@@ -331,28 +331,6 @@ exports.getAllIncidents = async (req, res, next) => {
     }
 };
 
-/**
- * @swagger
- * /api/v1/incidents/{id}:
- *   get:
- *     summary: Lấy chi tiết một sự cố theo ID
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *         description: ID của sự cố cần xem
- *     responses:
- *       200:
- *         description: Chi tiết sự cố
- *       401:
- *         description: Không có Token hoặc Token không hợp lệ
- *       404:
- *         description: Không tìm thấy sự cố
- */
 exports.getIncidentById = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -449,14 +427,14 @@ exports.updateIncidentStatus = async (req, res, next) => {
                 teamData._id, 
                 { status: RESCUE_TEAM_STATUS.BUSY, activeIncident: id },
                 { new: true }
-            ).populate('members.userId'); // Lưu ý: 'members' có 's'
+            ).populate('members.userId'); 
 
             if (updatedTeam) {
                 const leader = updatedTeam.members.find(m => m.role === 'LEADER');
                 if (leader?.userId?.fcmToken) {
                     // Bắn thông báo cho đội cứu hộ (dùng hàm đã sửa của Vy)
                     notificationService.notifyRescueAssignment(leader.userId, currentInc)
-                        .catch(err => console.error("🔥 Lỗi FCM Rescue:", err.message));
+                        .catch(err => console.error("Lỗi FCM Rescue:", err.message));
                 }
             }
         } else if (status === INCIDENT_STATUS.COMPLETED || status === INCIDENT_STATUS.CANCELLED) {
@@ -472,7 +450,6 @@ exports.updateIncidentStatus = async (req, res, next) => {
             if (status === INCIDENT_STATUS.COMPLETED) updateData.resolvedAt = Date.now();
         }
 
-        // ── 4. Thực thi cập nhật Incident ──────────────────────────────────────
         const updatedIncident = await Incident.findOneAndUpdate(
             updateQuery,
             updateData,
@@ -480,10 +457,9 @@ exports.updateIncidentStatus = async (req, res, next) => {
         ).populate('assignedTeam', 'name code').populate('reportedBy');
 
         if (!updatedIncident) {
-            return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS, 'Sự cố đã có đội khác nhận hoặc trạng thái không hợp lệ.'));
+            return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS));
         }
 
-        // ── 5. Socket.io & Notification cho Người dân ──────────────────────────
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', { id, status, incident: updatedIncident });
@@ -495,7 +471,7 @@ exports.updateIncidentStatus = async (req, res, next) => {
         const citizen = updatedIncident.reportedBy;
         if (citizen?.fcmToken && statusMessages[status]) {
             notificationService.notifyCitizenStatus(citizen, updatedIncident, statusMessages[status])
-                .catch(err => console.error("🔥 Lỗi FCM Citizen:", err.message));
+                .catch(err => console.error("Lỗi FCM Citizen:", err.message));
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedIncident);
@@ -565,7 +541,6 @@ exports.rejectIncident = async (req, res, next) => {
     }
 };
 
-// --- HÀM XÁC NHẬN ĐẾN HIỆN TRƯỜNG (KPI 100M) ---
 exports.confirmArrival = async (req, res, next) => {
     try {
         const { id } = req.params;
