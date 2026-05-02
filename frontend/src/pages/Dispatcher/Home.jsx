@@ -17,8 +17,6 @@ export const Home = () => {
 
   const socket = useSocket();
 
-  // 1. FETCH DỮ LIỆU BAN ĐẦU (REST API)
-  // Thực hiện lấy cả Sự cố và Đội cứu hộ để "bật đèn" toàn bộ hệ thống
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -129,18 +127,27 @@ export const Home = () => {
       });
     };
 
-    // 🔥 QUAN TRỌNG: Cập nhật vị trí đội xe khi họ di chuyển
+    //QUAN TRỌNG: Cập nhật vị trí HOẶC trạng thái đội xe
     const handleFleetUpdate = (data) => {
       setFleet((prev) => {
-        const updatedFleet = { ...prev }; // Tạo clone mảng/object mới hoàn toàn
-        updatedFleet[data.teamId] = {
-          ...prev[data.teamId],
-          lat: data.lat,
-          lng: data.lng,
-          status: data.status,
-          lastUpdate: new Date(),
+        // Nếu xe này chưa từng tồn tại trên giao diện, thì bỏ qua không làm gì cả
+        if (!prev[data.teamId]) return prev;
+
+        return {
+          ...prev,
+          [data.teamId]: {
+            ...prev[data.teamId], // Giữ lại mọi thông tin cũ
+            
+            // Chỉ cập nhật tọa độ nếu Server thực sự có gửi lên (Không bị undefined)
+            lat: data.lat !== undefined ? data.lat : prev[data.teamId].lat,
+            lng: data.lng !== undefined ? data.lng : prev[data.teamId].lng,
+            
+            // Chỉ cập nhật status nếu có gửi, không thì giữ status cũ
+            status: data.status !== undefined ? data.status : prev[data.teamId].status,
+            
+            lastUpdate: new Date(),
+          },
         };
-        return updatedFleet; // Trả về object mới để React re-render
       });
     };
 
@@ -157,12 +164,42 @@ export const Home = () => {
     };
   }, [socket]);
 
+  useEffect(() => {
+    // Cài đặt ngưỡng mất kết nối: 5 phút (300,000 mili-giây)
+    const HEARTBEAT_TIMEOUT = 5 * 60 * 1000; 
+
+    const interval = setInterval(() => {
+      setFleet((prevFleet) => {
+        let hasChanges = false;
+        const updatedFleet = { ...prevFleet };
+        const now = Date.now();
+
+        Object.keys(updatedFleet).forEach((teamId) => {
+          const team = updatedFleet[teamId];
+          const lastUpdateTs = new Date(team.lastUpdate).getTime();
+
+          // Nếu quá 5 phút không có tín hiệu GPS mới, và trạng thái chưa phải OFFLINE
+          if (team.status !== "OFFLINE" && (now - lastUpdateTs > HEARTBEAT_TIMEOUT)) {
+            updatedFleet[teamId] = { ...team, status: "OFFLINE" };
+            hasChanges = true;
+            console.log(`[CẢNH BÁO] Đội ${team.teamName} đã mất tín hiệu GPS quá 5 phút!`);
+          }
+        });
+
+        return hasChanges ? updatedFleet : prevFleet;
+      });
+    }, 60000); // Cứ đúng 1 phút quét 1 lần
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Thống kê nhanh tình trạng xe
   const fleetStats = useMemo(() => {
     const teams = Object.values(fleet);
     return {
       available: teams.filter((t) => t.status === "AVAILABLE").length,
-      busy: teams.filter((t) => t.status !== "AVAILABLE").length,
+      busy: teams.filter((t) => ["BUSY", "IN_PROGRESS", "ASSIGNED"].includes(t.status)).length,
+      offline: teams.filter((t) => t.status === "OFFLINE").length, // Thêm dòng này
     };
   }, [fleet]);
 
@@ -202,9 +239,15 @@ export const Home = () => {
                 <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">
                   ● {fleetStats.available} XE RẢNH
                 </span>
-                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">
+                <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">
                   ● {fleetStats.busy} XE ĐANG BẬN
                 </span>
+                {/* HIỂN THỊ THÊM SỐ XE MẤT MẠNG */}
+                {fleetStats.offline > 0 && (
+                  <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded animate-pulse">
+                    ● {fleetStats.offline} MẤT TÍN HIỆU
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex-1 rounded-xl overflow-hidden border border-gray-100 relative z-0 shadow-inner">
