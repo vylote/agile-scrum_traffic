@@ -117,6 +117,25 @@ export const RescueHome = () => {
     };
   }, [currentPos, teamId, teamStatus, user.rescueTeam]);
 
+  // ─── EFFECTS: TỰ ĐỘNG ĐO CHIỀU CAO KHUNG GIAO DIỆN BÊN DƯỚI ───────────────
+  useEffect(() => {
+    if (!bottomPanelRef.current) return;
+
+    // Sử dụng ResizeObserver để lắng nghe sự thay đổi kích thước của DOM
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        // Cập nhật lại state chiều cao thực tế của khối UI bên dưới
+        setBottomHeight(entry.target.offsetHeight);
+      }
+    });
+
+    observer.observe(bottomPanelRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   // ─── EFFECTS: INITIAL DATA FETCH ─────────────────────────────────────────
 
   useEffect(() => {
@@ -322,7 +341,7 @@ export const RescueHome = () => {
       }
     };
 
-    const handleNewIncident = (data) => {
+    /* const handleNewIncident = (data) => {
       const newInc = data.incident;
       if (!newInc.assignedTeam) {
         setIncidentsQueue((prev) => {
@@ -335,6 +354,22 @@ export const RescueHome = () => {
           setMapFocus(newInc.location?.coordinates);
         }
       }
+    }; */
+
+    const handleBroadcast = (data) => {
+      const newInc = data.incident;
+      
+      setIncidentsQueue((prev) => {
+        if (prev.find((i) => i._id === newInc._id)) return prev;
+        return [...prev, newInc];
+      });
+
+      // Nếu tài xế đang rảnh rỗi (normal), thì khi loa phát, tự động mở popup thẻ trắng cho họ xem
+      if (appStateRef.current === "normal") {
+        setViewingIncident(newInc);
+        setAppState("viewing");
+        setMapFocus(newInc.location?.coordinates);
+      }
     };
 
     socket.on("rescue:location_update", handleLocationUpdate);
@@ -342,8 +377,10 @@ export const RescueHome = () => {
     socket.on("rescue:incoming_request", handleIncomingRequest);
     socket.on("rescue:revoke_request", handleRevoke);
     socket.on("incident:updated", handleUpdated);
-    socket.on("incident:new", handleNewIncident);
-    socket.on("alert:sos", handleNewIncident);
+    /* socket.on("incident:new", handleNewIncident);
+    socket.on("alert:sos", handleNewIncident); */
+    socket.on("incident:broadcast", handleBroadcast);
+    socket.on("alert:sos", handleBroadcast);
     socket.on("delete_incident", handleDeleteIncident);
 
     return () => {
@@ -352,8 +389,10 @@ export const RescueHome = () => {
       socket.off("rescue:incoming_request", handleIncomingRequest);
       socket.off("rescue:revoke_request", handleRevoke);
       socket.off("incident:updated", handleUpdated);
-      socket.off("incident:new", handleNewIncident);
-      socket.off("alert:sos", handleNewIncident);
+      /* socket.off("incident:new", handleNewIncident);
+      socket.off("alert:sos", handleNewIncident); */
+      socket.off("incident:broadcast", handleBroadcast);
+      socket.off("alert:sos", handleBroadcast);
       socket.off("delete_incident", handleDeleteIncident);
     };
   }, [socket, teamId, isLeader, activeIncident, viewingIncident, incomingRequest]);

@@ -7,6 +7,9 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import api from "../../services/api";
 import socket from "../../services/socket";
 
+import sosIcon from "../../assets/icons/sos.png";
+import reportIcon from "../../assets/icons/report.png";
+
 export const CitizenDashboard = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
@@ -124,7 +127,7 @@ export const CitizenDashboard = () => {
       <div className="px-6 space-y-3">
         <button className="w-full flex items-center bg-white p-5 rounded-[27px] active:scale-[0.98] transition-all shadow-sm group" onClick={() => navigate("/citizen/sos")}>
           <div className="p-3 bg-red-50 rounded-2xl mr-4 group-active:bg-red-100 transition-colors">
-            <img src="https://cdn-icons-png.flaticon.com/512/752/752755.png" className="w-6 h-6" alt="sos"/>
+            <img src={sosIcon} className="w-6 h-6" alt="sos"/>
           </div>
           <div className="flex flex-col items-start flex-1">
             <span className="text-[#FF3B30] text-[19px] font-black tracking-tight">SOS Khẩn cấp</span>
@@ -135,7 +138,7 @@ export const CitizenDashboard = () => {
 
         <button className="w-full flex items-center bg-white p-5 rounded-[27px] active:scale-[0.98] transition-all shadow-sm text-left group" onClick={() => navigate("/citizen/report")}>
           <div className="p-3 bg-blue-50 rounded-2xl mr-4 group-active:bg-blue-100 transition-colors">
-            <img src="https://cdn-icons-png.flaticon.com/512/4201/4201971.png" className="w-6 h-6" alt="report"/>
+            <img src={reportIcon} className="w-6 h-6" alt="report"/>
           </div>
           <div className="flex flex-col items-start flex-1">
             <span className="text-black text-[19px] font-black tracking-tight">Báo cáo chi tiết</span>
@@ -156,7 +159,6 @@ export const CitizenDashboard = () => {
             </div>
           ) : (
             <>
-              {/* Badge Trạng thái: 🔥 Sửa lỗi 'che mất' bằng z-[1000] */}
               <div className="absolute top-4 left-4 right-4 bg-white/95 backdrop-blur-md py-3.5 px-5 rounded-[22px] flex items-center gap-3 shadow-xl z-[1000] pointer-events-none border border-white/50 ring-1 ring-black/5">
                 {myActiveIncident ? (
                   <>

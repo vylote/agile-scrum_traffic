@@ -56,10 +56,10 @@ const RoutingOverlay = ({ start, end }) => {
         console.error("Lỗi lấy đường đi OSRM:", e);
 
         setPoints([
-            [start.lat, start.lng], // Điểm bắt đầu (Đội cứu hộ)
-            [end[1], end[0]]        // Điểm kết thúc (Sự cố) - Lưu ý end là mảng [lng, lat]
+          [start.lat, start.lng], // Điểm bắt đầu (Đội cứu hộ)
+          [end[1], end[0]], // Điểm kết thúc (Sự cố) - Lưu ý end là mảng [lng, lat]
         ]);
-        setIsFallback(true)
+        setIsFallback(true);
       }
     };
 
@@ -72,7 +72,7 @@ const RoutingOverlay = ({ start, end }) => {
       color="#ef4444"
       weight={6}
       opacity={0.8}
-      dashArray={isFallback ? "15, 15" : undefined} 
+      dashArray={isFallback ? "15, 15" : undefined}
       lineCap="round"
       lineJoin="round"
     />
@@ -110,16 +110,37 @@ const HeatmapOverlay = ({ data }) => {
 };
 
 /** --- 2. NÚT ĐIỀU KHIỂN BẢN ĐỒ --- **/
-const MapControls = ({ onRefresh, bottomOffset }) => {
+const MapControls = ({ onRefresh, bottomOffset, myCurrentPos }) => {
   const map = useMap();
+  const [isLocating, setIsLocating] = useState(false); //quản lí state hiệu ứng loading
 
   const handleLocateMe = () => {
+    //TẦNG 1: DÙNG TỌA ĐỘ CÓ SẴN (TRỄ 0 GIÂY)
+    if (myCurrentPos && myCurrentPos.lat && myCurrentPos.lng) {
+      map.flyTo([myCurrentPos.lat, myCurrentPos.lng], 16, { animate: true });
+      return;
+    }
+    //TẦNG 2 & 3: LẤY GPS MỚI NẾU CHƯA CÓ SẴN
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 16, {
-          animate: true,
-        });
-      });
+      setIsLocating(true); // bật hiệu ứng loading
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          map.flyTo([pos.coords.latitude, pos.coords.longitude], 16, {
+            animate: true,
+          });
+          setIsLocating(false);
+        },
+        (err) => {
+          console.warn("Lỗi định vị:", err.message);
+          setIsLocating(false); // Tắt loading kể cả khi lỗi
+        },
+        {
+          enableHighAccuracy: true, // Vẫn cần chính xác cao
+          timeout: 7000, // Nếu quá 7 giây không lấy được thì bỏ cuộc (đừng chờ mãi)
+          maximumAge: 5000, // Chấp nhận tọa độ cũ trong vòng 5 giây đổ lại để lấy cho nhanh
+        },
+      );
     }
   };
 
@@ -148,9 +169,15 @@ const MapControls = ({ onRefresh, bottomOffset }) => {
           e.stopPropagation();
           handleLocateMe();
         }}
+        disabled={isLocating} // Khóa nút khi đang tìm
         className="w-12 h-12 bg-white rounded-full shadow-xl flex items-center justify-center text-blue-500 hover:bg-blue-50 border border-gray-100 active:scale-90 pointer-events-auto"
       >
-        <LocateFixed size={22} />
+        {/* Đổi icon thành vòng xoay nếu đang lấy GPS */}
+        {isLocating ? (
+          <Loader2 size={22} className="animate-spin text-blue-400" />
+        ) : (
+          <LocateFixed size={22} />
+        )}
       </button>
     </div>
   );
@@ -197,7 +224,12 @@ const Map = ({
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <FocusUpdater focusCoords={focusCoords} />
-        <MapControls onRefresh={onRefresh} bottomOffset={bottomOffset} />
+
+        <MapControls
+          onRefresh={onRefresh}
+          bottomOffset={bottomOffset}
+          myCurrentPos={myCurrentPos}
+        />
 
         {heatmapData && <HeatmapOverlay data={heatmapData} />}
         {/* 🛣️ Vẽ đường dẫn tới hiện trường nếu đang làm vụ việc */}
