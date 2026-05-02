@@ -97,7 +97,7 @@ exports.notifyCitizenStatus = async (user, incident, statusLabel) => {
 exports.notifyRescueAssignment = async (teamLeader, incident) => {
   if (!teamLeader?.fcmToken) return;
   
-  const title = "🚨 LỆNH ĐIỀU ĐỘNG MỚI";
+  const title = "LỆNH ĐIỀU ĐỘNG MỚI";
   const body = `Đội của bạn vừa được gán vụ: ${incident.title}. Kiểm tra ngay!`;
   
   return this.sendPushNotification(teamLeader.fcmToken, title, body, {

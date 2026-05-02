@@ -484,12 +484,25 @@ exports.rejectIncident = async (req, res, next) => {
     const incidentId = req.params.id;
     const teamId = req.user.rescueTeam?._id;
 
+    const logPrefix = `[API BỎ QUA][Vụ:${incidentId}]`;
+
     try {
-        const incident = await Incident.findByIdAndUpdate(
-            incidentId,
-            { $addToSet: { rejectedTeams: teamId } },
+        console.log(`${logPrefix} Đội ${teamId} vừa gửi yêu cầu BỎ QUA đơn.`);
+
+        // 1. DÙNG ATOMIC UPDATE ĐỂ MỞ KHÓA
+        const incident = await Incident.findOneAndUpdate(
+            { _id: incidentId, assignedTeam: teamId, status: INCIDENT_STATUS.PENDING },
+            { 
+                $addToSet: { rejectedTeams: teamId },
+                $unset: { assignedTeam: "" } // Mở khóa cho đội khác
+            },
             { new: true }
         );
+
+        if (!incident) {
+            console.log(`${logPrefix} Đơn không còn PENDING hoặc không thuộc về đội này nữa. Hủy thao tác.`);
+            return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đơn này đã được xử lý." });
+        }
 
         const ghostJobIds = [
             `dispatch_${incidentId}_step_1`,
@@ -498,21 +511,30 @@ exports.rejectIncident = async (req, res, next) => {
         ];
 
         for (const ghostId of ghostJobIds) {
-            const oldJob = await autoDispatchQueue.getJob(ghostId);
-            if (oldJob) {
-                // Phải gọi remove() để xóa nó khỏi Redis hoàn toàn
-                await oldJob.remove();
-                console.log(`Đã tiêu diệt Ghost Job đang đếm ngược: [${ghostId}]`);
+            try {
+                const oldJob = await autoDispatchQueue.getJob(ghostId);
+                if (oldJob) {
+                    const state = await oldJob.getState();
+                    console.log(`${logPrefix} Tìm thấy Job [${ghostId}] đang ở trạng thái: ${state}`);
+
+                    if (state === 'delayed' || state === 'waiting') {
+                        await oldJob.remove();
+                        console.log(`${logPrefix} Đã chém thành công Job: [${ghostId}]`);
+                    } else {
+                        console.log(`${logPrefix} Bỏ qua Job [${ghostId}] vì nó đang chạy (active/completed).`);
+                    }
+                }
+            } catch (jobErr) {
+                console.log(`${logPrefix} LỖI KHI XÓA JOB [${ghostId}]: ${jobErr.message}`);
             }
         }
 
-        // 3. Thu hồi popup máy vừa bấm
         const io = req.app.get('io'); // Lấy instance io từ app
         if (io) {
             io.to(`team:${teamId}`).emit('rescue:revoke_request');
+            console.log(`${logPrefix} Đã báo Socket thu hồi UI của đội ${teamId}`);
         }
 
-        // 4. KIỂM TRA ĐIỀU KIỆN NHẢY ĐƠN
         if (incident.attemptCount >= 2) {
             console.log("Đã thử qua 2 đội. Báo SOS cho Dispatcher!");
             if (io) {
@@ -521,8 +543,6 @@ exports.rejectIncident = async (req, res, next) => {
                     reason: "Toàn bộ đội được gán tự động đều từ chối."
                 });
             }
-
-
         } else {
             //Ép tạo Job mới chạy ngay (delay cực ngắn 50ms)
             // Dùng ID mới để không bị Bull Queue chặn
@@ -535,9 +555,9 @@ exports.rejectIncident = async (req, res, next) => {
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã từ chối" });
-    } catch (error) {
-        console.error("Lỗi tại rejectIncident:", error);
-        next(error);
+    } catch (err) {
+        console.error("Lỗi tại rejectIncident:", err);
+        next(err);
     }
 };
 

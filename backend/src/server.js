@@ -27,8 +27,8 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-// lúc này file socket.js đóng vai trò là Singleton Service (Công cụ hỗ trợ dùng chung).
-//lây ra cái loa phát thanh (io) từ server.js cất vào một biến toàn cục trong socket.js 
+//file socket.js đóng vai trò là Singleton Service (Đường dây nội bộ).
+//lây ra cái loa phát thanh (io) từ server.js cất vào một biến toàn cục (lắp vào) socket.js 
 socketService.init(io);
 
 io.on('connection', (socket) => {
@@ -49,6 +49,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('dispatcher:register', () => {
+        if (socket.isDispatcherRegistered) return; 
+
+        socket.isDispatcherRegistered = true; // Cắm cờ xác nhận đã vào phòng
         socket.join('room:dispatchers');
         console.log(`DISPATCHER [${socket.id}] đã vào phòng điều hành.`);
     });
