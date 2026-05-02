@@ -56,10 +56,23 @@ io.on('connection', (socket) => {
         console.log(`DISPATCHER [${socket.id}] đã vào phòng điều hành.`);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
         if (socket.registeredTeamId) {
-            socketService.removeOnlineTeam(socket.registeredTeamId)
-            console.log(`LEADER Đội [${socket.registeredTeamId}] đã OFFLINE.`);
+            const teamId = socket.registeredTeamId;
+            socketService.removeOnlineTeam(teamId)
+            console.log(`LEADER Đội [${teamId}] đã OFFLINE/MẤT KẾT NỐI.`);
+
+            try {
+                const RescueTeam = require('./models/RescueTeam');
+                await RescueTeam.findByIdAndUpdate(teamId, { status: 'OFFLINE' });
+                
+                io.emit('rescue:location', {
+                    teamId: teamId,
+                    status: 'OFFLINE'
+                });
+            } catch (err) {
+                console.error("Lỗi khi cập nhật trạng thái OFFLINE:", err);
+            }
         }
 
         if (socket.currentChatRoom) {

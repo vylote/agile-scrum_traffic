@@ -13,7 +13,7 @@ const rescueTeamSchema = new mongoose.Schema({
     status: { 
         type: String, 
         enum: ALL_RESCUE_STATUS, 
-        default: RESCUE_TEAM_STATUS.AVAILABLE 
+        default: RESCUE_TEAM_STATUS.OFFLINE
     },
     currentLocation: {
         type: { type: String, default: 'Point' },
@@ -35,7 +35,7 @@ const rescueTeamSchema = new mongoose.Schema({
         totalCompleted: { type: Number, default: 0 },
         avgResponseTime: { type: Number, default: 0 }
     },
-    lastLocationUpdate: { type: Date, default: Date.now},
+    lastLocationUpdate: { type: Date },
 
 }, { timestamps: true });
 
