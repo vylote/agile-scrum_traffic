@@ -103,7 +103,7 @@ const IncidentCard = ({
   switch (status) {
     case "incoming":
       cardConfig = {
-        headerTitle: "⚠️ LỆNH ĐIỀU ĐỘNG TỰ ĐỘNG",
+        headerTitle: "LỆNH ĐIỀU ĐỘNG TỰ ĐỘNG",
         headerColor: "text-[#0088FF]",
         buttons: (
           <div className="w-full flex flex-col">
@@ -117,7 +117,7 @@ const IncidentCard = ({
                 <Clock size={16} className="animate-spin" /> ĐANG CHỜ ĐỘI TRƯỞNG PHẢN HỒI...
               </div>
             )}
-            <CountdownProgressBar expiresAt={expiresAt} onZero={onReject} />
+            <CountdownProgressBar expiresAt={expiresAt} />
           </div>
         ),
       };

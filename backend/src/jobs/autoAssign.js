@@ -31,9 +31,31 @@ autoDispatchQueue.process(5, async (job) => {
             return;
         }
 
-        // --- CHIẾN THUẬT ĐIỀU PHỐI TẦNG (TIERED DISPATCH) ---
+        //ĐIỀU PHỐI TẦNG 
+        // Blacklist đội vừa timeout
+        if (lastTargetTeamId) {
+            console.log(`${logPrefix} Timeout: Thu hồi UI và Blacklist đội [${lastTargetTeamId}]`);
+            
+            // Mở khóa bằng Atomic Update
+            incident = await Incident.findOneAndUpdate(
+                { _id: incidentId, assignedTeam: lastTargetTeamId, status: INCIDENT_STATUS.PENDING }, 
+                { 
+                    $addToSet: { rejectedTeams: lastTargetTeamId },
+                    $unset: { assignedTeam: "" } 
+                }, 
+                { new: true } 
+            );
 
-        //GIAI ĐOẠN 4: SOS (Khi đã thử gán 2 lần và Broadcast 1 lần vẫn thất bại)
+            // Bắn Socket bắt Frontend rút ngay cái thẻ đang kẹt ở 0s xuống!
+            socketService.getIO()?.to(`team:${lastTargetTeamId}`).emit('rescue:revoke_request');
+
+            if (!incident) {
+                console.log(`${logPrefix} Tranh chấp mạng: DB đã bị sửa bởi luồng khác. Bỏ qua Job này.`);
+                return;
+            }
+        }
+
+        //GIAI ĐOẠN 4: SOS 
         if (incident.attemptCount >= 3) {
             console.log(`${logPrefix} SOS: Toàn bộ khu vực không phản hồi. Báo Dispatcher.`);
             const io = socketService.getIO();
@@ -48,16 +70,15 @@ autoDispatchQueue.process(5, async (job) => {
             return;
         }
 
-        //GIAI ĐOẠN 3: PHÁT LOA TOÀN KHU VỰC (Sau 2 lần gán đơn lẻ thất bại)
+        //GIAI ĐOẠN 3: PHÁT LOA TOÀN KHU VỰC
         if (incident.attemptCount === 2) {
-            console.log(`${logPrefix} BROADCAST: Đang phát loa cho toàn bộ đội trong vùng [${incident.zone}]`);
+            console.log(`${logPrefix} BROADCAST: [${incident.zone}]`);
             
             const io = socketService.getIO();
             if (io) {
-                // 1. Socket: Hiện slider "giật đơn" cho tất cả đội trong Zone
                 io.to(`zone:${incident.zone}`).emit('incident:broadcast', { incident });
 
-                // 2. Firebase: Bắn thông báo đẩy cho toàn bộ khu vực (dùng Topic)
+                // Firebase: dùng Topic thay vì gửi từng người
                 notificationService.sendPushNotificationToTopic(
                     `zone_${incident.zone}`, // Các máy cứu hộ khi login phải subscribe vào topic này
                     "CẦN CỨU HỘ KHẨN CẤP",
@@ -66,10 +87,8 @@ autoDispatchQueue.process(5, async (job) => {
                 ).catch(e => console.error("Firebase Broadcast Error:", e.message));
             }
 
-            // Tăng count lên 3 để lần sau (30s nữa) nếu vẫn ế thì mới báo SOS Dispatcher
             await Incident.findByIdAndUpdate(incidentId, { $inc: { attemptCount: 1 } });
             
-            // Tiếp tục đợi 30s nữa cho giai đoạn Broadcast
             const nextJobId = `dispatch_${incidentId}_broadcast`;
             await autoDispatchQueue.add(
                 { incidentId, startTime },
@@ -78,18 +97,18 @@ autoDispatchQueue.process(5, async (job) => {
             return;
         }
 
-        //GIAI ĐOẠN 1 & 2: GÁN ĐÍCH DANH (Targeted Assignment)
+        //GIAI ĐOẠN 1 & 2: GÁN ĐÍCH DANH
         
-        // Blacklist đội vừa timeout (nếu có)
+        /* // Blacklist đội vừa timeout
         if (lastTargetTeamId) {
             console.log(`${logPrefix} Timeout: Blacklist đội [${lastTargetTeamId}]`);
             incident = await Incident.findByIdAndUpdate(
                 incidentId, 
                 { $addToSet: { rejectedTeams: lastTargetTeamId } }, 
-                { new: true } //yêu cầu trả về doc mới sau update
+                { new: true } 
             );
             socketService.getIO()?.to(`team:${lastTargetTeamId}`).emit('rescue:revoke_request');
-        }
+        } */
 
         const result = await findBestRescueTeam(incident);
         
@@ -108,7 +127,7 @@ autoDispatchQueue.process(5, async (job) => {
                 return;
             }
 
-            // 1. Socket: Gửi popup yêu cầu trực tiếp tới Leader
+            //Socket: Gửi popup yêu cầu trực tiếp tới Leader
             socketService.sendRequestToTeam(team._id.toString(), {
                 incident: updatedInc.toObject(),
                 etaMinutes: result.eta,
@@ -116,7 +135,7 @@ autoDispatchQueue.process(5, async (job) => {
                 timeout: 30
             });
 
-            // 2. Firebase: Bắn Push báo Đội trưởng (NFR: Đảm bảo nhận được kể cả khi tắt App)
+            //Firebase: Bắn Push báo Đội trưởng (NFR: Đảm bảo nhận được kể cả khi tắt App)
             const leader = await User.findOne({ 
                 rescueTeam: team._id, 
                 'members.role': TEAM_ROLES.LEADER 
@@ -126,7 +145,7 @@ autoDispatchQueue.process(5, async (job) => {
                     .catch(e => console.error("FCM targeted error:", e.message));
             }
 
-            //Sau 30.5s tự động chạy lại job
+            //đặt job mới delay 30.5s 
             const nextTimeoutJobId = `dispatch_${incidentId}_step_${updatedInc.attemptCount}`;
             await autoDispatchQueue.add(
                 { incidentId, lastTargetTeamId: team._id.toString(), startTime },
