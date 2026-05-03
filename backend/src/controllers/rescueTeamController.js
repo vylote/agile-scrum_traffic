@@ -6,25 +6,27 @@ const SuccessCodes = require('../utils/constants/successCodes')
 const { sendSuccess } = require('../utils/response')
 const User = require('../models/User');
 const { USER_ROLES } = require('../utils/constants/userConstants');
+const { ALL_RESCUE_STATUS } = require('../utils/constants/rescueConstants');
 
 exports.createRescueTeam = async (req, res, next) => {
+    //khởi tạo phiên sao dịch (session transaction)
+    const session = await mongoose.startSession()
+    session.startTransaction()
+
+
     try {
-        const {
-            name,
-            code,
-            type,
-            latitude,
-            longitude,
-            zone,
-            members,
-            capabilities
-        } = req.body
+        let {
+            name, code, type, latitude, longitude, zone, members, capabilities
+        } = req.body;
 
         if (!latitude || !longitude) {
             return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES, 'Vui lòng cung cấp tọa độ đội cứu hộ'));
         }
 
-        const existingTeam = await RescueTeam.findOne({ code });
+        code = code?.toUpperCase()
+
+        // nhúng session vào query đọc/ghi
+        const existingTeam = await RescueTeam.findOne({ code }).session(session);
         if (existingTeam) {
             return next(new AppError(ErrorCodes.RESCUE_TEAM_CODE_EXISTS));
         }
@@ -32,7 +34,7 @@ exports.createRescueTeam = async (req, res, next) => {
         let validMembers = [];
         if (members && Array.isArray(members) && members.length > 0) {
             for (const member of members) {
-                const user = await User.findById(member.userId);
+                const user = await User.findById(member.userId).session(session);
                 if (!user) return next(new AppError(ErrorCodes.USER_NOT_FOUND));
                 if (user.role !== USER_ROLES.RESCUE) return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
                 if (user.rescueTeam) return next(new AppError(ErrorCodes.USER_ALREADY_IN_TEAM));
@@ -41,9 +43,10 @@ exports.createRescueTeam = async (req, res, next) => {
             }
         }
 
-        let newRescueTeam = await RescueTeam.create({
+        //Lệnh .create() dùng chung với Session bắt buộc phải bọc data trong mảng []
+        let createdTeams = await RescueTeam.create([{
             name,
-            code: code.toUpperCase(), // Đảm bảo mã luôn viết hoa trong DB
+            code,
             type,
             currentLocation: {
                 type: 'Point',
@@ -52,21 +55,31 @@ exports.createRescueTeam = async (req, res, next) => {
             zone,
             capabilities: capabilities || [],
             members: validMembers,
-        });
+        }], { session });
 
-        newRescueTeam = await newRescueTeam.populate('members.userId', 'name phone email');
+        let newRescueTeam = createdTeams[0];
 
         if (validMembers.length > 0) {
             const userIds = validMembers.map(m => m.userId)
             await User.updateMany(
                 { _id: { $in: userIds } },
-                { rescueTeam: newRescueTeam._id }
+                { rescueTeam: newRescueTeam._id },
+                { session } // nhúng session
             )
         }
+        //nếu thanh công -> commit 
+        await session.commitTransaction();
+        session.endSession();
+
+        newRescueTeam = await RescueTeam.findById(newRescueTeam._id).populate('members.userId', 'name phone email');
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, newRescueTeam)
 
     } catch (err) {
+        //roll back
+        await session.abortTransaction();
+        session.endSession();
+
         if (err.code === 11000) {
             return next(new AppError(ErrorCodes.INVALID_INPUT));
         }
@@ -169,19 +182,25 @@ exports.updateLocation = async (req, res, next) => {
 }
 
 exports.addMembers = async (req, res, next) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { id } = req.params;
         const { newMembers } = req.body;
+
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
         }
-        const team = await RescueTeam.findById(id);
+
+        const team = await RescueTeam.findById(id).session(session);
         if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+
         let validMembers = [];
         if (newMembers && Array.isArray(newMembers) && newMembers.length > 0) {
             for (let i = 0; i < newMembers.length; ++i) {
                 const member = newMembers[i];
-                const user = await User.findById(member.userId);
+                const user = await User.findById(member.userId).session(session);
 
                 if (!user) return next(new AppError(ErrorCodes.USER_NOT_FOUND));
                 if (user.role != USER_ROLES.RESCUE) return next(new AppError(ErrorCodes.AUTH_FORBIDDEN));
@@ -189,13 +208,15 @@ exports.addMembers = async (req, res, next) => {
                 validMembers.push({ userId: user._id, role: member.role });
             }
         }
+
         if (validMembers.length === 0) {
             return next(new AppError(ErrorCodes.INVALID_INPUT));
         }
+
         const updatedTeam = await RescueTeam.findByIdAndUpdate(
             id,
             { $push: { members: { $each: validMembers } } },
-            { new: true, runValidators: true }
+            { new: true, runValidators: true, session } // nhúng session
         ).populate('members.userId', 'name phone email'); // Nối bảng User ngay lập tức
 
         if (!updatedTeam) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
@@ -204,10 +225,17 @@ exports.addMembers = async (req, res, next) => {
         const userIds = validMembers.map(m => m.userId);
         await User.updateMany(
             { _id: { $in: userIds } },
-            { rescueTeam: updatedTeam._id }
+            { rescueTeam: updatedTeam._id },
+            { session } // nhúng session
         );
+
+        await session.commitTransaction();
+        session.endSession();
+
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedTeam);
     } catch (err) {
+        await session.abortTransaction()
+        session.endSession()
         next(err);
     }
 };
@@ -244,14 +272,20 @@ exports.addMembers = async (req, res, next) => {
    *         description: Xóa thành viên thành công
    */
 exports.removeMembers = async (req, res, next) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { id } = req.params;
         const { userIdsToRemove } = req.body;
+
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
         }
-        const team = await RescueTeam.findById(id);
+
+        const team = await RescueTeam.findById(id).session(session);
         if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+
         if (!userIdsToRemove || !Array.isArray(userIdsToRemove) || userIdsToRemove.length === 0) {
             return next(new AppError(ErrorCodes.INVALID_INPUT, "Vui lòng cung cấp danh sách ID cần xóa."));
         }
@@ -259,15 +293,22 @@ exports.removeMembers = async (req, res, next) => {
         const updatedTeam = await RescueTeam.findByIdAndUpdate(
             id,
             { $pull: { members: { userId: { $in: userIdsToRemove } } } },
-            { new: true, runValidators: true }
+            { new: true, runValidators: true, session }
         );
         
         await User.updateMany(
             { _id: { $in: userIdsToRemove }, rescueTeam: id },
-            { rescueTeam: null }
+            { rescueTeam: null },
+            { session }
         );
+
+        await session.commitTransaction();
+        session.endSession();
+
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updatedTeam);
     } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
         next(err);
     }
 };
@@ -303,4 +344,50 @@ exports.getRescueTeamById = async (req, res, next) => {
         if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, team);
     } catch (err) { next(err); }
+};
+
+exports.updateStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
+        }
+
+        if (!status || !ALL_RESCUE_STATUS.includes(status)) {
+            return next(new AppError(ErrorCodes.INVALID_INPUT, "Trạng thái không hợp lệ"));
+        }
+
+        const updatedTeam = await RescueTeam.findByIdAndUpdate(
+            id,
+            { status: status },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedTeam) {
+            return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+        }
+
+        // 🔥 Bọc thép: Server cũng tự động phát loa luôn cho chắc cốp, 
+        // lỡ điện thoại tài xế gọi API xong sập nguồn chưa kịp chạy dòng socket.emit
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('rescue:location', {
+                teamId: updatedTeam._id,
+                status: updatedTeam.status,
+                // Gửi kèm tọa độ cuối cùng để xe không bị biến mất khỏi bản đồ Dispatcher
+                lat: updatedTeam.currentLocation.coordinates[1],
+                lng: updatedTeam.currentLocation.coordinates[0]
+            });
+        }
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, {
+            _id: updatedTeam._id,
+            status: updatedTeam.status
+        });
+
+    } catch (err) {
+        next(err);
+    }
 };
