@@ -13,7 +13,6 @@ exports.createRescueTeam = async (req, res, next) => {
     const session = await mongoose.startSession()
     session.startTransaction()
 
-
     try {
         let {
             name, code, type, latitude, longitude, zone, members, capabilities
@@ -99,7 +98,7 @@ exports.getAllRescueTeam = async (req, res, next) => {
         if (type) filter.type = type;
         if (status) filter.status = status;
 
-        // 🔥 CHỖ QUAN TRỌNG: Chỉ lọc nếu Frontend truyền lên "activeOnly=true"
+        // Chỉ lọc nếu Frontend truyền lên "activeOnly=true"
         // Nếu không truyền (như mặc định của Dispatcher), nó sẽ lấy cả đội "rỗng"
         if (activeOnly === 'true') {
             filter.members = { $exists: true, $not: { $size: 0 } }; 

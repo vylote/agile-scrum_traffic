@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { Coffee, Zap } from "lucide-react"; 
 
 export const UserProfile = ({ isResting, onToggleRest }) => {
   const navigate = useNavigate();
@@ -21,18 +22,17 @@ export const UserProfile = ({ isResting, onToggleRest }) => {
         </div>
       </div>
 
-      {/* Nút Toggle Trạng Thái (Nghỉ ngơi / Hoạt động) */}
       <button 
         onClick={onToggleRest}
-        className="my-auto pointer-events-auto hover:scale-105 active:scale-95 transition-transform drop-shadow-md" 
+        className={`my-auto pointer-events-auto hover:scale-105 active:scale-95 transition-transform drop-shadow-md w-11 h-11 rounded-full flex items-center justify-center ${
+          isResting ? 'bg-gray-200' : 'bg-green-500'
+        }`}
         aria-label="Toggle Status"
       >
-        <img
-          src="https://api.builder.io/api/v1/image/assets/TEMP/1ae3215ce66e506030b2d3dd0a3a5008a707e622"
-          // Nếu đang nghỉ ngơi thì làm mờ nút đi một chút để báo hiệu
-          className={`object-contain shrink-0 w-11 h-11 transition-all ${isResting ? 'opacity-50 grayscale' : ''}`}
-          alt="Status Menu icon"
-        />
+        {isResting
+          ? <Coffee size={20} className="text-gray-500" />
+          : <Zap size={20} className="text-white" />
+        }
       </button>
       
     </section>

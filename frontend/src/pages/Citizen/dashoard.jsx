@@ -31,10 +31,9 @@ export const CitizenDashboard = () => {
     const fetchInitialData = async () => {
       try {
         setIsLoading(true);
-        // Lấy sự cố (có thể lọc theo Zone của người dùng nếu cần)
         const [incRes, teamRes] = await Promise.all([
           api.get("/incidents?status=PENDING,ASSIGNED,IN_PROGRESS"),
-          api.get("/rescue-teams?activeOnly=true&limit=100")
+          api.get("/rescue-teams?activeOnly=true&status=AVAILABLE&limit=100")
         ]);
 
         setIncidents(incRes.data?.result?.data || []);
@@ -71,8 +70,8 @@ export const CitizenDashboard = () => {
 
     const handleFleetUpdate = (data) => {
       setFleet(prev => {
-        // Nếu là xe đang cứu mình -> Cập nhật tọa độ để xe chạy trên bản đồ
-        // Nếu không phải xe đang cứu mình -> Vẫn cập nhật status/tạo mới để biến availableCount đếm đúng
+        // Cập nhật status từ Socket.
+        // Nếu Server báo xe này OFFLINE hoặc RESTING, biến fleet vẫn lưu lại nhưng status sẽ thay đổi.
         return {
           ...prev,
           [data.teamId]: { 
@@ -87,7 +86,6 @@ export const CitizenDashboard = () => {
     };
 
     const handleStatusUpdate = (data) => {
-      // Cập nhật mảng incidents
       setIncidents((prev) => {
         if (["COMPLETED", "CANCELLED"].includes(data.status)) {
           return prev.filter((inc) => inc._id !== data.id);
@@ -97,7 +95,6 @@ export const CitizenDashboard = () => {
         );
       });
 
-      // Đổi màu xe thành BUSY/AVAILABLE ngay lập tức
       const incident = data.incident;
       if (!incident?.assignedTeam) return;
 
