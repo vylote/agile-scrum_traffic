@@ -199,7 +199,8 @@ export const Home = () => {
     return {
       available: teams.filter((t) => t.status === "AVAILABLE").length,
       busy: teams.filter((t) => ["BUSY", "IN_PROGRESS", "ASSIGNED"].includes(t.status)).length,
-      offline: teams.filter((t) => t.status === "OFFLINE").length, // Thêm dòng này
+      resting: teams.filter((t) => t.status === "RESTING").length, // Khai báo bộ đếm xe nghỉ ngơi
+      offline: teams.filter((t) => t.status === "OFFLINE").length, 
     };
   }, [fleet]);
 
@@ -237,11 +238,16 @@ export const Home = () => {
               </h3>
               <div className="flex gap-2">
                 <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">
-                  ● {fleetStats.available} XE RẢNH
+                  ● {fleetStats.available} ĐANG RẢNH
                 </span>
                 <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                  ● {fleetStats.busy} XE ĐANG BẬN
+                  ● {fleetStats.busy} ĐANG BẬN
                 </span>
+                {fleetStats.resting > 0 && (
+                  <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                    ● {fleetStats.resting} ĐANG NGHỈ
+                  </span>
+                )}
                 {/* HIỂN THỊ THÊM SỐ XE MẤT MẠNG */}
                 {fleetStats.offline > 0 && (
                   <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded animate-pulse">

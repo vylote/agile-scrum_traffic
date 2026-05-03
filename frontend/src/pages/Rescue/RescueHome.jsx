@@ -73,11 +73,10 @@ export const RescueHome = () => {
   const [viewingIncident, setViewingIncident] = useState(null);
   const [incomingRequest, setIncomingRequest] = useState(null);
 
+  const initialStatus = user?.rescueTeam?.status || "AVAILABLE";
   const [appState, setAppState] = useState("normal");
-  const [isResting, setIsResting] = useState(false);
-  const [teamStatus, setTeamStatus] = useState(
-    user?.rescueTeam?.status || "AVAILABLE",
-  );
+  const [isResting, setIsResting] = useState(initialStatus === "RESTING");
+  const [teamStatus, setTeamStatus] = useState(initialStatus);
   const [notification, setNotification] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [mapFocus, setMapFocus] = useState(null);
@@ -91,10 +90,12 @@ export const RescueHome = () => {
   /* Dùng ref để đọc appState bên trong socket callback 
   mà không bị stale closure — đây là pattern quan trọng khi dùng socket với React hooks. */
   const appStateRef = useRef(appState);
+  const isRestingRef = useRef(isResting);
 
   useEffect(() => {
     appStateRef.current = appState;
-  }, [appState]);
+    isRestingRef.current = isResting;
+  }, [appState, isResting]);
 
   // ─── DERIVED / MEMO ──────────────────────────────────────────────────────
 
@@ -139,21 +140,21 @@ export const RescueHome = () => {
   // ─── EFFECTS: INITIAL DATA FETCH ─────────────────────────────────────────
 
   useEffect(() => {
-    if (!userZone || !teamId) return;
+    if (!userZone || !teamId) {
+      return;
+    }
 
     const fetchInitialData = async () => {
       try {
-        const [pendingRes, activeRes, teamRes] = await Promise.all([
-          api.get(`/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`),
-          api.get(`/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`),
-          api.get(`/rescue-teams/${teamId}`),
-        ]);
-
-        const pendingData = pendingRes.data.result.data || [];
-        const activeData = activeRes.data.result.data || [];
+        const teamRes = await api.get(`/rescue-teams/${teamId}`);
         const myTeamData = teamRes.data?.result;
 
-        if (myTeamData?.status) setTeamStatus(myTeamData.status);
+        if (myTeamData?.status) {
+          setTeamStatus(myTeamData.status);
+          const isCurrentlyResting = myTeamData.status === "RESTING";
+          setIsResting(isCurrentlyResting);
+        }
+
         if (myTeamData?.currentLocation?.coordinates) {
           setCurrentPos({
             lat: myTeamData.currentLocation.coordinates[1],
@@ -161,16 +162,22 @@ export const RescueHome = () => {
           });
         }
 
+        const [pendingRes, activeRes] = await Promise.all([
+          api.get(`/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`),
+          api.get(`/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`),
+        ]);
+
+        const pendingData = pendingRes.data.result.data || [];
+        const activeData = activeRes.data.result.data || [];
+
         setIncidentsQueue(pendingData);
 
         if (activeData.length > 0) {
           const job = activeData[0];
           setActiveIncident(job);
-          setAppState(
-            job.status === INCIDENT_STATUS.ASSIGNED ? "moving" : "processing",
-          );
+          setAppState(job.status === INCIDENT_STATUS.ASSIGNED ? "moving" : "processing");
           setMapFocus(job.location.coordinates);
-        } else if (pendingData.length > 0 && appStateRef.current === "normal") {
+        } else if (pendingData.length > 0 && appStateRef.current === "normal" && myTeamData?.status !== "RESTING") {
           const firstFree = pendingData.find((inc) => !inc.assignedTeam);
           if (firstFree) {
             setViewingIncident(firstFree);
@@ -179,7 +186,7 @@ export const RescueHome = () => {
           }
         }
       } catch (error) {
-        console.error("Initial Fetch Error:", error);
+        console.error("LỖI FETCH INITIAL DATA:", error.response?.status || error.message);
       }
     };
 
@@ -240,7 +247,7 @@ export const RescueHome = () => {
         return;
       }
 
-      if (!isLeader) return;
+      if (!isLeader || isRestingRef.current) return;
 
       setIncomingRequest({
         incident: data.incident,
@@ -251,7 +258,9 @@ export const RescueHome = () => {
       if (navigator.vibrate)
         try {
           navigator.vibrate([300, 100, 300]);
-        } catch (e) {}
+        } catch (e) {
+          console.log("thiet bi khong co chuc nang rung", e)
+        }
     };
 
     const handleRevoke = () => {
@@ -341,21 +350,6 @@ export const RescueHome = () => {
       }
     };
 
-    /* const handleNewIncident = (data) => {
-      const newInc = data.incident;
-      if (!newInc.assignedTeam) {
-        setIncidentsQueue((prev) => {
-          if (prev.find((i) => i._id === newInc._id)) return prev;
-          return [...prev, newInc];
-        });
-        if (appStateRef.current === "normal") {
-          setViewingIncident(newInc);
-          setAppState("viewing");
-          setMapFocus(newInc.location?.coordinates);
-        }
-      }
-    }; */
-
     const handleBroadcast = (data) => {
       const newInc = data.incident;
       
@@ -365,10 +359,18 @@ export const RescueHome = () => {
       });
 
       // Nếu tài xế đang rảnh rỗi (normal), thì khi loa phát, tự động mở popup thẻ trắng cho họ xem
-      if (appStateRef.current === "normal") {
+      if (appStateRef.current === "normal" && !isRestingRef.current) {
         setViewingIncident(newInc);
         setAppState("viewing");
         setMapFocus(newInc.location?.coordinates);
+
+        if (navigator.vibrate) {
+          try {
+            navigator.vibrate([300, 100, 300]);
+          } catch (e) {
+            console.warn("Trình duyệt không hỗ trợ rung", e);
+          }
+        }
       }
     };
 
@@ -377,8 +379,6 @@ export const RescueHome = () => {
     socket.on("rescue:incoming_request", handleIncomingRequest);
     socket.on("rescue:revoke_request", handleRevoke);
     socket.on("incident:updated", handleUpdated);
-    /* socket.on("incident:new", handleNewIncident);
-    socket.on("alert:sos", handleNewIncident); */
     socket.on("incident:broadcast", handleBroadcast);
     socket.on("alert:sos", handleBroadcast);
     socket.on("delete_incident", handleDeleteIncident);
@@ -389,8 +389,6 @@ export const RescueHome = () => {
       socket.off("rescue:incoming_request", handleIncomingRequest);
       socket.off("rescue:revoke_request", handleRevoke);
       socket.off("incident:updated", handleUpdated);
-      /* socket.off("incident:new", handleNewIncident);
-      socket.off("alert:sos", handleNewIncident); */
       socket.off("incident:broadcast", handleBroadcast);
       socket.off("alert:sos", handleBroadcast);
       socket.off("delete_incident", handleDeleteIncident);
@@ -400,7 +398,7 @@ export const RescueHome = () => {
   // ─── EFFECTS: GPS TRACKING ────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!teamId || isResting || !socket || IS_SIMULATION_MODE) return;
+    if (!teamId || !socket || IS_SIMULATION_MODE) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -430,7 +428,7 @@ export const RescueHome = () => {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [isResting, teamId, socket, teamStatus, user?.rescueTeam?.name]);
+  }, [teamId, socket, teamStatus, user?.rescueTeam?.name]);
 
   // ─── HANDLERS ────────────────────────────────────────────────────────────
 
@@ -448,7 +446,7 @@ export const RescueHome = () => {
       setTeamStatus("BUSY");
       setMapFocus(incident.location.coordinates);
     } catch (error) {
-      alert("Sự cố đã có đội khác nhận!");
+      alert("Sự cố đã có đội khác nhận!", error);
       setRefreshTrigger((p) => p + 1);
     }
   };
@@ -478,7 +476,7 @@ export const RescueHome = () => {
       setTeamStatus("AVAILABLE");
       setRefreshTrigger((p) => p + 1);
     } catch (error) {
-      alert("Lỗi chốt ca!");
+      alert("Lỗi chốt ca!", error);
     }
   };
 
@@ -501,6 +499,33 @@ export const RescueHome = () => {
     const focusedItem = visibleIncidents[index];
     if (focusedItem?.location?.coordinates)
       setMapFocus(focusedItem.location.coordinates);
+  };
+
+  const handleToggleRest = async () => {
+    if (!isLeader) return alert("Chỉ Đội trưởng mới được đổi trạng thái ca trực!");
+    
+    const newRestingState = !isResting;
+    const newStatus = newRestingState ? "RESTING" : "AVAILABLE";
+
+    try {
+      await api.patch(`/rescue-teams/${teamId}/status`, { status: newStatus });
+      setIsResting(newRestingState);
+      setTeamStatus(newStatus);
+
+      // 3. Ép Socket bắn ngay lập tức 1 lần cuối cùng trước khi cái hook GPS bị ngắt
+      if (socket && currentPos) {
+        socket.emit("rescue:updateLocation", {
+          teamId,
+          lat: currentPos.lat,
+          lng: currentPos.lng,
+          status: newStatus,
+          teamName: user?.rescueTeam?.name,
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi khi chuyển trạng thái nghỉ:", error);
+      alert("Chưa thể đổi trạng thái lúc này, vui lòng thử lại!");
+    }
   };
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
@@ -539,7 +564,7 @@ export const RescueHome = () => {
           <StatusBar />
           <UserProfile
             isResting={isResting}
-            onToggleRest={() => setIsResting(!isResting)}
+            onToggleRest={handleToggleRest}
           />
         </div>
 

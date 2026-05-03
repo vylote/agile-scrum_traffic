@@ -13,7 +13,7 @@ import "leaflet.heat";
 import { LocateFixed, RefreshCw } from "lucide-react";
 import rescueBusyImg from "../../assets/icons/rescue-busy.png";
 import rescueAvailableImg from "../../assets/icons/rescue-available.png";
-import incidentImg from "../../assets/icons/incident.png";
+import rescueRestingImg from "../../assets/icons/rescue-resting.png";
 
 const rescueBusyIcon = new L.Icon({
   iconUrl: rescueBusyImg,
@@ -25,11 +25,44 @@ const rescueAvailableIcon = new L.Icon({
   iconSize: [32, 32],
   iconAnchor: [16, 32],
 });
-const incidentIcon = new L.Icon({
-  iconUrl: incidentImg,
-  iconSize: [30, 30],
-  iconAnchor: [15, 30],
-});
+const rescueRestingIcon = new L.Icon({
+  iconUrl: rescueRestingImg,
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+})
+
+const INCIDENT_COLORS = {
+  PENDING: '#EF4444',     // Đỏ Đậm
+  ASSIGNED: '#F59E0B',    // Vàng Cam
+  IN_PROGRESS: '#3B82F6', // Xanh Dương
+  COMPLETED: '#10B981',   // Xanh Lá
+  CANCELLED: '#6B7280'    // Xám
+};
+
+//HÀM SINH ICON SỰ CỐ ĐỘNG (THAY THẾ ẢNH TĨNH CŨ)
+const getIncidentIcon = (status, severity) => {
+  const isCritical = severity === 'CRITICAL';
+  const bgColor = INCIDENT_COLORS[status] || INCIDENT_COLORS.PENDING;
+
+  // Hiệu ứng "Pulse" bằng Tailwind CSS cho các ca SOS
+  const pulseEffect = isCritical ? `animate-ping absolute inline-flex h-full w-full rounded-full opacity-75` : '';
+
+  const html = `
+    <div class="relative flex h-5 w-5">
+      ${isCritical ? `<span class="${pulseEffect}" style="background-color: ${bgColor};"></span>` : ''}
+      <span class="relative inline-flex rounded-full h-5 w-5 shadow-[0_2px_5px_rgba(0,0,0,0.3)] border-2 border-white items-center justify-center" 
+            style="background-color: ${bgColor};">
+      </span>
+    </div>
+  `;
+
+  return L.divIcon({
+    className: 'bg-transparent border-none', // Quan trọng: Xóa viền vuông mặc định của Leaflet
+    html: html,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10], // Neo đúng điểm giữa của vòng tròn
+  });
+};
 
 const RoutingOverlay = ({ start, end }) => {
   const [points, setPoints] = useState([]);
@@ -242,7 +275,7 @@ const Map = ({
               />
             )}
 
-            {/* 🚩 Hiển thị các sự cố đang chờ */}
+            {/*ÁP DỤNG HÀM getIncidentIcon CHO TỪNG MARKER */}
             {incidents.map((inc) => (
               <Marker
                 key={inc._id}
@@ -250,44 +283,53 @@ const Map = ({
                   inc.location.coordinates[1],
                   inc.location.coordinates[0],
                 ]}
-                icon={incidentIcon}
+                // Truyền status và severity vào hàm để lấy HTML động
+                icon={getIncidentIcon(inc.status, inc.severity)}
                 zIndexOffset={500}
                 eventHandlers={{ click: () => onMarkerClick?.(inc) }}
               />
             ))}
 
-            {/* 🚑 Hiển thị các đội xe cứu hộ (Xe chạy real-time) */}
-            {Object.values(fleet).map((team) => {
-              const lat = parseFloat(team.lat);
-              const lng = parseFloat(team.lng);
-              if (!lat || !lng) return null;
+            {Object.values(fleet)
+              //Chặn đứng tất cả các xe OFFLINE không cho vẽ ra Map
+              .filter((team) => team.status !== "OFFLINE")
+              .map((team) => {
+                const lat = parseFloat(team.lat);
+                const lng = parseFloat(team.lng);
+                if (!lat || !lng) return null;
 
-              return (
-                <Marker
-                  key={team.teamId || team._id}
-                  position={[lat, lng]}
-                  icon={
-                    team.status === "AVAILABLE"
-                      ? rescueAvailableIcon
-                      : rescueBusyIcon
-                  }
-                  zIndexOffset={2000}
-                >
-                  <Popup>
-                    <div className="text-center p-1">
-                      <p className="font-black text-xs uppercase mb-0.5 text-gray-800">
-                        {team.name || team.teamName}
-                      </p>
-                      <span
-                        className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${team.status === "AVAILABLE" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}
-                      >
-                        {team.status}
-                      </span>
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
+                return (
+                  <Marker
+                    key={team.teamId || team._id}
+                    position={[lat, lng]}
+                    icon={
+                      team.status === "AVAILABLE"
+                        ? rescueAvailableIcon
+                        : team.status === "RESTING"
+                        ? rescueRestingIcon // Bạn có thể tạo thêm 1 icon xám mờ ở trên đầu file
+                        : rescueBusyIcon
+                    }
+                    zIndexOffset={team.status === "RESTING" ? 1000 : 2000}
+                  >
+                    <Popup>
+                      <div className="text-center p-1">
+                        <p className="font-black text-xs uppercase mb-0.5 text-gray-800">
+                          {team.name || team.teamName}
+                        </p>
+                        <span
+                          className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            team.status === "AVAILABLE"
+                              ? "bg-green-100 text-green-600"
+                              : "bg-red-100 text-red-600"
+                          }`}
+                        >
+                          {team.status}
+                        </span>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
           </>
         )}
       </MapContainer>

@@ -70,24 +70,62 @@ export const CitizenDashboard = () => {
     };
 
     const handleFleetUpdate = (data) => {
-      const assignedTeamId = myActiveIncident?.assignedTeam?._id || myActiveIncident?.assignedTeam;
-      // Chỉ cập nhật nếu là xe đang cứu mình
-      if (assignedTeamId === data.teamId) {
-        setFleet(prev => ({
+      setFleet(prev => {
+        // Nếu là xe đang cứu mình -> Cập nhật tọa độ để xe chạy trên bản đồ
+        // Nếu không phải xe đang cứu mình -> Vẫn cập nhật status/tạo mới để biến availableCount đếm đúng
+        return {
           ...prev,
-          [data.teamId]: { ...prev[data.teamId], ...data }
-        }));
+          [data.teamId]: { 
+            ...(prev[data.teamId] || {}), // Giữ lại thông tin cũ nếu có
+            teamId: data.teamId,
+            status: data.status !== undefined ? data.status : prev[data.teamId]?.status,
+            lat: data.lat !== undefined ? data.lat : prev[data.teamId]?.lat,
+            lng: data.lng !== undefined ? data.lng : prev[data.teamId]?.lng
+          }
+        };
+      });
+    };
+
+    const handleStatusUpdate = (data) => {
+      // Cập nhật mảng incidents
+      setIncidents((prev) => {
+        if (["COMPLETED", "CANCELLED"].includes(data.status)) {
+          return prev.filter((inc) => inc._id !== data.id);
+        }
+        return prev.map((inc) =>
+          inc._id === data.id ? { ...inc, status: data.status, assignedTeam: data.incident?.assignedTeam } : inc
+        );
+      });
+
+      // Đổi màu xe thành BUSY/AVAILABLE ngay lập tức
+      const incident = data.incident;
+      if (!incident?.assignedTeam) return;
+
+      const assignedTeamId = typeof incident.assignedTeam === "object" ? incident.assignedTeam._id : incident.assignedTeam;
+
+      if (assignedTeamId) {
+        setFleet((prev) => {
+          if (!prev[assignedTeamId]) return prev;
+
+          const newStatus = ["COMPLETED", "CANCELLED"].includes(data.status) ? "AVAILABLE" : "BUSY";
+          return {
+            ...prev,
+            [assignedTeamId]: { ...prev[assignedTeamId], status: newStatus },
+          };
+        });
       }
     };
 
     socket.on("incident:new", handleNewIncident);
     socket.on("rescue:location", handleFleetUpdate);
+    socket.on("incident:updated", handleStatusUpdate);
 
     return () => {
       socket.off("incident:new", handleNewIncident);
       socket.off("rescue:location", handleFleetUpdate);
+      socket.off("incident:updated", handleStatusUpdate);
     };
-  }, [myActiveIncident]);
+  }, []);
 
   // 4. LỌC XE HIỂN THỊ TRÊN MAP
   const mapFleet = useMemo(() => {
@@ -104,7 +142,6 @@ export const CitizenDashboard = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-32">
-      {/* 1. STATUS BAR GIẢ LẬP */}
       <div className="flex justify-between items-center px-8 pt-5 pb-2">
         <span className="text-black font-bold text-[17px]">9:41</span>
         <div className="flex gap-1 items-center">

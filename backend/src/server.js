@@ -14,6 +14,7 @@ const initApp = require('./utils/initApp');
 
 const socketService = require('./services/socket');
 const Incident = require('./models/Incident');
+const RescueTeam = require('./models/RescueTeam');
 
 const server = http.createServer(app);
 
@@ -63,8 +64,11 @@ io.on('connection', (socket) => {
             console.log(`LEADER Đội [${teamId}] đã OFFLINE/MẤT KẾT NỐI.`);
 
             try {
-                const RescueTeam = require('./models/RescueTeam');
-                await RescueTeam.findByIdAndUpdate(teamId, { status: 'OFFLINE' });
+                const team = await RescueTeam.findById(teamId);
+
+                if (team && team.status === 'AVAILABLE') {
+                    await RescueTeam.findByIdAndUpdate(teamId, { status: 'OFFLINE' });
+                }
                 
                 io.emit('rescue:location', {
                     teamId: teamId,
@@ -86,7 +90,8 @@ io.on('connection', (socket) => {
         const payload = { 
             teamId, 
             lat: parseFloat(lat), 
-            lng: parseFloat(lng) 
+            lng: parseFloat(lng),
+            status: status 
         };
 
         io.emit('rescue:location', payload)
