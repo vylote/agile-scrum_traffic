@@ -163,8 +163,12 @@ export const RescueHome = () => {
         }
 
         const [pendingRes, activeRes] = await Promise.all([
-          api.get(`/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`),
-          api.get(`/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`),
+          api.get(
+            `/incidents?status=PENDING&zone=${encodeURIComponent(userZone)}`,
+          ),
+          api.get(
+            `/incidents?assignedTeam=${teamId}&status=ASSIGNED,IN_PROGRESS`,
+          ),
         ]);
 
         const pendingData = pendingRes.data.result.data || [];
@@ -175,9 +179,15 @@ export const RescueHome = () => {
         if (activeData.length > 0) {
           const job = activeData[0];
           setActiveIncident(job);
-          setAppState(job.status === INCIDENT_STATUS.ASSIGNED ? "moving" : "processing");
+          setAppState(
+            job.status === INCIDENT_STATUS.ASSIGNED ? "moving" : "processing",
+          );
           setMapFocus(job.location.coordinates);
-        } else if (pendingData.length > 0 && appStateRef.current === "normal" && myTeamData?.status !== "RESTING") {
+        } else if (
+          pendingData.length > 0 &&
+          appStateRef.current === "normal" &&
+          myTeamData?.status !== "RESTING"
+        ) {
           const firstFree = pendingData.find((inc) => !inc.assignedTeam);
           if (firstFree) {
             setViewingIncident(firstFree);
@@ -186,7 +196,10 @@ export const RescueHome = () => {
           }
         }
       } catch (error) {
-        console.error("LỖI FETCH INITIAL DATA:", error.response?.status || error.message);
+        console.error(
+          "LỖI FETCH INITIAL DATA:",
+          error.response?.status || error.message,
+        );
       }
     };
 
@@ -225,11 +238,18 @@ export const RescueHome = () => {
 
     const handleLocationUpdate = (data) => {
       if (data.teamId === teamId) {
-        setCurrentPos({
-          lat: parseFloat(data.lat),
-          lng: parseFloat(data.lng),
-          _ts: Date.now(),
-        });
+        if (data.lat !== undefined && data.lng !== undefined) {
+          setCurrentPos({
+            lat: parseFloat(data.lat),
+            lng: parseFloat(data.lng),
+            _ts: Date.now(),
+          });
+        }
+        
+        if (data.status) {
+          setTeamStatus(data.status);
+          setIsResting(data.status === "RESTING");
+        }
       }
     };
 
@@ -259,7 +279,7 @@ export const RescueHome = () => {
         try {
           navigator.vibrate([300, 100, 300]);
         } catch (e) {
-          console.log("thiet bi khong co chuc nang rung", e)
+          console.log("thiet bi khong co chuc nang rung", e);
         }
     };
 
@@ -352,7 +372,7 @@ export const RescueHome = () => {
 
     const handleBroadcast = (data) => {
       const newInc = data.incident;
-      
+
       setIncidentsQueue((prev) => {
         if (prev.find((i) => i._id === newInc._id)) return prev;
         return [...prev, newInc];
@@ -393,7 +413,14 @@ export const RescueHome = () => {
       socket.off("alert:sos", handleBroadcast);
       socket.off("delete_incident", handleDeleteIncident);
     };
-  }, [socket, teamId, isLeader, activeIncident, viewingIncident, incomingRequest]);
+  }, [
+    socket,
+    teamId,
+    isLeader,
+    activeIncident,
+    viewingIncident,
+    incomingRequest,
+  ]);
 
   // ─── EFFECTS: GPS TRACKING ────────────────────────────────────────────────
 
@@ -416,7 +443,10 @@ export const RescueHome = () => {
       },
       (err) => {
         if (err.code === 1) console.warn("GPS: Người dùng từ chối cấp quyền.");
-        if (err.code === 2) console.warn("GPS: Tạm thời không lấy được vị trí (Sensor đang chuyển đổi...).");
+        if (err.code === 2)
+          console.warn(
+            "GPS: Tạm thời không lấy được vị trí (Sensor đang chuyển đổi...).",
+          );
         if (err.code === 3) console.warn("GPS: Hết thời gian chờ (Timeout).");
       },
       {
@@ -502,8 +532,9 @@ export const RescueHome = () => {
   };
 
   const handleToggleRest = async () => {
-    if (!isLeader) return alert("Chỉ Đội trưởng mới được đổi trạng thái ca trực!");
-    
+    if (!isLeader)
+      return alert("Chỉ Đội trưởng mới được đổi trạng thái ca trực!");
+
     const newRestingState = !isResting;
     const newStatus = newRestingState ? "RESTING" : "AVAILABLE";
 
@@ -562,10 +593,7 @@ export const RescueHome = () => {
       <div className="absolute inset-0 z-20 flex flex-col pointer-events-none h-full">
         <div className="pointer-events-auto">
           <StatusBar />
-          <UserProfile
-            isResting={isResting}
-            onToggleRest={handleToggleRest}
-          />
+          <UserProfile isResting={isResting} onToggleRest={handleToggleRest} />
         </div>
 
         <div

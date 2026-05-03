@@ -10,7 +10,7 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
-import { LocateFixed, RefreshCw } from "lucide-react";
+import { LocateFixed, RefreshCw, Loader2 } from "lucide-react";
 import rescueBusyImg from "../../assets/icons/rescue-busy.png";
 import rescueAvailableImg from "../../assets/icons/rescue-available.png";
 import rescueRestingImg from "../../assets/icons/rescue-resting.png";
@@ -320,10 +320,12 @@ const Map = ({
                           className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
                             team.status === "AVAILABLE"
                               ? "bg-green-100 text-green-600"
+                              : team.status === "RESTING"
+                              ? "bg-slate-200 text-slate-600"
                               : "bg-red-100 text-red-600"
                           }`}
                         >
-                          {team.status}
+                          {team.status === "RESTING" ? "ĐANG NGHỈ" : team.status}
                         </span>
                       </div>
                     </Popup>
