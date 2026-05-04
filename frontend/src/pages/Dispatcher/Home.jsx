@@ -137,14 +137,17 @@ export const Home = () => {
           ...prev,
           [data.teamId]: {
             ...prev[data.teamId], // Giữ lại mọi thông tin cũ
-            
+
             // Chỉ cập nhật tọa độ nếu Server thực sự có gửi lên (Không bị undefined)
             lat: data.lat !== undefined ? data.lat : prev[data.teamId].lat,
             lng: data.lng !== undefined ? data.lng : prev[data.teamId].lng,
-            
+
             // Chỉ cập nhật status nếu có gửi, không thì giữ status cũ
-            status: data.status !== undefined ? data.status : prev[data.teamId].status,
-            
+            status:
+              data.status !== undefined
+                ? data.status
+                : prev[data.teamId].status,
+
             lastUpdate: new Date(),
           },
         };
@@ -166,7 +169,7 @@ export const Home = () => {
 
   useEffect(() => {
     // Cài đặt ngưỡng mất kết nối: 5 phút (300,000 mili-giây)
-    const HEARTBEAT_TIMEOUT = 5 * 60 * 1000; 
+    const HEARTBEAT_TIMEOUT = 5 * 60 * 1000;
 
     const interval = setInterval(() => {
       setFleet((prevFleet) => {
@@ -179,10 +182,15 @@ export const Home = () => {
           const lastUpdateTs = new Date(team.lastUpdate).getTime();
 
           // Nếu quá 5 phút không có tín hiệu GPS mới, và trạng thái chưa phải OFFLINE
-          if (team.status !== "OFFLINE" && (now - lastUpdateTs > HEARTBEAT_TIMEOUT)) {
+          if (
+            team.status !== "OFFLINE" &&
+            now - lastUpdateTs > HEARTBEAT_TIMEOUT
+          ) {
             updatedFleet[teamId] = { ...team, status: "OFFLINE" };
             hasChanges = true;
-            console.log(`[CẢNH BÁO] Đội ${team.teamName} đã mất tín hiệu GPS quá 5 phút!`);
+            console.log(
+              `[CẢNH BÁO] Đội ${team.teamName} đã mất tín hiệu GPS quá 5 phút!`,
+            );
           }
         });
 
@@ -198,9 +206,11 @@ export const Home = () => {
     const teams = Object.values(fleet);
     return {
       available: teams.filter((t) => t.status === "AVAILABLE").length,
-      busy: teams.filter((t) => ["BUSY", "IN_PROGRESS", "ASSIGNED"].includes(t.status)).length,
+      busy: teams.filter((t) =>
+        ["BUSY", "IN_PROGRESS", "ASSIGNED"].includes(t.status),
+      ).length,
       resting: teams.filter((t) => t.status === "RESTING").length, // Khai báo bộ đếm xe nghỉ ngơi
-      offline: teams.filter((t) => t.status === "OFFLINE").length, 
+      offline: teams.filter((t) => t.status === "OFFLINE").length,
     };
   }, [fleet]);
 

@@ -95,7 +95,7 @@ exports.notifyCitizenStatus = async (user, incident, statusLabel) => {
  * US-04: Lệnh điều động đích danh cho Đội cứu hộ
  */
 exports.notifyRescueAssignment = async (teamLeader, incident) => {
-  if (!teamLeader?.fcmToken) return;
+  // if (!teamLeader?.fcmToken) return;
   
   const title = "LỆNH ĐIỀU ĐỘNG MỚI";
   const body = `Đội của bạn vừa được gán vụ: ${incident.title}. Kiểm tra ngay!`;

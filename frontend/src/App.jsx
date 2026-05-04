@@ -46,7 +46,6 @@ function App() {
   }, [dispatch]);
 
   useEffect(() => {
-    // Chỉ chạy khi đã xác thực xong và có User tồn tại
     if (isInitialized && user) {
       // Lấy Token và đồng bộ về Backend
       setupFCM();
@@ -55,7 +54,7 @@ function App() {
       const listenForMessages = async () => {
         try {
           const payload = await onMessageListener();
-          console.log("🔔 Foreground Message:", payload);
+          console.log("Foreground Message:", payload);
           
           // Hiển thị thông báo nhanh cho người dùng
           toast.success(

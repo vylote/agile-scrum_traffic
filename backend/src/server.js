@@ -35,7 +35,7 @@ socketService.init(io);
 io.on('connection', (socket) => {
     console.log(`Connected device: ${socket.id}`);
 
-    socket.on('rescue:register', (data) => {
+    socket.on('rescue:register', async (data) => {
         const { teamId, role, zone } = data;
         if (teamId) {
             socket.join(`team:${teamId}`);
@@ -44,8 +44,34 @@ io.on('connection', (socket) => {
             if (role === TEAM_ROLES.LEADER) {
                 socket.registeredTeamId = teamId;
                 socketService.addOnlineTeam(teamId); 
+
+                try {
+                    const team = await RescueTeam.findById(teamId);
+
+                    if (team && team.status === 'OFFLINE') {
+                        const updatedTeam = await RescueTeam.findByIdAndUpdate(
+                            teamId, 
+                            { status: 'AVAILABLE' },
+                            { new: true }
+                        );
+
+                        console.log(`Đội [${teamId}] đã Online trở lại -> Tự động khôi phục AVAILABLE`);
+
+                        // Báo cho Dispatcher và Người dân biết xe này vừa online lại
+                        io.emit('rescue:location', {
+                            teamId: updatedTeam._id,
+                            status: updatedTeam.status,
+                            lat: updatedTeam.currentLocation?.coordinates[1],
+                            lng: updatedTeam.currentLocation?.coordinates[0],
+                            code: updatedTeam.code
+                        });
+                    }
+                } catch (err) {
+                    console.error("Lỗi khi khôi phục trạng thái Online:", err);
+                }
+            } else {
+                console.log(`MEMBER Đội [${teamId}] báo danh thành công.`);
             }
-            console.log(`LEADER Đội [${teamId}] báo danh thành công.`);
         }
     });
 

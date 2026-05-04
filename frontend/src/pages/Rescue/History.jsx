@@ -27,7 +27,7 @@ export function History() {
   };
 
   fetchHistory();
-}, [user]); // ✅ Bây giờ chỉ cần 'user' là đủ, không còn lỗi linting nữa
+}, [user]); 
 
   // Hàm helper để format thời gian cho đẹp
   const formatTime = (dateString) => {
@@ -62,7 +62,6 @@ export function History() {
               <p className="text-gray-400">Đội của bạn chưa hoàn thành ca cứu hộ nào.</p>
             </div>
           ) : (
-            // ✅ Hiển thị danh sách thật
             historyItems.map((item) => (
               <HistoryCard
                 key={item._id}

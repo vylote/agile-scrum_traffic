@@ -28,8 +28,8 @@ exports.createIncident = async (req, res, next) => {
         const address = geoData.display_name;
         const detectedZone = geoData.zone_detected;
 
-        console.log("📍 Địa chỉ full từ OSM:", address);
-        console.log("📍 ZONE cắt ra được để lưu vào DB:", detectedZone);
+        console.log("full address from OSM: ", address);
+        console.log("zone was cut for saving into db: ", detectedZone);
 
         const photos = req.files ? req.files.map(file => file.filename) : [];
 
@@ -90,8 +90,8 @@ exports.createSOS = async (req, res, next) => {
         const address = geoData.display_name;
         const detectedZone = geoData.zone_detected;
 
-        console.log("📍 Địa chỉ full từ OSM:", address);
-        console.log("📍 ZONE cắt ra được để lưu vào DB:", detectedZone);
+        console.log("Địa chỉ full từ OSM:", address);
+        console.log("ZONE cắt ra được để lưu vào DB:", detectedZone);
 
         const sosIncident = await Incident.create({
             reportedBy: req.user._id,

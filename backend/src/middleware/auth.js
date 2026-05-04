@@ -25,7 +25,6 @@ exports.protect = async (req, res, next) => {
             return next(new AppError(ErrorCodes.AUTH_UNAUTHORIZED));
         }
 
-        // Tính năng mới: Chặn nếu tài khoản bị khóa (isActive = false)
         if (!currentUser.isActive) {
             return next(new AppError(ErrorCodes.AUTH_USER_DISABLED)); 
         }
