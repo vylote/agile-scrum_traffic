@@ -245,7 +245,7 @@ export const RescueHome = () => {
             _ts: Date.now(),
           });
         }
-        
+
         if (data.status) {
           setTeamStatus(data.status);
           setIsResting(data.status === "RESTING");

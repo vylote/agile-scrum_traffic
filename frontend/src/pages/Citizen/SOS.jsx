@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, X, Loader2 } from "lucide-react";
-import api from "../../services/api"
+import api from "../../services/api";
 
 export const CitizenSOS = () => {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export const CitizenSOS = () => {
         (error) => {
           console.error("Lỗi lấy vị trí: ", error);
         },
-        { enableHighAccuracy: true } 
+        { enableHighAccuracy: true },
       );
     }
   }, []);
@@ -38,14 +38,14 @@ export const CitizenSOS = () => {
           };
           // Nó sẽ tự động chuyển đổi payload đó thành chuỗi JSON
           // Nó sẽ tự động gắn ngầm cái header Content-Type: application/json vào request trước khi gửi đi.
-          await api.post('/incidents/sos', payload);
+          await api.post("/incidents/sos", payload);
           navigate("/citizen/history");
         } catch (error) {
           setIsSending(false);
           console.error("Lỗi khi gửi SOS", error);
         }
       };
-      
+
       sendSOS();
       return;
     }
@@ -89,19 +89,19 @@ export const CitizenSOS = () => {
             {isSending ? "Đang kết nối..." : "Đang gửi tín hiệu SOS"}
           </h1>
           <p className="text-white/80 text-[18px] leading-relaxed max-w-[280px]">
-            {isSending 
-              ? "Vui lòng giữ nguyên màn hình" 
+            {isSending
+              ? "Vui lòng giữ nguyên màn hình"
               : "Hệ thống sẽ tự động phát tín hiệu khẩn cấp trong:"}
           </p>
         </div>
 
         <div className="h-[140px] flex items-center justify-center my-4">
           {isSending ? (
-             <Loader2 className="w-24 h-24 text-white animate-spin drop-shadow-xl" />
+            <Loader2 className="w-24 h-24 text-white animate-spin drop-shadow-xl" />
           ) : (
-             <div className="text-[140px] font-bold leading-none tracking-tighter tabular-nums drop-shadow-xl">
-               {countdown}
-             </div>
+            <div className="text-[140px] font-bold leading-none tracking-tighter tabular-nums drop-shadow-xl">
+              {countdown}
+            </div>
           )}
         </div>
       </div>
@@ -112,8 +112,8 @@ export const CitizenSOS = () => {
           onClick={() => navigate(-1)}
           disabled={isSending}
           className={`w-full flex items-center justify-center gap-2 backdrop-blur-md font-bold py-5 rounded-full text-[22px] transition-colors ${
-            isSending 
-              ? "bg-white/10 text-white/50 cursor-not-allowed" 
+            isSending
+              ? "bg-white/10 text-white/50 cursor-not-allowed"
               : "bg-white/20 hover:bg-white/30 active:bg-white/40 text-white"
           }`}
         >
