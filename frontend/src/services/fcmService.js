@@ -32,7 +32,6 @@ export const setupFCM = async () => {
 export const onMessageListener = () =>
   new Promise((resolve) => {
     onMessage(messaging, (payload) => {
-      console.log("Nhận thông báo mới:", payload);
       resolve(payload);
     });
   });

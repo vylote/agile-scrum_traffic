@@ -36,7 +36,7 @@ export const CitizenHistory = () => {
     const handleUpdate = (data) => {
       console.log("⚡ Nhận cập nhật sự cố từ Socket:", data);
 
-      // Cập nhật lại danh sách chính (re-render list)
+      // Cập nhật lại danh sách chính 
       setIncidents((prev) =>
         prev.map((inc) =>
           inc._id === data.id
@@ -49,20 +49,25 @@ export const CitizenHistory = () => {
         ),
       );
 
-      // Nếu người dân đang mở xem chi tiết cái đơn bị đổi trạng thái đó -> Cập nhật luôn màn hình chi tiết
-      if (selectedIncident && selectedIncident._id === data.id) {
-        setSelectedIncident((prev) => ({
-          ...prev,
-          status: data.status,
-          timeline: data.incident?.timeline || prev.timeline,
-          assignedTeam: data.incident?.assignedTeam || prev.assignedTeam,
-        }));
-      }
+      // Đưa logic kiểm tra vào bên trong prev để không bị phụ thuộc biến bên ngoài
+      setSelectedIncident((prev) => {
+        // Kiểm tra xem người dùng có đang mở xem đúng cái đơn bị đổi trạng thái này không
+        if (prev && prev._id === data.id) {
+          return {
+            ...prev,
+            status: data.status,
+            timeline: data.incident?.timeline || prev.timeline,
+            assignedTeam: data.incident?.assignedTeam || prev.assignedTeam,
+          };
+        }
+        return prev; // Không thì giữ nguyên
+      });
     };
 
     socket.on("incident:updated", handleUpdate);
+
     return () => socket.off("incident:updated", handleUpdate);
-  }, [selectedIncident]);
+  }, []);
 
   // 3. Lắng nghe tọa độ xe (Giữ nguyên)
   useEffect(() => {

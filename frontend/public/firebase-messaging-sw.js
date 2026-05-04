@@ -15,19 +15,22 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 /**
- * 3. Xử lý nhận tin nhắn khi App đang chạy ngầm (Background)
- * Payload này chính là dữ liệu mà hàm sendPushNotification từ Backend gửi qua
+ * XỬ LÝ NHẬN THÔNG BÁO NGẦM (BACKGROUND)
+ * Lưu ý: Vì Backend gửi DATA-ONLY, nên ta phải đọc từ payload.data
  */
 messaging.onBackgroundMessage((payload) => {
     console.log('[sw.js] Nhận thông báo chạy ngầm:', payload);
 
-    const notificationTitle = payload.notification.title || "Cứu hộ Khẩn cấp";
+    const data = payload.data || {};
+
+    const notificationTitle = data.title || "Cứu hộ Khẩn cấp";
+    
     const notificationOptions = {
-        body: payload.notification.body || "Bạn có cập nhật mới về sự cố.",
+        body: data.body || "Bạn có cập nhật mới về sự cố.",
         icon: '/logo192.png',      // Đường dẫn ảnh icon (nằm trong public)
         badge: '/favicon.ico',    // Icon nhỏ hiện trên thanh trạng thái Android
         tag: 'incident-alert',    // Các thông báo cùng tag sẽ ghi đè nhau, tránh làm phiền
-        data: payload.data,       // Chứa incidentId, trackingCode...
+        data: data,       // Chứa incidentId, trackingCode...
         vibrate: [200, 100, 200], // Rung máy (chỉ Android)
         actions: [                // Nút bấm nhanh trên thông báo
             { action: 'open_url', title: 'Xem chi tiết' }
@@ -38,21 +41,15 @@ messaging.onBackgroundMessage((payload) => {
 });
 
 /**
- * 4. Xử lý khi người dùng nhấn vào Thông báo
+ * XỬ LÝ KHI NGƯỜI DÙNG CLICK VÀO THÔNG BÁO TỪ STATUS BAR
  */
 self.addEventListener('notificationclick', (event) => {
     event.notification.close(); // Đóng thông báo ngay sau khi click
 
-    // Lấy dữ liệu đính kèm (Ví dụ mã tracking hoặc ID vụ việc)
+    // Đọc data mà ta đã nhét vào ở hàm trên
     const data = event.notification.data;
-    let targetUrl = '/';
-
-    if (data.type === 'RESCUE_ASSIGNMENT' || data.type === 'BROADCAST') {
-        targetUrl = '/rescue/home'; // Cứu hộ thì về màn hình trực đơn
-    } else if (data.trackingCode) {
-        targetUrl = `/track/${data.trackingCode}`; // Người dân thì vào trang theo dõi
-    }
-
+    // Nhắm mắt đi theo targetUrl mà Backend đã tính sẵn!
+    const targetUrl = data.targetUrl || '/';
     // Logic: Nếu đang có tab app mở thì focus vào, nếu không thì mở tab mới
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

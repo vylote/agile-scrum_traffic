@@ -97,19 +97,6 @@ autoDispatchQueue.process(5, async (job) => {
             return;
         }
 
-        //GIAI ĐOẠN 1 & 2: GÁN ĐÍCH DANH
-        
-        /* // Blacklist đội vừa timeout
-        if (lastTargetTeamId) {
-            console.log(`${logPrefix} Timeout: Blacklist đội [${lastTargetTeamId}]`);
-            incident = await Incident.findByIdAndUpdate(
-                incidentId, 
-                { $addToSet: { rejectedTeams: lastTargetTeamId } }, 
-                { new: true } 
-            );
-            socketService.getIO()?.to(`team:${lastTargetTeamId}`).emit('rescue:revoke_request');
-        } */
-
         const result = await findBestRescueTeam(incident);
         
         if (result) {
