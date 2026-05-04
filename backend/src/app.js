@@ -8,6 +8,7 @@ const rescueRoutes = require('./routes/rescueTeamRoutes.js')
 const userRoutes = require('./routes/userRoutes.js')
 const adminRoutes = require('./routes/adminRoutes.js');
 const reportRoutes = require('./routes/reportRoutes.js');
+const notificationRoutes = require('./routes/notificationRoutes.js')
 const globalExceptionHandler = require('./middleware/globalExceptionHandler');
 const { swaggerUi, specs } = require('./config/swagger'); 
 const ErrorCodes = require('./utils/constants/errorCodes.js');
@@ -34,6 +35,7 @@ app.use('/api/v1/rescue-teams', rescueRoutes);
 app.use('/api/v1/users', userRoutes); 
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 app.all('*any', (req, res, next) => {
     next(new AppError(ErrorCodes.URL_NOT_FOUND));

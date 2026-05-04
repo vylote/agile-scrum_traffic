@@ -1,5 +1,7 @@
 const admin = require("../config/firebase");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
+const { NOTIFICATION_TYPES } = require("../utils/constants/notificationConstants");
 
 const folderFriendlyTopic = (topicName) => {
   return topicName
@@ -68,19 +70,47 @@ exports.sendPushNotificationToTopic = async (topicName, title, body, payload = {
 exports.notifyCitizenStatus = async (user, incident, statusLabel) => {
   const title = "Cập nhật cứu hộ";
   const body = `Sự cố [${incident.code}] của bạn: ${statusLabel}`;
+  const targetUrl = '/citizen/dashboard';
+
+  try {
+      await Notification.create({
+          recipientId: user._id,
+          title,
+          body,
+          type: NOTIFICATION_TYPES.CITIZEN_UPDATE,
+          targetUrl,
+          incidentId: incident._id
+      });
+  } catch (dbErr) {
+      console.error("Lỗi lưu DB Notification (Citizen):", dbErr.message);
+  }
   
   return this.sendPushNotification(user.fcmToken, title, body, {
     incidentId: incident._id.toString(),
-    type: "CITIZEN_UPDATE"
+    type: NOTIFICATION_TYPES.CITIZEN_UPDATE
   });
 };
 
 exports.notifyRescueAssignment = async (teamLeader, incident) => {
   const title = "LỆNH ĐIỀU ĐỘNG MỚI";
   const body = `Đội của bạn vừa được gán vụ: ${incident.title}. Kiểm tra ngay!`;
+  const targetUrl = '/rescue/dashboard';
+
+  try {
+      await Notification.create({
+          recipientId: teamLeader._id, // teamLeader bản chất là User object
+          title,
+          body,
+          type: NOTIFICATION_TYPES.RESCUE_ASSIGNMENT,
+          targetUrl,
+          incidentId: incident._id
+      });
+  } catch (dbErr) {
+      console.error("Lỗi lưu DB Notification (Rescue):", dbErr.message);
+  }
   
   return this.sendPushNotification(teamLeader.fcmToken, title, body, {
     incidentId: incident._id.toString(),
-    type: "RESCUE_ASSIGNMENT"
+    type: NOTIFICATION_TYPES.RESCUE_ASSIGNMENT
   });
 };
