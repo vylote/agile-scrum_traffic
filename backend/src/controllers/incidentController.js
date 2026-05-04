@@ -57,6 +57,11 @@ exports.createIncident = async (req, res, next) => {
             timeline: initTimeLine
         });
 
+        if (req.user && req.user.fcmToken) {
+            notificationService.notifyCitizenStatus(req.user, newIncident, "Đã tiếp nhận yêu cầu. Hệ thống đang tìm đội cứu hộ gần nhất...")
+                .catch(err => console.error("Lỗi Push PENDING (Thường):", err.message));
+        }
+
         const io = req.app.get('io');
         if (io) {
             io.to('room:dispatchers').emit('incident:new', { incident: newIncident });
@@ -114,9 +119,13 @@ exports.createSOS = async (req, res, next) => {
             }]
         });
 
+        if (req.user && req.user.fcmToken) {
+            notificationService.notifyCitizenStatus(req.user, sosIncident, "SOS ĐÃ ĐƯỢC KÍCH HOẠT! Vui lòng giữ bình tĩnh, hệ thống đang điều phối xe khẩn cấp.")
+                .catch(err => console.error("Lỗi Push PENDING (SOS):", err.message));
+        }
+
         const io = req.app.get('io');
         if (io) {
-            // Cảnh báo SOS khẩn cấp toàn hệ thống với priority 'HIGH'
             io.emit('alert:sos', {
                 incident: sosIncident,
                 priority: 'HIGH'
@@ -124,7 +133,7 @@ exports.createSOS = async (req, res, next) => {
             io.to('room:dispatchers').emit('incident:new', { incident: sosIncident });
         }
 
-        // 🔥 THÊM ĐOẠN NÀY ĐỂ GỌI XE TỰ ĐỘNG CHO SOS:
+        // THÊM ĐOẠN NÀY ĐỂ GỌI XE TỰ ĐỘNG CHO SOS:
         const dispatchQueue = require('../jobs/autoAssign');
         await dispatchQueue.add({
             incidentId: sosIncident._id
@@ -421,33 +430,11 @@ exports.updateIncidentStatus = async (req, res, next) => {
 
         if (status === INCIDENT_STATUS.ASSIGNED && teamData?._id) {
             updateData.assignedTeam = teamData._id;
-            
-            // Populate members.userId để lấy fcmToken của Leader
-            const updatedTeam = await RescueTeam.findByIdAndUpdate(
-                teamData._id, 
-                { status: RESCUE_TEAM_STATUS.BUSY, activeIncident: id },
-                { new: true }
-            ).populate('members.userId'); 
-
-            if (updatedTeam) {
-                const leader = updatedTeam.members.find(m => m.role === 'LEADER');
-                if (leader?.userId?.fcmToken) {
-                    // Bắn thông báo cho đội cứu hộ (dùng hàm đã sửa của Vy)
-                    notificationService.notifyRescueAssignment(leader.userId, currentInc)
-                        .catch(err => console.error("Lỗi FCM Rescue:", err.message));
-                }
-            }
-        } else if (status === INCIDENT_STATUS.COMPLETED || status === INCIDENT_STATUS.CANCELLED) {
-            if (status === INCIDENT_STATUS.CANCELLED) {
-                updateData.assignedTeam = null; 
-            }
-            if (oldTeamId) {
-                await RescueTeam.findByIdAndUpdate(oldTeamId, {
-                    status: RESCUE_TEAM_STATUS.AVAILABLE,
-                    activeIncident: null
-                });
-            }
-            if (status === INCIDENT_STATUS.COMPLETED) updateData.resolvedAt = Date.now();
+        } else if (status === INCIDENT_STATUS.CANCELLED) {
+            updateData.assignedTeam = null; 
+        }
+        if (status === INCIDENT_STATUS.COMPLETED) {
+            updateData.resolvedAt = Date.now();
         }
 
         const updatedIncident = await Incident.findOneAndUpdate(
@@ -460,9 +447,39 @@ exports.updateIncidentStatus = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INCIDENT_INVALID_STATUS));
         }
 
+        if (status === INCIDENT_STATUS.ASSIGNED && teamData?._id) {
+            const updatedTeam = await RescueTeam.findByIdAndUpdate(
+                teamData._id, 
+                { status: RESCUE_TEAM_STATUS.BUSY, activeIncident: id },
+                { new: true }
+            ).populate('members.userId'); 
+
+            if (updatedTeam) {
+                const leader = updatedTeam.members.find(m => m.role === 'LEADER');
+                if (leader?.userId?.fcmToken) {
+                    // Bắn thông báo cho đội cứu hộ 
+                    notificationService.notifyRescueAssignment(leader.userId, currentInc)
+                        .catch(err => console.error("Lỗi FCM Rescue:", err.message));
+                }
+            }
+        } else if (status === INCIDENT_STATUS.COMPLETED || status === INCIDENT_STATUS.CANCELLED) {
+            if (oldTeamId) {
+                await RescueTeam.findByIdAndUpdate(oldTeamId, {
+                    status: RESCUE_TEAM_STATUS.AVAILABLE,
+                    activeIncident: null
+                });
+            }
+        }
+
         const io = req.app.get('io');
         if (io) {
             io.emit('incident:updated', { id, status, incident: updatedIncident });
+
+            io.emit('rescue:location', { 
+                teamId: updatedIncident.assignedTeam?._id || oldTeamId, 
+                status: status === INCIDENT_STATUS.ASSIGNED ? 'BUSY' : 'AVAILABLE' 
+            });
+
             if (status === INCIDENT_STATUS.PENDING) {
                 io.to(`zone:${updatedIncident.zone}`).emit('incident:new', { incident: updatedIncident });
             }
@@ -569,7 +586,7 @@ exports.confirmArrival = async (req, res, next) => {
         const incident = await Incident.findById(id);
         if (!incident) return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
 
-        // 🚩 KIỂM TRA KHOẢNG CÁCH 100M
+        //KIỂM TRA KHOẢNG CÁCH 100M
         const distance = calculateHaversine(
             currentLat, currentLng,
             incident.location.coordinates[1], incident.location.coordinates[0]
@@ -588,6 +605,26 @@ exports.confirmArrival = async (req, res, next) => {
             timestamp: Date.now()
         });
         await incident.save();
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('incident:updated', { 
+                id: incident._id, 
+                status: INCIDENT_STATUS.IN_PROGRESS, 
+                incident: incident 
+            });
+        }
+
+        //Bắn Push Notification báo người dân 
+        await incident.populate('reportedBy'); // Lấy info người dân để lấy fcmToken
+        const citizen = incident.reportedBy;
+        if (citizen?.fcmToken) {
+            notificationService.notifyCitizenStatus(
+                citizen, 
+                incident, 
+                "Đội cứu hộ đã đến hiện trường, đang xử lý."
+            ).catch(err => console.error("Lỗi Push IN_PROGRESS:", err.message));
+        }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, incident);
     } catch (error) { next(error); }

@@ -4,6 +4,7 @@ const ErrorCodes = require('../utils/constants/errorCodes');
 const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 const { USER_ROLES } = require('../utils/constants/userConstants');
+const admin = require('../config/firebase');
 
 exports.getAllUsers = async (req, res, next) => {
     try {
@@ -93,15 +94,40 @@ exports.getUserByPhone = async (req, res, next) => {
     }
 };
 
+const folderFriendlyTopic = (topicName) => {
+  return topicName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .replace(/\s+/g, "_")
+    .replace(/[^\w]/g, "");
+};
+
 exports.updateFCMToken = async (req, res, next) => {
     try {
         const { fcmToken } = req.body;
         
-        // Luôn cập nhật token mới nhất vì FCM Token có thể thay đổi định kỳ
-        await User.findByIdAndUpdate(req.user._id, { 
-            fcmToken: fcmToken || null, // Nếu gửi null tức là họ Logout/Tắt thông báo
-            lastLogin: Date.now() 
-        });
+        // Cập nhật DB và Populate để lấy thông tin Đội cứu hộ
+        const user =  await User.findByIdAndUpdate(
+            req.user._id, 
+            { 
+                fcmToken: fcmToken || null, // Nếu gửi null tức là họ Logout/Tắt thông báo
+                lastLogin: Date.now() 
+            },
+            { new: true }
+        ).populate('rescueTeam')
+
+        // GỌI FIREBASE ĐỂ ĐĂNG KÝ VÀO TOPIC KHU VỰC
+        // Kiểm tra xem User này có phải Cứu hộ và có Đội/Khu vực đàng hoàng không
+        if (fcmToken && user.role === USER_ROLES.RESCUE && user.rescueTeam?.zone) {
+            const safeTopic = folderFriendlyTopic(user.rescueTeam.zone);
+            try {
+                await admin.messaging().subscribeToTopic(fcmToken, safeTopic);
+                console.log(`Đã gán Token của [${user.name}] vào Topic nhận loa: ${safeTopic}`);
+            } catch (err) {
+                console.error("Lỗi Subscribe Topic FCM:", err.message);
+            }
+        }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã đồng bộ Token thiết bị." });
     } catch (err) {

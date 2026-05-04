@@ -47,25 +47,22 @@ function App() {
 
   useEffect(() => {
     if (isInitialized && user) {
-      // Lấy Token và đồng bộ về Backend
       setupFCM();
 
-      // Lắng nghe thông báo khi đang mở App (Foreground)
+      //Foreground (tiền cảnh) 24/7
       const listenForMessages = async () => {
         try {
           const payload = await onMessageListener();
-          console.log("Foreground Message:", payload);
           
-          // Hiển thị thông báo nhanh cho người dùng
           toast.success(
-            <div>
-              <b>{payload.notification.title}</b>
-              <p className="text-sm">{payload.notification.body}</p>
+            <div className="flex flex-col">
+              <span className="font-bold text-gray-900">{payload.data.title}</span>
+              <span className="text-sm text-gray-600">{payload.data.body}</span>
             </div>,
-            { duration: 5000, position: "top-right" }
+            { duration: 5000, position: "top" }
           );
 
-          // Sau khi nhận xong 1 tin, gọi lại chính nó để đợi tin tiếp theo
+          // Sau khi nhận xong 1 tin, gọi đệ quy đợi tin tiếp theo
           listenForMessages();
         } catch (err) {
           console.error("Lỗi lắng nghe tin nhắn:", err);

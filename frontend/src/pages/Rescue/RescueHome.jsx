@@ -370,26 +370,35 @@ export const RescueHome = () => {
       }
     };
 
-    const handleBroadcast = (data) => {
+    const handleMapUpdateOnly = (data) => {
       const newInc = data.incident;
-
       setIncidentsQueue((prev) => {
         if (prev.find((i) => i._id === newInc._id)) return prev;
         return [...prev, newInc];
       });
 
-      // Nếu tài xế đang rảnh rỗi (normal), thì khi loa phát, tự động mở popup thẻ trắng cho họ xem
+      // Nếu là SOS, cho rung máy 1 cái nhẹ để giật mình nhìn vô Bản đồ
+      if (data.priority === 'HIGH' && navigator.vibrate) {
+        try { navigator.vibrate(200); } catch (e) {}
+      }
+    };
+
+    // ÉP BẬT THẺ TRẮNG TRANH ĐƠN (GÀO THÉT)
+    // CHỈ dùng khi con Worker AutoAssign phát loa (sau khi gọi đích danh thất bại)
+    const handleForcePopupBroadcast = (data) => {
+      const newInc = data.incident;
+      setIncidentsQueue((prev) => {
+        if (prev.find((i) => i._id === newInc._id)) return prev;
+        return [...prev, newInc];
+      });
+
+      // Bật thẻ trắng nếu tài xế đang rảnh
       if (appStateRef.current === "normal" && !isRestingRef.current) {
         setViewingIncident(newInc);
         setAppState("viewing");
         setMapFocus(newInc.location?.coordinates);
-
         if (navigator.vibrate) {
-          try {
-            navigator.vibrate([300, 100, 300]);
-          } catch (e) {
-            console.warn("Trình duyệt không hỗ trợ rung", e);
-          }
+          try { navigator.vibrate([300, 100, 300]); } catch (e) {}
         }
       }
     };
@@ -399,19 +408,22 @@ export const RescueHome = () => {
     socket.on("rescue:incoming_request", handleIncomingRequest);
     socket.on("rescue:revoke_request", handleRevoke);
     socket.on("incident:updated", handleUpdated);
-    socket.on("incident:broadcast", handleBroadcast);
-    socket.on("alert:sos", handleBroadcast);
     socket.on("delete_incident", handleDeleteIncident);
 
+    socket.on("incident:new", handleMapUpdateOnly);
+    socket.on("alert:sos", handleMapUpdateOnly);
+    socket.on("incident:broadcast", handleForcePopupBroadcast);
     return () => {
       socket.off("rescue:location_update", handleLocationUpdate);
       socket.off("rescue:location", handleLocationUpdate);
       socket.off("rescue:incoming_request", handleIncomingRequest);
       socket.off("rescue:revoke_request", handleRevoke);
       socket.off("incident:updated", handleUpdated);
-      socket.off("incident:broadcast", handleBroadcast);
-      socket.off("alert:sos", handleBroadcast);
       socket.off("delete_incident", handleDeleteIncident);
+
+      socket.off("incident:new", handleMapUpdateOnly);
+      socket.off("alert:sos", handleMapUpdateOnly);
+      socket.off("incident:broadcast", handleForcePopupBroadcast);
     };
   }, [
     socket,
