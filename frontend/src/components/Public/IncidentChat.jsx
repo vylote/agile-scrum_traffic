@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Loader2, Info } from "lucide-react";
+import { Send, Loader2, Info, Eye } from "lucide-react";
 import api from "../../services/api";
 import { useSocket } from "../../hooks/useSocket";
 import { useSelector } from "react-redux";
@@ -17,6 +17,12 @@ export const IncidentChat = ({ incidentId }) => {
   const myRole = user?.role === "DISPATCHER" ? "DISPATCHER" : "RESCUE";
   const userId = user?._id || user?.id;
   const userName = user?.name;
+
+  const teamMembers = user?.rescueTeam?.members || [];
+  const myTeamInfo = teamMembers.find(m => m.userId === userId);
+  const teamRole = myTeamInfo?.role || "MEMBER";
+
+  const canChat = myRole === "DISPATCHER" || teamRole === "LEADER";
 
   // 1. Fetch Lịch sử khi mở Chat
   useEffect(() => {
@@ -62,7 +68,7 @@ export const IncidentChat = ({ incidentId }) => {
       });
       socket.off("chat:message", handleNewMessage);
     };
-  }, [socket, incidentId, userId, myRole]); // 🔥 ĐÃ XÓA 'user', CHỈ CÒN 'userId'
+  }, [socket, incidentId, userId, myRole]); 
 
   // 3. Tự động cuộn xuống cuối
   useEffect(() => {
@@ -72,7 +78,7 @@ export const IncidentChat = ({ incidentId }) => {
   // 4. Hàm Gửi tin nhắn
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!inputText.trim() || !socket) return;
+    if (!inputText.trim() || !socket || !canChat) return;
 
     const payload = {
       incidentId,
@@ -99,7 +105,7 @@ export const IncidentChat = ({ incidentId }) => {
       );
     }
 
-    const isMine = msg.sender.role === myRole;
+    const isMine = msg.sender.userId.toString() === userId.toString();
 
     return (
       <div
@@ -113,10 +119,9 @@ export const IncidentChat = ({ incidentId }) => {
             <span className="text-[10px] text-gray-500 font-bold mb-1 ml-1">
               {msg.sender.role === "DISPATCHER"
                 ? "Điều phối viên"
-                : msg.sender.name}
+                : `Đội trưởng - ${msg.sender.name}`}
             </span>
           )}
-
           <div
             className={`px-4 py-2.5 rounded-2xl text-[14px] ${
               isMine
@@ -156,31 +161,38 @@ export const IncidentChat = ({ incidentId }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <form
-        onSubmit={handleSendMessage}
-        className="p-3 bg-white border-t border-gray-100 flex items-end gap-2"
-      >
-        <textarea
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage(e);
-            }
-          }}
-          placeholder="Nhập tin nhắn..."
-          className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none resize-none max-h-[100px]"
-          rows="1"
-        />
-        <button
-          type="submit"
-          disabled={!inputText.trim()}
-          className="w-11 h-11 shrink-0 bg-[#0088FF] text-white rounded-xl flex items-center justify-center disabled:bg-gray-200 disabled:text-gray-400 transition-colors active:scale-95 mb-0.5"
+      {canChat ? (
+        <form
+          onSubmit={handleSendMessage}
+          className="p-3 bg-white border-t border-gray-100 flex items-end gap-2"
         >
-          <Send size={18} className="ml-1" />
-        </button>
-      </form>
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e);
+              }
+            }}
+            placeholder="Nhập tin nhắn..."
+            className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none resize-none max-h-[100px]"
+            rows="1"
+          />
+          <button
+            type="submit"
+            disabled={!inputText.trim()}
+            className="w-11 h-11 shrink-0 bg-[#0088FF] text-white rounded-xl flex items-center justify-center disabled:bg-gray-200 disabled:text-gray-400 transition-colors active:scale-95 mb-0.5"
+          >
+            <Send size={18} className="ml-1" />
+          </button>
+        </form>
+      ) : (
+        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-center text-gray-500 text-xs font-medium italic gap-2">
+          <Eye size={16} className="text-gray-400" />
+          Chế độ Chỉ xem. Chỉ Đội trưởng mới được quyền phản hồi tin nhắn.
+        </div>
+      )}
     </div>
   );
 };
