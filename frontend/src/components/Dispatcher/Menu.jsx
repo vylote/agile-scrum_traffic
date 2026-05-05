@@ -42,53 +42,99 @@ const NavigationMenu = () => {
   const currentPath = location.pathname;
   const socket = useSocket();
 
-  // 🔥 1. State lưu số lượng sự cố chưa hoàn thành
   const [incidentCount, setIncidentCount] = useState(0);
+  
+  // 🔥 FIX LỖI ESLINT: Khởi tạo dữ liệu trực tiếp từ LocalStorage ngay lần render đầu tiên
+  const [globalUnreadCount, setGlobalUnreadCount] = useState(() => {
+    try {
+      const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+      return Object.values(storedCounts).reduce((sum, count) => sum + count, 0);
+    } catch (e) {
+      return 0;
+    }
+  });
 
-  // 🔥 2. Gọi API lấy số lượng ban đầu (Chỉ lấy các vụ chưa Completed/Cancelled)
+  const calculateTotalUnread = () => {
+    try {
+      const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+      const total = Object.values(storedCounts).reduce((sum, count) => sum + count, 0);
+      setGlobalUnreadCount(total);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Gọi API lấy số lượng sự cố ban đầu
   useEffect(() => {
     const fetchCount = async () => {
       try {
         const res = await api.get("/incidents?status=PENDING,ASSIGNED,IN_PROGRESS");
-        // Lấy total từ pagination mà Backend của bạn đã tính
         setIncidentCount(res.data.result.pagination.total || 0);
       } catch (error) {
         console.error("Lỗi lấy số lượng sự cố:", error);
       }
     };
     fetchCount();
+
+    // Lắng nghe sự kiện CallCenter báo cáo đã đọc tin nhắn
+    const handleStorageChange = () => {
+      calculateTotalUnread();
+    };
+
+    window.addEventListener('chatCountsUpdated', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('chatCountsUpdated', handleStorageChange);
+    };
   }, []);
 
-  // 🔥 3. Lắng nghe Socket để cập nhật Badge Real-time
+  // Lắng nghe Socket để cập nhật Badge Sự cố & Badge Tin nhắn
   useEffect(() => {
     if (!socket) return;
 
-    // Khi có vụ mới (thường hoặc SOS) -> Tăng 1
+    // 1. Lắng nghe Sự cố mới
     const handleNew = () => setIncidentCount(prev => prev + 1);
 
-    // Khi cập nhật trạng thái
     const handleUpdate = (data) => {
-      // Nếu vụ đó chuyển sang trạng thái kết thúc -> Giảm 1
       if ([INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(data.status)) {
         setIncidentCount(prev => Math.max(0, prev - 1));
       }
     };
 
-    // Khi bị xóa khỏi DB -> Giảm 1
     const handleDelete = () => setIncidentCount(prev => Math.max(0, prev - 1));
+
+    // 2. LẮNG NGHE TIN NHẮN MỚI TỪ ĐỘI CỨU HỘ
+    const handleNotify = (data) => {
+      const { incidentId } = data;
+      
+      const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+      const currentUrl = window.location.href;
+      
+      // Nếu không ở Call Center thì tăng đếm trong LocalStorage
+      if (!currentUrl.includes('/dispatcher/call-center')) {
+         storedCounts[incidentId] = (storedCounts[incidentId] || 0) + 1;
+         localStorage.setItem('unreadChatCounts', JSON.stringify(storedCounts));
+         calculateTotalUnread();
+      }
+    };
 
     socket.on("incident:new", handleNew);
     socket.on("alert:sos", handleNew);
     socket.on("incident:updated", handleUpdate);
     socket.on("delete_incident", handleDelete);
+    
+    socket.emit('dispatcher:register');
+    socket.on('chat:notify_dispatcher', handleNotify);
 
     return () => {
       socket.off("incident:new", handleNew);
       socket.off("alert:sos", handleNew);
       socket.off("incident:updated", handleUpdate);
       socket.off("delete_incident", handleDelete);
+      socket.off('chat:notify_dispatcher', handleNotify);
     };
   }, [socket]);
+
 
   const menuItems = [
     {
@@ -100,7 +146,7 @@ const NavigationMenu = () => {
       path: "/dispatcher/incidents",
       icon: <AlertCircle className="w-5 h-5" />,
       label: "Sự cố",
-      badge: incidentCount, // 🔥 Gán số lượng thực tế vào đây
+      badge: incidentCount,
     },
     {
       path: "/dispatcher/fleet",
@@ -111,6 +157,7 @@ const NavigationMenu = () => {
       path: "/dispatcher/call-center",
       icon: <Phone className="w-5 h-5" />,
       label: "Liên lạc tổng đài",
+      badge: globalUnreadCount, // 🔥 Gán số lượng tin nhắn chưa đọc vào Menu này
     },
   ];
 
@@ -122,6 +169,7 @@ const NavigationMenu = () => {
           <Link
             key={index}
             to={item.path}
+            // 🔥 ĐÃ XÓA SỰ KIỆN onClick. Bấm vào Menu không tự ý xóa chấm đỏ nữa!
             className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive
                 ? "bg-blue-50 text-blue-600 font-bold"
@@ -135,10 +183,10 @@ const NavigationMenu = () => {
               <span className="text-[15px]">{item.label}</span>
             </div>
 
-            {/* Chỉ hiện Badge nếu số lượng > 0 */}
+            {/* Hiện Badge nếu số lượng > 0 */}
             {item.badge > 0 && (
               <div className="flex flex-col justify-center items-center px-2 font-bold text-white whitespace-nowrap bg-red-500 rounded-full h-[24px] min-w-[24px] text-xs animate-in zoom-in duration-300">
-                {item.badge}
+                {item.badge > 99 ? '99+' : item.badge}
               </div>
             )}
           </Link>
