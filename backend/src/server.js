@@ -15,6 +15,7 @@ const initApp = require('./utils/initApp');
 const socketService = require('./services/socket');
 const Incident = require('./models/Incident');
 const RescueTeam = require('./models/RescueTeam');
+const Message = require('./models/Message')
 
 const server = http.createServer(app);
 
@@ -131,16 +132,6 @@ io.on('connection', (socket) => {
         const { incidentId, userId, role } = data;
         const roomName = `incident_chat:${incidentId}`;
 
-        /* try {
-            const incident = await Incident.findById(incidentId)
-            if (!incident) {
-                return socket.emit('chat:error', { message: 'Sự cố không tồn tại.' })
-            }
-        } catch () {
-
-        } */
-
-        // Đưa user vào phòng chat của sự cố
         socket.join(roomName);
         
         // Lưu lại vết phòng đang join vào socket để tiện dọn dẹp nếu đột ngột mất mạng
@@ -153,18 +144,34 @@ io.on('connection', (socket) => {
     });
 
     socket.on('chat:message', async (data) => {
-        const { incidentId, text, senderName, senderId } = data;
+        const { incidentId, text, sender } = data;
         const roomName = `incident_chat:${incidentId}`;
 
-        const messagePayload = {
-            senderId: senderId,
-            sender: senderName,
-            text: text,
-            time: new Date().toISOString()
-        };
+        try {
+            const newMessage = await Message.create({
+                incidentId: incidentId,
+                content: text,
+                sender: {
+                    userId: sender.userId,     
+                    name: sender.name,         
+                    role: sender.role || 'RESCUE' 
+                },
+                messageType: 'TEXT'
+            });
+            // Phát tin nhắn đã lưu cho tất cả những người đang mở box chat
+            io.to(roomName).emit('chat:message', newMessage);
 
-        // Phát tin nhắn cho tất cả những người đang ở trong phòng (Bao gồm cả người gửi)
-        io.to(roomName).emit('chat:message', messagePayload);
+            if (sender.role === 'RESCUE') {
+                io.to('room:dispatchers').emit('chat:notify_dispatcher', {
+                    incidentId: incidentId,
+                    lastMessage: text
+                });
+            }
+
+        } catch(err) {
+            console.error("[CHAT] Lỗi lưu tin nhắn vào DB:", err);
+            socket.emit('chat:error', { message: 'Lỗi hệ thống: Không thể gửi tin nhắn lúc này.' });
+        }
 
         //Chỗ này sau này sẽ gọi hàm lưu tin nhắn vào Database (MongoDB) 
         // Ví dụ: await ChatMessage.create({ incidentId, senderId, text });

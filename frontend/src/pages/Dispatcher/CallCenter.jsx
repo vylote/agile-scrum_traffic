@@ -1,95 +1,152 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Menu } from "../../components/Dispatcher/Menu";
 import { SearchBar } from "../../components/Dispatcher/SearchBar";
-
-// Import Icons
-import {
-  Phone,
-  Video,
-  Send,
-  Search,
-  MoreVertical,
-  Image as ImageIcon,
-  Paperclip,
-} from "lucide-react";
-
-// ==========================================
-// MOCK DATA (DỮ LIỆU GIẢ)
-// ==========================================
-const chatList = [
-  {
-    id: 1,
-    name: "Tài xế 1 (29H-123.45)",
-    lastMessage: "Đã nhận nhiệm vụ. Đang di chuyển...",
-    time: "07:00",
-    isOnline: true,
-    unread: 2,
-    avatar: "https://i.pravatar.cc/150?img=11",
-  },
-  {
-    id: 2,
-    name: "Cứu hộ 2 (Đống Đa)",
-    lastMessage: "Khu vực này đang tắc đường nặng sếp ơi.",
-    time: "06:45",
-    isOnline: true,
-    unread: 0,
-    avatar: "https://i.pravatar.cc/150?img=12",
-  },
-  {
-    id: 3,
-    name: "Người dân - Nguyễn Văn A",
-    lastMessage: "Vâng, tôi đang đứng ở ngay gốc cây to.",
-    time: "06:30",
-    isOnline: false,
-    unread: 0,
-    avatar: "https://i.pravatar.cc/150?img=68",
-  },
-];
-
-const mockMessages = [
-  {
-    id: 1,
-    text: "Chào anh, tôi là điều phối viên. Anh đã tiếp cận được hiện trường chưa?",
-    time: "06:55",
-    isOutgoing: true,
-  },
-  {
-    id: 2,
-    text: "Chào sếp, em đang cách đó khoảng 500m nhưng đang tắc đường quá.",
-    time: "06:58",
-    isOutgoing: false,
-  },
-  {
-    id: 3,
-    text: "Đã nhận nhiệm vụ. Đang di chuyển...",
-    time: "07:00",
-    isOutgoing: false,
-  },
-];
+import { Search, Loader2, Info } from "lucide-react";
+import api from "../../services/api";
+import { IncidentChat } from "../../components/Public/IncidentChat"; 
+import { useSocket } from "../../hooks/useSocket";
+import { INCIDENT_STATUS } from "../../utils/constants/incidentConstants";
 
 export const CallCenter = () => {
-  const [messageInput, setMessageInput] = useState("");
-  const activeChat = chatList[0];
+  const socket = useSocket();
+  const [activeIncidents, setActiveIncidents] = useState([]);
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Khởi tạo state từ LocalStorage
+  const [unreadCounts, setUnreadCounts] = useState(() => {
+     try {
+        return JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+     } catch {
+        return {};
+     }
+  });
+
+  const selectedIncidentRef = useRef(selectedIncident);
+  useEffect(() => {
+    selectedIncidentRef.current = selectedIncident;
+  }, [selectedIncident]);
+
+  // 1. Fetch danh sách sự cố và TỰ ĐỘNG DỌN RÁC
+  useEffect(() => {
+    const fetchActiveIncidents = async () => {
+      try {
+        setIsLoading(true);
+        const res = await api.get("/incidents?status=ASSIGNED,IN_PROGRESS");
+        const data = res.data?.result?.data || [];
+        setActiveIncidents(data);
+
+        // 🔥 DỌN RÁC LOCAL STORAGE:
+        // Quét LocalStorage, nếu có ID nào đang đếm số mà KHÔNG CÒN TRONG DANH SÁCH data nữa -> Xóa đi
+        const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+        let hasChanges = false;
+
+        Object.keys(storedCounts).forEach(id => {
+           const stillActive = data.some(inc => inc._id === id);
+           if (!stillActive && storedCounts[id] > 0) {
+              delete storedCounts[id]; // Xóa luôn cái key đó
+              hasChanges = true;
+           }
+        });
+
+        // Nếu có dọn rác thì cập nhật lại
+        if (hasChanges) {
+           localStorage.setItem('unreadChatCounts', JSON.stringify(storedCounts));
+           setUnreadCounts(storedCounts);
+           window.dispatchEvent(new Event('chatCountsUpdated')); // Báo Menu xóa số
+        }
+
+      } catch (error) {
+        console.error("Lỗi lấy danh sách sự cố Call Center:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchActiveIncidents();
+  }, []);
+
+  // 2. LẮNG NGHE THÔNG BÁO PING & LẮNG NGHE SỰ CỐ HOÀN THÀNH
+  useEffect(() => {
+    if (!socket) return;
+    socket.emit('dispatcher:register');
+
+    const handleNotify = (data) => {
+      const { incidentId, lastMessage } = data;
+
+      if (selectedIncidentRef.current?._id === incidentId) return;
+
+      const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+      storedCounts[incidentId] = (storedCounts[incidentId] || 0) + 1; 
+
+      localStorage.setItem('unreadChatCounts', JSON.stringify(storedCounts));
+      window.dispatchEvent(new Event('chatCountsUpdated'));
+      setUnreadCounts(storedCounts);
+
+      setActiveIncidents((prev) => 
+        prev.map(inc => 
+          inc._id === incidentId ? { ...inc, lastMessagePreview: lastMessage } : inc
+        )
+      );
+    };
+
+    // 🔥 XỬ LÝ LỖI KHÔNG TỰ ĐÓNG KHUNG CHAT KHI CỨU HỘ ẤN HOÀN THÀNH
+    const handleIncidentUpdate = (data) => {
+      const updatedIncident = data.incident || data;
+      
+      if ([INCIDENT_STATUS.COMPLETED, INCIDENT_STATUS.CANCELLED].includes(updatedIncident.status)) {
+         // A. Xóa khỏi danh sách cột trái
+         setActiveIncidents(prev => prev.filter(inc => inc._id !== updatedIncident._id));
+         
+         // B. Nếu đang mở khung chat của vụ này -> Đóng khung chat lại
+         if (selectedIncidentRef.current?._id === updatedIncident._id) {
+             setSelectedIncident(null);
+         }
+
+         // C. Dọn dẹp LocalStorage (Xóa chấm đỏ bị kẹt)
+         const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+         if (storedCounts[updatedIncident._id]) {
+            delete storedCounts[updatedIncident._id];
+            localStorage.setItem('unreadChatCounts', JSON.stringify(storedCounts));
+            setUnreadCounts(storedCounts);
+            window.dispatchEvent(new Event('chatCountsUpdated')); // Báo Menu
+         }
+      }
+    };
+
+    socket.on('chat:notify_dispatcher', handleNotify);
+    socket.on('incident:updated', handleIncidentUpdate); // 🔥 Nghe thêm sự kiện này
+
+    return () => {
+      socket.off('chat:notify_dispatcher', handleNotify);
+      socket.off('incident:updated', handleIncidentUpdate);
+    };
+  }, [socket]);
+
+  // 3. Hàm xử lý khi bấm vào 1 vụ án ở cột trái
+  const handleSelectIncident = (inc) => {
+    setSelectedIncident(inc);
+    
+    const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
+    storedCounts[inc._id] = 0; 
+    
+    localStorage.setItem('unreadChatCounts', JSON.stringify(storedCounts));
+    window.dispatchEvent(new Event('chatCountsUpdated'));
+    
+    setUnreadCounts(storedCounts);
+  };
 
   return (
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
-      {/* =========================================
-          SIDEBAR (Chỉ cần 1 dòng duy nhất!)
-      ========================================= */}
       <Menu />
 
-      {/* =========================================
-          MAIN CONTENT (NỘI DUNG CHÍNH)
-      ========================================= */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* HEADER */}
         <header className="h-[80px] flex items-center justify-between px-8 bg-transparent shrink-0">
           <div>
             <h2 className="text-[22px] font-bold text-gray-900 leading-tight mb-1">
-              Liên lạc tổng đài
+              Trung tâm liên lạc
             </h2>
             <p className="text-sm text-gray-500">
-              Hà Nội, Việt Nam • Cập nhật lúc 07:00
+              Hỗ trợ khẩn cấp • {activeIncidents.length} sự cố đang kết nối
             </p>
           </div>
           <div className="w-[400px]">
@@ -97,169 +154,103 @@ export const CallCenter = () => {
           </div>
         </header>
 
-        {/* GIAO DIỆN CHAT 2 CỘT */}
         <div className="flex-1 px-8 pb-8 overflow-hidden">
           <div className="h-full w-full max-w-6xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm flex overflow-hidden">
-            {/* CỘT TRÁI: DANH SÁCH CHAT (Width cố định 320px) */}
+            
+            {/* CỘT TRÁI */}
             <section className="w-[320px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
-              {/* Thanh tìm kiếm cục bộ */}
               <div className="p-4 border-b border-gray-100">
                 <div className="relative">
                   <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Tìm kiếm tin nhắn..."
+                    placeholder="Tìm mã vụ việc..."
                     className="w-full h-10 pl-9 pr-4 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>
               </div>
 
-              {/* Danh sách người dùng */}
               <div className="flex-1 overflow-y-auto">
-                {chatList.map((chat) => (
-                  <div
-                    key={chat.id}
-                    className={`flex items-start gap-3 p-4 cursor-pointer transition-colors border-b border-gray-50 ${
-                      chat.id === activeChat.id
-                        ? "bg-blue-50/50"
-                        : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="relative">
-                      <img
-                        src={chat.avatar}
-                        alt={chat.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      {chat.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-1">
-                        <h4 className="text-sm font-bold text-gray-900 truncate pr-2">
-                          {chat.name}
-                        </h4>
-                        <span className="text-[11px] font-medium text-gray-400 shrink-0">
-                          {chat.time}
-                        </span>
-                      </div>
-                      <p
-                        className={`text-xs truncate ${chat.unread > 0 ? "font-bold text-gray-900" : "text-gray-500"}`}
-                      >
-                        {chat.lastMessage}
-                      </p>
-                    </div>
-                    {chat.unread > 0 && (
-                      <span className="shrink-0 w-5 h-5 flex items-center justify-center bg-blue-600 text-white text-[10px] font-bold rounded-full mt-1">
-                        {chat.unread}
-                      </span>
-                    )}
+                {isLoading ? (
+                  <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-500" /></div>
+                ) : activeIncidents.length === 0 ? (
+                  <div className="p-10 text-center text-sm text-gray-400 font-medium italic">
+                    Không có sự cố nào đang xử lý
                   </div>
-                ))}
-              </div>
-            </section>
+                ) : (
+                  activeIncidents.map((inc) => {
+                    const unread = unreadCounts[inc._id] || 0;
+                    const isActive = selectedIncident?._id === inc._id;
 
-            {/* CỘT PHẢI: KHUNG CHAT CHI TIẾT */}
-            <section className="flex-1 flex flex-col bg-[#F9FAFB]">
-              {/* Header Khung Chat */}
-              <div className="h-[72px] px-6 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={activeChat.avatar}
-                    alt="Avatar"
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900 leading-tight">
-                      {activeChat.name}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                      <span className="text-xs font-medium text-green-600">
-                        Trực tuyến
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 transition-colors">
-                    <Phone className="w-5 h-5" />
-                  </button>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 transition-colors">
-                    <Video className="w-5 h-5" />
-                  </button>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 transition-colors ml-2 border border-gray-200">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Khu vực hiển thị tin nhắn (Cuộn) */}
-              <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
-                {/* Phân cách ngày tháng */}
-                <div className="flex justify-center my-2">
-                  <span className="px-3 py-1 bg-gray-200 text-gray-500 text-[11px] font-bold uppercase tracking-wider rounded-full">
-                    Hôm nay
-                  </span>
-                </div>
-
-                {/* Render Tin Nhắn */}
-                {mockMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex max-w-[80%] ${msg.isOutgoing ? "self-end flex-row-reverse" : "self-start"}`}
-                  >
-                    {!msg.isOutgoing && (
-                      <img
-                        src={activeChat.avatar}
-                        alt="Avatar"
-                        className="w-8 h-8 rounded-full object-cover mr-3 shrink-0"
-                      />
-                    )}
-                    <div
-                      className={`flex flex-col ${msg.isOutgoing ? "items-end" : "items-start"}`}
-                    >
+                    return (
                       <div
-                        className={`px-4 py-2.5 rounded-2xl text-[15px] ${
-                          msg.isOutgoing
-                            ? "bg-blue-600 text-white rounded-tr-sm"
-                            : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"
+                        key={inc._id}
+                        onClick={() => handleSelectIncident(inc)} 
+                        className={`flex items-start gap-3 p-4 cursor-pointer transition-colors border-b border-gray-50 ${
+                          isActive ? "bg-blue-50/50" : "hover:bg-gray-50"
                         }`}
                       >
-                        {msg.text}
+                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xs shrink-0 uppercase">
+                          {inc.assignedTeam?.name?.substring(0, 2) || "TM"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-1">
+                            <h4 className={`text-sm truncate pr-2 ${unread > 0 ? "font-black text-gray-900" : "font-bold text-gray-700"}`}>
+                              {inc.assignedTeam?.name || "Đội Cứu Hộ"}
+                            </h4>
+                          </div>
+                          
+                          <p className={`text-xs truncate ${unread > 0 ? "font-bold text-blue-600" : "text-gray-500"}`}>
+                            {inc.lastMessagePreview ? inc.lastMessagePreview : `Vụ: ${inc.title}`}
+                          </p>
+                        </div>
+                        
+                        {unread > 0 && (
+                          <span className="shrink-0 w-5 h-5 flex items-center justify-center bg-blue-600 text-white text-[10px] font-bold rounded-full mt-1 animate-in zoom-in duration-300">
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
                       </div>
-                      <span className="text-[11px] text-gray-400 font-medium mt-1 px-1">
-                        {msg.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Footer: Ô nhập văn bản */}
-              <div className="p-4 bg-white border-t border-gray-200 shrink-0">
-                <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl p-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-                  <button className="p-2 text-gray-400 hover:text-gray-600 shrink-0">
-                    <Paperclip className="w-5 h-5" />
-                  </button>
-                  <button className="p-2 text-gray-400 hover:text-gray-600 shrink-0">
-                    <ImageIcon className="w-5 h-5" />
-                  </button>
-                  <textarea
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    placeholder="Nhập tin nhắn..."
-                    className="flex-1 bg-transparent max-h-[120px] min-h-[40px] resize-none outline-none py-2 text-[15px] text-gray-800"
-                    rows={1}
-                  />
-                  <button className="p-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl shrink-0 transition-colors shadow-sm">
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
+                    )
+                  })
+                )}
               </div>
             </section>
+
+            {/* CỘT PHẢI */}
+            <section className="flex-1 flex flex-col bg-[#F9FAFB] overflow-hidden">
+              {selectedIncident ? (
+                <>
+                  <div className="h-[72px] px-6 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900 leading-tight">
+                          Đang hỗ trợ: {selectedIncident.assignedTeam?.name || "Chưa rõ"}
+                        </h3>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs font-medium text-blue-600">
+                            Mã: {selectedIncident.code} • Trạng thái: {selectedIncident.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-hidden">
+                      <IncidentChat 
+                        key={selectedIncident._id} 
+                        incidentId={selectedIncident._id} 
+                      />
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center flex-col text-gray-400">
+                  <Info className="w-12 h-12 mb-3 text-gray-300" />
+                  <p>Vui lòng chọn một sự cố bên trái để bắt đầu nhắn tin.</p>
+                </div>
+              )}
+            </section>
+
           </div>
         </div>
       </main>
