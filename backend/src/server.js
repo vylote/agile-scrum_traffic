@@ -148,6 +148,28 @@ io.on('connection', (socket) => {
         const roomName = `incident_chat:${incidentId}`;
 
         try {
+            if (sender.role === 'RESCUE') {
+                // Truy vấn Đội cứu hộ chứa user này
+                const team = await RescueTeam.findOne({
+                    "members.userId": sender.userId
+                });
+
+                if (!team) {
+                    return socket.emit('chat:error', { message: 'Lỗi: Không tìm thấy thông tin đội cứu hộ.' });
+                }
+
+                // Lấy thông tin thành viên
+                const memberInfo = team.members.find(
+                    m => m.userId.toString() === sender.userId.toString()
+                );
+
+                // Chặn nếu không phải LEADER
+                if (!memberInfo || memberInfo.role !== TEAM_ROLES.LEADER) {
+                    console.log(`[BẢO MẬT] Chặn user ${sender.userId} (Không phải LEADER) gửi tin.`);
+                    return socket.emit('chat:error', { message: 'Từ chối truy cập: Chỉ Đội trưởng mới được gửi tin.' });
+                }
+            }
+
             const newMessage = await Message.create({
                 incidentId: incidentId,
                 content: text,
