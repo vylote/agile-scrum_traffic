@@ -3,7 +3,6 @@ import { AdminMenu } from "../../components/Admin/Menu";
 import { AdminHeader } from "../../components/Admin/AdminHeader";
 import {
   Plus,
-  Filter,
   Edit,
   Trash2,
   Search,
@@ -12,7 +11,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-} from "lucide-react"; // Thay User bằng Truck cho Rescue
+  X,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 import AddAccountForm from "../../components/Admin/AddAccountForm";
 import api from "../../services/api";
 import { USER_ROLES } from "../../utils/constants/userConstants";
@@ -27,6 +29,19 @@ export const Users = () => {
     totalPages: 1,
     currentPage: 1,
   });
+
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: "success" });
+    }, 3000);
+  };
 
   const fetchUsers = useCallback(
     async (page = 1) => {
@@ -54,18 +69,86 @@ export const Users = () => {
 
   const handleCreateAccount = async (formData) => {
     try {
-      await api.post("/auth/register", formData);
+      await api.post("/users", formData);
       setIsModalOpen(false);
       fetchUsers(1);
+      showToast("Cấp tài khoản vận hành thành công!", "success");
     } catch (error) {
-      alert(
-        "Lỗi: " + (error.response?.data?.message || "Không thể tạo tài khoản"),
-      );
+      const errorMsg =
+        error.response?.data?.error?.message ||
+        "Không thể tạo tài khoản lúc này.";
+      showToast(errorMsg, "error");
+    }
+  };
+
+  // 🔥 THÊM: HÀM XỬ LÝ XÓA NHÂN SỰ
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa tài khoản "${userName}"? Hành động này sẽ gỡ nhân sự khỏi đội cứu hộ hiện tại (nếu có).`)) {
+      return;
+    }
+    
+    try {
+      await api.delete(`/users/${userId}`);
+      showToast(`Đã xóa tài khoản "${userName}" thành công!`, "success");
+      // Load lại trang hiện tại sau khi xóa
+      fetchUsers(pagination.currentPage);
+    } catch (error) {
+      const errorMsg = error.response?.data?.error?.message || "Lỗi hệ thống khi xóa tài khoản.";
+      showToast(errorMsg, "error");
     }
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden relative">
+      {toast.show && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-[450px] animate-in slide-in-from-top-5 fade-in duration-300">
+          <div
+            className={`border shadow-xl rounded-2xl p-4 flex items-start gap-3 ${
+              toast.type === "error"
+                ? "bg-red-50 border-red-200"
+                : "bg-green-50 border-green-200"
+            }`}
+          >
+            {toast.type === "error" ? (
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+            )}
+
+            <div className="flex-1">
+              <div
+                className={`text-[14px] font-medium leading-tight ${
+                  toast.type === "error" ? "text-red-600" : "text-green-700"
+                }`}
+              >
+                {Array.isArray(toast.message) ? (
+                  <ul className="list-none flex flex-col gap-1 mt-0.5">
+                    {toast.message.map((err, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="opacity-70 mt-0.5">*</span> {err}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  toast.message
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() =>
+                setToast({ show: false, message: "", type: "success" })
+              }
+              className={`shrink-0 p-1 rounded-full transition-colors ${toast.type === "error" ? "active:bg-red-100" : "active:bg-green-100"}`}
+            >
+              <X
+                className={`w-4 h-4 ${toast.type === "error" ? "text-red-400" : "text-green-500"}`}
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
       <AdminMenu />
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <AdminHeader
@@ -137,11 +220,7 @@ export const Users = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold w-fit mb-1 ${
-                              user.role === USER_ROLES.RESCUE
-                                ? "bg-blue-50 text-blue-600 border-blue-100"
-                                : "bg-purple-50 text-purple-600 border-purple-100"
-                            }`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold w-fit mb-1 ${user.role === USER_ROLES.RESCUE ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-purple-50 text-purple-600 border-purple-100"}`}
                           >
                             {user.role === USER_ROLES.RESCUE ? (
                               <Truck size={12} />
@@ -150,8 +229,6 @@ export const Users = () => {
                             )}
                             {user.role}
                           </div>
-
-                          {/* Kiểm tra kỹ: user.rescueTeam bây giờ là một Object */}
                           {user.role === USER_ROLES.RESCUE &&
                           user.rescueTeam ? (
                             <span className="text-[10px] text-blue-500 font-mono font-bold ml-1 bg-blue-50 px-1.5 py-0.5 rounded">
@@ -175,7 +252,11 @@ export const Users = () => {
                             <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
                               <Edit size={16} />
                             </button>
-                            <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                            {/* 🔥 GẮN HÀM XÓA VÀO NÚT TRASH2 */}
+                            <button 
+                              onClick={() => handleDeleteUser(user._id, user.name)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            >
                               <Trash2 size={16} />
                             </button>
                           </div>
@@ -187,7 +268,6 @@ export const Users = () => {
               </table>
             </div>
 
-            {/* Pagination Footer */}
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-white">
               <span className="text-sm text-gray-500">
                 Trang {pagination.currentPage} / {pagination.totalPages}

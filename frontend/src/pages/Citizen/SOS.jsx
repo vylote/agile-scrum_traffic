@@ -36,13 +36,13 @@ export const CitizenSOS = () => {
             latitude: location?.latitude,
             longitude: location?.longitude,
           };
-          // Nó sẽ tự động chuyển đổi payload đó thành chuỗi JSON
-          // Nó sẽ tự động gắn ngầm cái header Content-Type: application/json vào request trước khi gửi đi.
           await api.post("/incidents/sos", payload);
           navigate("/citizen/history");
         } catch (error) {
           setIsSending(false);
           console.error("Lỗi khi gửi SOS", error);
+          const errorMsg = error.response?.data?.error?.message || "Không thể gửi tín hiệu SOS lúc này.";
+          alert(errorMsg);
         }
       };
 

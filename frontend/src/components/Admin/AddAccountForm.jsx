@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { USER_ROLES } from "../../utils/constants/userConstants";
 
-// Sub-component: FormField
+// FormField vẫn giữ logic để hiện dấu * màu đỏ báo hiệu cho người dùng
 const FormField = ({ label, required, children, helpText }) => (
   <div className="mb-5 text-left">
     <div className="flex gap-1 items-center mb-2">
@@ -13,7 +13,6 @@ const FormField = ({ label, required, children, helpText }) => (
   </div>
 );
 
-// Sub-component: RoleOption
 const RoleOption = ({ value, icon, title, description, selected, onChange }) => (
   <div
     className={`flex gap-3 items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -36,12 +35,12 @@ const RoleOption = ({ value, icon, title, description, selected, onChange }) => 
 
 const AddAccountForm = ({ onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
-    name: "",          // Khớp với trường 'name' trong Schema
-    username: "",      // Bắt buộc theo Schema
+    name: "",          
+    username: "",      
     phone: "",
     email: "",
     password: "cuuho123",
-    role: USER_ROLES.DISPATCHER, // Mặc định là ĐPV
+    role: USER_ROLES.DISPATCHER, 
   });
 
   const handleInputChange = (field, value) => {
@@ -50,13 +49,11 @@ const AddAccountForm = ({ onClose, onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Gửi dữ liệu về trang Users.jsx để gọi API
-    onSubmit(formData);
+    onSubmit(formData); // Gửi dữ liệu nguyên bản lên cho Users.jsx gọi API
   };
 
   return (
     <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
-      {/* Header */}
       <header className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
         <div>
           <h1 className="text-xl font-black text-gray-900 tracking-tight">Cấp tài khoản vận hành</h1>
@@ -67,7 +64,6 @@ const AddAccountForm = ({ onClose, onSubmit }) => {
         </button>
       </header>
 
-      {/* Form Content */}
       <div className="p-8">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-5">
@@ -76,7 +72,7 @@ const AddAccountForm = ({ onClose, onSubmit }) => {
                 type="text"
                 placeholder="VD: Nguyễn Văn A"
                 className="w-full h-11 px-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none transition-all font-semibold"
-                required
+                // 🔥 XÓA required
                 value={formData.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
               />
@@ -87,7 +83,7 @@ const AddAccountForm = ({ onClose, onSubmit }) => {
                 type="text"
                 placeholder="nva_cuuho"
                 className="w-full h-11 px-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none transition-all font-mono"
-                required
+                // 🔥 XÓA required
                 value={formData.username}
                 onChange={(e) => handleInputChange("username", e.target.value.toLowerCase().replace(/\s/g, ""))}
               />
@@ -100,17 +96,18 @@ const AddAccountForm = ({ onClose, onSubmit }) => {
                 type="tel"
                 placeholder="09xxx..."
                 className="w-full h-11 px-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none transition-all font-semibold"
-                required
+                // 🔥 XÓA required
                 value={formData.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
               />
             </FormField>
+            
             <FormField label="Email nội bộ" required>
               <input
-                type="email"
+                type="text" // Chuyển thành text để Joi báo lỗi email chuẩn xác nhất
                 placeholder="nhansu@cuuho.vn"
                 className="w-full h-11 px-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none transition-all font-semibold"
-                required
+                // 🔥 XÓA required
                 value={formData.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
               />
@@ -148,17 +145,10 @@ const AddAccountForm = ({ onClose, onSubmit }) => {
           </FormField>
 
           <footer className="flex gap-3 justify-end mt-10 pt-6 border-t border-gray-50">
-            <button 
-              type="button" 
-              onClick={onClose}
-              className="px-6 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 transition-all"
-            >
+            <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 transition-all">
               Hủy bỏ
             </button>
-            <button 
-              type="submit"
-              className="px-10 py-2.5 bg-[#0088FF] text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-100 hover:bg-blue-600 active:scale-95 transition-all"
-            >
+            <button type="submit" className="px-10 py-2.5 bg-[#0088FF] text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-100 hover:bg-blue-600 active:scale-95 transition-all">
               Cấp tài khoản ngay
             </button>
           </footer>

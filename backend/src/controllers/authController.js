@@ -9,7 +9,7 @@ const { USER_ROLES } = require('../utils/constants/userConstants');
 
 exports.register = async (req, res, next) => {
     try {
-        const { username, password, role, name, email, phone } = req.body;
+        const { username, password, name, email, phone } = req.body;
 
         const existingUser = await User.findOne({
             $or: [
@@ -36,7 +36,7 @@ exports.register = async (req, res, next) => {
             name,
             email,
             phone,
-            role: role ? role.toUpperCase() : USER_ROLES.CITIZEN
+            role: USER_ROLES.CITIZEN
         });
 
         return sendSuccess(res, SuccessCodes.REGISTER_SUCCESS, {

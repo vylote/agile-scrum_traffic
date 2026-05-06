@@ -8,7 +8,8 @@ import {
   Check,
   X,
   Plus,
-} from "lucide-react"; // Thêm X và Plus
+  AlertCircle, // 🔥 THÊM ICON NÀY
+} from "lucide-react"; 
 import Map from "../../components/Public/Map";
 import api from "../../services/api";
 import {
@@ -16,7 +17,7 @@ import {
   INCIDENT_SEVERITY,
 } from "../../utils/constants/incidentConstants";
 
-// (Giữ nguyên CustomDropdown như cũ)
+// Component CustomDropdown giữ nguyên
 const CustomDropdown = ({ value, options, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((o) => o.value === value);
@@ -82,6 +83,9 @@ export const IncidentReport = () => {
   const [selectedType, setSelectedType] = useState(INCIDENT_TYPES.ACCIDENT);
   const [selectedSeverity, setSelectedSeverity] = useState(INCIDENT_SEVERITY.LOW);
 
+  // 🔥 STATE DÀNH CHO TOAST
+  const [toast, setToast] = useState({ show: false, message: "", type: "error" });
+
   const incidentTypes = [
     { id: 1, value: INCIDENT_TYPES.ACCIDENT, label: "Tai nạn giao thông" },
     { id: 2, value: INCIDENT_TYPES.BREAKDOWN, label: "Hỏng xe / Chết máy" },
@@ -110,20 +114,27 @@ export const IncidentReport = () => {
     }
   }, []);
 
+  // 🔥 HÀM GỌI TOAST TỰ ĐỘNG TẮT
+  const showToast = (message, type = "error") => {
+    setToast({ show: true, message, type });
+    // Tự động ẩn sau 3 giây
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: "error" });
+    }, 3000);
+  };
+
   const handlePhotoChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
 
     if (photos.length + selectedFiles.length > 3) {
-      alert("Bạn chỉ được tải lên tối đa 3 ảnh.");
+      showToast("Bạn chỉ được tải lên tối đa 3 ảnh.", "error"); // Đã thay bằng Toast
       return;
     }
 
     setPhotos([...photos, ...selectedFiles]);
-    // Reset input để có thể chọn lại cùng 1 file nếu đã xóa
     e.target.value = null;
   };
 
-  // Xử lý xóa ảnh
   const removePhoto = (index) => {
     const updatedPhotos = photos.filter((_, i) => i !== index);
     setPhotos(updatedPhotos);
@@ -131,24 +142,18 @@ export const IncidentReport = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!latitude || !longitude)
-      return alert("Đang xác định vị trí GPS, vui lòng đợi thêm giây lát...");
-
     setIsSubmitting(true);
+    
     try {
       const formData = new FormData();
-      const typeLabel =
-        incidentTypes.find((t) => t.value === selectedType)?.label || "Sự cố";
-      const finalTitle = title.trim() !== "" ? title : `Báo cáo: ${typeLabel}`;
 
-      formData.append("title", finalTitle);
+      formData.append("title", title.trim());
       formData.append("type", selectedType);
       formData.append("description", description);
       formData.append("severity", selectedSeverity);
-      formData.append("latitude", latitude);
-      formData.append("longitude", longitude);
+      formData.append("latitude", latitude || ""); 
+      formData.append("longitude", longitude || "");
 
-      // Append từng ảnh vào mảng photos
       photos.forEach((file) => {
         formData.append("photos", file);
       });
@@ -159,14 +164,44 @@ export const IncidentReport = () => {
       navigate(-1);
     } catch (error) {
       console.error("Lỗi khi gửi báo cáo:", error);
-      alert("Có lỗi xảy ra, vui lòng thử lại.");
+      const errorMsg = error.response?.data?.error?.message || "Có lỗi xảy ra, vui lòng thử lại.";
+      
+      showToast(errorMsg, "error"); // Đã thay alert() bằng Toast xịn
+      
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-10">
+    <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-10 relative">
+      
+      {/* 🔥 HIỂN THỊ TOAST TẠI ĐÂY */}
+      {toast.show && (
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-[400px] animate-in slide-in-from-top-5 fade-in duration-300">
+          <div className="bg-red-50 border border-red-200 shadow-xl rounded-2xl p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-[14px] text-red-600 font-medium leading-tight">
+                {/* Tái sử dụng logic tách mảng lỗi nếu Joi trả về nhiều lỗi */}
+                {toast.message.includes('|') ? (
+                   <ul className="list-none flex flex-col gap-1">
+                     {toast.message.split(' | ').map((err, idx) => (
+                       <li key={idx}>• {err}</li>
+                     ))}
+                   </ul>
+                ) : (
+                   toast.message
+                )}
+              </p>
+            </div>
+            <button onClick={() => setToast({ show: false, message: "", type: "error" })} className="shrink-0 p-1 active:bg-red-100 rounded-full transition-colors">
+              <X className="w-4 h-4 text-red-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-[#F2F2F7] sticky top-0 z-[100] backdrop-blur-md bg-opacity-95">
         <div className="flex justify-between items-center px-8 pt-5 pb-2">
           <span className="text-black font-bold text-[17px]">9:41</span>
@@ -189,7 +224,6 @@ export const IncidentReport = () => {
       </div>
 
       <div className="px-6 mt-6 space-y-6">
-        {/* (Giữ nguyên phần Vị trí hiện tại, Loại sự cố, Tiêu đề, Mô tả như cũ) */}
         <section className="space-y-3">
           <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">
             Vị trí hiện tại
@@ -234,15 +268,15 @@ export const IncidentReport = () => {
         </section>
 
         <section className="space-y-3 relative z-20">
-      <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">Mức độ nghiêm trọng</h3>
-      <div className="bg-white p-1 rounded-[24px] shadow-sm border border-gray-100">
-        <CustomDropdown
-          value={selectedSeverity}
-          options={severityOptions}
-          onChange={setSelectedSeverity}
-        />
-      </div>
-    </section>
+          <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">Mức độ nghiêm trọng</h3>
+          <div className="bg-white p-1 rounded-[24px] shadow-sm border border-gray-100">
+            <CustomDropdown
+              value={selectedSeverity}
+              options={severityOptions}
+              onChange={setSelectedSeverity}
+            />
+          </div>
+        </section>
 
         <section className="space-y-3 relative z-10">
           <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">
@@ -274,14 +308,12 @@ export const IncidentReport = () => {
           </div>
         </section>
 
-        {/* --- PHẦN ĐIỀU CHỈNH: ẢNH HIỆN TRƯỜNG --- */}
         <section className="space-y-3">
           <h3 className="text-[#727272] text-[13px] font-bold uppercase ml-4">
             Ảnh hiện trường ({photos.length}/3)
           </h3>
 
           <div className="flex gap-3 overflow-x-auto pt-2.5 pb-2 scrollbar-hide px-1">
-            {/* 1. Nút Thêm Ảnh */}
             {photos.length < 3 && (
               <label className="flex-shrink-0 w-24 h-24 bg-white border-2 border-dashed border-gray-200 rounded-[20px] flex flex-col items-center justify-center cursor-pointer active:bg-gray-50 transition-colors">
                 <input
@@ -298,7 +330,6 @@ export const IncidentReport = () => {
               </label>
             )}
 
-            {/* 2. Danh sách Preview ảnh (Hàng ngang) */}
             {photos.map((file, index) => (
               <div key={index} className="flex-shrink-0 relative w-24 h-24">
                 <img
@@ -306,7 +337,6 @@ export const IncidentReport = () => {
                   alt={`Preview ${index}`}
                   className="w-full h-full object-cover rounded-[20px] shadow-sm border border-gray-100"
                 />
-                {/* Nút Xóa ảnh */}
                 <button
                   onClick={() => removePhoto(index)}
                   className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-md active:scale-90 transition-transform"
@@ -316,7 +346,6 @@ export const IncidentReport = () => {
               </div>
             ))}
 
-            {/* Placeholder khi chưa có ảnh */}
             {photos.length === 0 && (
               <div className="w-full bg-white/50 border border-gray-100 rounded-[20px] py-8 flex flex-col items-center justify-center text-gray-300">
                 <Plus className="w-5 h-5 opacity-20" />

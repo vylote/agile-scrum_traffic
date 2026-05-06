@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import api from "../../services/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { USER_ROLES } from "../../utils/constants/userConstants";
 
 export function RegisterForm() {
@@ -15,8 +15,6 @@ export function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-
-  const [role, setRole] = useState(USER_ROLES.CITIZEN);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -56,7 +54,6 @@ export function RegisterForm() {
         name,
         email,
         phone,
-        role,
       });
 
       if (response.data.success) {
@@ -94,8 +91,23 @@ export function RegisterForm() {
       </h2>
 
       {errorMsg && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-lg text-center">
-          {errorMsg}
+        <div className="mt-4 p-3.5 bg-red-50 border border-red-200 text-red-600 text-[14px] font-medium rounded-xl text-left shadow-sm">
+          {Array.isArray(errorMsg) ? (
+            <ul className="list-none flex flex-col gap-2">
+              {errorMsg.map((err, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  {/* Icon nhúng thẳng vào thay cho dấu chấm */}
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500 opacity-80" />
+                  <span className="leading-tight">{err}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 opacity-80" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -120,7 +132,6 @@ export function RegisterForm() {
             onChange={(e) => setUsername(e.target.value)}
             disabled={isLoading || successMsg !== ""}
             className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100"
-            required
           />
         </div>
 
@@ -138,7 +149,6 @@ export function RegisterForm() {
             onChange={(e) => setName(e.target.value)}
             disabled={isLoading || successMsg !== ""}
             className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100"
-            required
           />
         </div>
 
@@ -156,7 +166,6 @@ export function RegisterForm() {
             onChange={(e) => setEmail(e.target.value)}
             disabled={isLoading || successMsg !== ""}
             className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100"
-            required
           />
         </div>
 
@@ -174,30 +183,9 @@ export function RegisterForm() {
             onChange={(e) => setPhone(e.target.value)}
             disabled={isLoading || successMsg !== ""}
             className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100"
-            required
           />
         </div>
-        <div className="flex flex-col">
-          <label
-            htmlFor="role"
-            className="text-lg tracking-tight leading-none text-black"
-          >
-            Vai trò
-          </label>
-          <select
-            id="role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            disabled={isLoading || successMsg !== ""}
-            className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100 cursor-pointer"
-          >
-            <option value={USER_ROLES.CITIZEN} >Người dân</option>
-            <option value={USER_ROLES.RESCUE}>Đội cứu hộ</option>
-            <option value={USER_ROLES.DISPATCHER}>Điều phối viên</option>
-            <option value={USER_ROLES.ADMIN}>Quản trị viên</option>
-          </select>
-        </div>
-
+        
         <div className="flex flex-col">
           <label
             htmlFor="password"
@@ -212,7 +200,6 @@ export function RegisterForm() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={isLoading || successMsg !== ""}
             className="mt-1.5 h-10 px-3 rounded-md border border-solid border-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-100"
-            required
           />
         </div>
 

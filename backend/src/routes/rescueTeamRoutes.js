@@ -4,6 +4,9 @@ const rescueTeamController = require('../controllers/rescueTeamController');
 const { protect, restrictTo } = require("../middleware/auth");
 const { USER_ROLES} = require("../utils/constants/userConstants")
 
+const { validate } = require('../middleware/validation/validator');
+const { createRescueTeamSchema, updateTeamLocationSchema } = require('../middleware/validation/rescueTeamValidation');
+
 router.use(protect);
 /**
    * @swagger
@@ -80,7 +83,7 @@ router.use(protect);
    *       404:
    *         description: Không tìm thấy nhân viên được chỉ định (userId sai)
    */
-router.post('/', restrictTo(USER_ROLES.ADMIN), rescueTeamController.createRescueTeam);
+router.post('/', restrictTo(USER_ROLES.ADMIN), validate(createRescueTeamSchema), rescueTeamController.createRescueTeam);
 /**
  * @swagger
  * /api/v1/rescue-teams:
@@ -148,7 +151,7 @@ router.get('/:id', rescueTeamController.getRescueTeamById);
    *       200:
    *         description: Cập nhật vị trí thành công, socket event `rescue:location` sẽ được phát đi.
    */
-router.patch('/:id/location', restrictTo(USER_ROLES.RESCUE), rescueTeamController.updateLocation);
+router.patch('/:id/location', restrictTo(USER_ROLES.RESCUE), validate(updateTeamLocationSchema), rescueTeamController.updateLocation);
 /**
    * @swagger
    * /api/v1/rescue-teams/{id}/members/add:
