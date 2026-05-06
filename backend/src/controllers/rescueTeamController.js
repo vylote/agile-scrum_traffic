@@ -18,9 +18,9 @@ exports.createRescueTeam = async (req, res, next) => {
             name, code, type, latitude, longitude, zone, members, capabilities
         } = req.body;
 
-        if (!latitude || !longitude) {
-            return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES, 'Vui lòng cung cấp tọa độ đội cứu hộ'));
-        }
+        // if (!latitude || !longitude) {
+        //     return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES, 'Vui lòng cung cấp tọa độ đội cứu hộ'));
+        // }
 
         code = code?.toUpperCase()
 
@@ -138,9 +138,9 @@ exports.updateLocation = async (req, res, next) => {
             return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
         }
 
-        if (!latitude || !longitude) {
-            return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
-        }
+        // if (!latitude || !longitude) {
+        //     return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
+        // }
 
         const updatedTeam = await RescueTeam.findByIdAndUpdate(
             id,
@@ -194,6 +194,10 @@ exports.addMembers = async (req, res, next) => {
 
         const team = await RescueTeam.findById(id).session(session);
         if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+
+        if (team.members.length + newMembers.length > 10) {
+            return next(new AppError(ErrorCodes.INVALID_INPUT, "Số lượng thành viên vượt quá giới hạn 10 người cho một đội."));
+        }
 
         let validMembers = [];
         if (newMembers && Array.isArray(newMembers) && newMembers.length > 0) {

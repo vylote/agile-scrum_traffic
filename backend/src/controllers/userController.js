@@ -1,10 +1,51 @@
 const User = require('../models/User');
+const RescueTeam = require('../models/RescueTeam');
+const bcrypt = require('bcrypt');
 const AppError = require('../middleware/AppError');
 const ErrorCodes = require('../utils/constants/errorCodes');
 const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 const { USER_ROLES } = require('../utils/constants/userConstants');
 const admin = require('../config/firebase');
+
+exports.createUser = async (req, res, next) => {
+    try {
+        const { username, password, name, email, phone, role } = req.body;
+
+        // 1. Kiểm tra trùng lặp
+        const existingUser = await User.findOne({ 
+            $or: [{ username }, { email }, { phone }] 
+        });
+
+        if (existingUser) {
+            if (existingUser.username === username) return next(new AppError(ErrorCodes.AUTH_USERNAME_EXISTS));
+            if (existingUser.email === email) return next(new AppError(ErrorCodes.AUTH_EMAIL_EXISTS));
+            if (existingUser.phone === phone) return next(new AppError(ErrorCodes.AUTH_PHONE_EXISTS));
+        }
+
+        // 2. Hash mật khẩu khởi tạo
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // 3. Tạo User với Role được chỉ định
+        const newUser = await User.create({
+            username,
+            name,
+            email,
+            phone,
+            passwordHash: hashedPassword,
+            role // Nhận role (DISPATCHER hoặc RESCUE) từ form của Admin
+        });
+
+        // Xóa passwordHash trước khi trả về
+        const userResponse = newUser.toObject();
+        delete userResponse.passwordHash;
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, userResponse);
+    } catch (err) {
+        next(err);
+    }
+};
 
 exports.getAllUsers = async (req, res, next) => {
     try {
@@ -130,6 +171,29 @@ exports.updateFCMToken = async (req, res, next) => {
         }
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, { message: "Đã đồng bộ Token thiết bị." });
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.deleteUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        
+        if (!user) return next(new AppError(ErrorCodes.USER_NOT_FOUND));
+
+        // Nếu nhân viên này đang nằm trong một đội cứu hộ, cần phải "gỡ" họ ra khỏi đội đó trước
+        if (user.rescueTeam) {
+            await RescueTeam.findByIdAndUpdate(user.rescueTeam, {
+                $pull: { members: { userId: user._id } }
+            });
+        }
+
+        // Xóa hoàn toàn khỏi hệ thống
+        await User.findByIdAndDelete(id);
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, null, "Đã xóa tài khoản thành công.");
     } catch (err) {
         next(err);
     }

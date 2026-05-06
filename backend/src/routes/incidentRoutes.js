@@ -6,6 +6,9 @@ const upload = require("../middleware/upload");
 const { protect, restrictTo } = require("../middleware/auth");
 const { USER_ROLES} = require("../utils/constants/userConstants")
 
+const { validate } = require('../middleware/validation/validator');
+const { createIncidentSchema, updateIncidentStatusSchema, sosIncidentSchema } = require('../middleware/validation/incidentValidation');
+
 /**
  * @swagger
  * /api/v1/incidents/track/{code}:
@@ -84,7 +87,7 @@ router.use(protect);
  *       403:
  *         description: Không có quyền truy cập (không phải CITIZEN)
  */
-router.post('/',restrictTo(USER_ROLES.CITIZEN),upload.array("photos", 3),incidentController.createIncident);
+router.post('/',restrictTo(USER_ROLES.CITIZEN),upload.array("photos", 3), validate(createIncidentSchema), incidentController.createIncident);
 /**
  * @swagger
  * /api/v1/incidents/sos:
@@ -116,7 +119,7 @@ router.post('/',restrictTo(USER_ROLES.CITIZEN),upload.array("photos", 3),inciden
  *       401:
  *         description: Không có Token hoặc Token không hợp lệ
  */
-router.post('/sos',restrictTo(USER_ROLES.CITIZEN),incidentController.createSOS);
+router.post('/sos',restrictTo(USER_ROLES.CITIZEN), validate(sosIncidentSchema), incidentController.createSOS);
 /**
  * @swagger
  * /api/v1/incidents/{id}:
@@ -176,63 +179,7 @@ router.get("/:id", incidentController.getIncidentById);
  *       404:
  *         description: Không tìm thấy sự cố
  */
-router.patch('/:id/status',restrictTo(USER_ROLES.ADMIN, USER_ROLES.DISPATCHER, USER_ROLES.RESCUE), incidentController.updateIncidentStatus)
-/**
- * @swagger
- * /api/v1/incidents/{id}/info:
- *   patch:
- *     summary: Cập nhật thông tin sự cố
- *     tags: [Incidents]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *         description: ID của sự cố cần cập nhật
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *                 example: "Tai nạn đã được xử lý"
- *               description:
- *                 type: string
- *               type:
- *                 type: string
- *                 enum: [ACCIDENT, BREAKDOWN, FLOOD, FIRE, OTHER]
- *               severity:
- *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
- *               status:
- *                 type: string
- *                 enum: [PENDING, IN_PROGRESS, RESOLVED, CLOSED]
- *               latitude:
- *                 type: number
- *               longitude:
- *                 type: number
- *               keepPhotos:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Danh sách TÊN các ảnh cũ muốn giữ lại (ví dụ ["image-123.jpg"])
- *               photos:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *                 description: Tải lên các ảnh MỚI (nếu có)
- *     responses:
- *       200:
- *         description: Cập nhật thành công
- *       404:
- *         description: Không tìm thấy sự cố
- */
-router.patch("/:id/info",upload.array("photos", 3),incidentController.updateIncidentInfo);
+router.patch('/:id/status',restrictTo(USER_ROLES.ADMIN, USER_ROLES.DISPATCHER, USER_ROLES.RESCUE), validate(updateIncidentStatusSchema), incidentController.updateIncidentStatus)
 /**
  * @swagger
  * /api/v1/incidents:

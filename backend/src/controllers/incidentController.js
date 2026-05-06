@@ -20,9 +20,9 @@ exports.createIncident = async (req, res, next) => {
     try {
         const { title, description, latitude, longitude, type, severity } = req.body;
 
-        if (!latitude || !longitude) {
-            return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
-        }
+        // if (!latitude || !longitude) {
+        //     return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
+        // }
 
         const geoData = await geoService.reverseGeocode(latitude, longitude);
         const address = geoData.display_name;
@@ -87,9 +87,9 @@ exports.createSOS = async (req, res, next) => {
     try {
         const { latitude, longitude } = req.body;
 
-        if (!latitude || !longitude) {
-            return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
-        }
+        // if (!latitude || !longitude) {
+        //     return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
+        // }
 
         const geoData = await geoService.reverseGeocode(latitude, longitude);
         const address = geoData.display_name;
@@ -149,92 +149,6 @@ exports.createSOS = async (req, res, next) => {
     }
 };
 
-exports.updateIncidentInfo = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { title, description, latitude, longitude, address, status, type, severity, keepPhotos } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
-        }
-
-        const existIncident = await Incident.findById(id);
-        if (!existIncident) {
-            return next(new AppError(ErrorCodes.INCIDENT_NOT_FOUND));
-        }
-
-        let finalPhotos = [];
-        let photosToDelete = [];
-        if (keepPhotos === undefined && (!req.files || req.files.length === 0)) {
-            finalPhotos = existIncident.photos;
-        } else {
-            let finalKeepPhotos = [];
-            if (keepPhotos) {
-                finalKeepPhotos = Array.isArray(keepPhotos) ? keepPhotos : [keepPhotos];
-            }
-
-            photosToDelete = existIncident.photos.filter(p => !finalKeepPhotos.includes(p));
-            console.log(`so luog anh xoa la: ${photosToDelete.length}`)
-
-            const newPhotos = req.files && req.files.length > 0
-                ? req.files.map(file => file.filename)
-                : [];
-
-            finalPhotos = [...finalKeepPhotos, ...newPhotos];
-        }
-
-        let finalLocation = existIncident.location;
-        if (latitude && longitude) {
-            let finalAddress;
-            if (address) {
-                finalAddress = address;
-            } else {
-                const geoData = await geoService.reverseGeocode(latitude, longitude);
-                finalAddress = geoData.display_name;
-            }
-            finalLocation = {
-                type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-                address: finalAddress
-            };
-        }
-
-        const updateDoc = await Incident.findByIdAndUpdate(
-            id,
-            {
-                title: title || existIncident.title,
-                description: description || existIncident.description,
-                type: type || existIncident.type,
-                severity: severity || existIncident.severity,
-                location: finalLocation,
-                photos: finalPhotos,
-                status: status || existIncident.status
-            },
-            { new: true, runValidators: true }
-        );
-
-        if (photosToDelete.length > 0) {
-            // Không dùng await ở đây để tránh block response trả về cho user
-            photosToDelete.forEach(async (imgName) => {
-                const filePath = path.join(__dirname, '../../uploads', imgName);
-                try {
-                    await fs.access(filePath);
-                    await fs.unlink(filePath);
-                    console.log(`Đã xóa file thừa: ${imgName}`);
-                } catch (err) {
-                    console.log(`File không tồn tại hoặc lỗi xóa: ${imgName}`);
-                }
-            });
-        }
-
-        const io = req.app.get('io');
-        if (io) io.emit('incident:infor_updated', { incident: updateDoc });
-
-        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, updateDoc);
-    } catch (err) {
-        next(err);
-    }
-};
 
 exports.deleteIncident = async (req, res, next) => {
     try {

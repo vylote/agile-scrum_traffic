@@ -190,7 +190,7 @@ export const IncidentChat = ({ incidentId }) => {
       ) : (
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-center text-gray-500 text-xs font-medium italic gap-2">
           <Eye size={16} className="text-gray-400" />
-          Chế độ Chỉ xem. Chỉ Đội trưởng mới được quyền phản hồi tin nhắn.
+          Chỉ Đội trưởng mới được quyền phản hồi tin nhắn.
         </div>
       )}
     </div>

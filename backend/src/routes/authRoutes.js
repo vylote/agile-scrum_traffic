@@ -3,6 +3,9 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
+const { validate } = require('../middleware/validation/validator');
+const { registerSchema, loginSchema } = require('../middleware/validation/authValidation');
+
 /**
  * @swagger
  * /api/v1/auth/register:
@@ -27,7 +30,7 @@ const { protect } = require('../middleware/auth');
  *       201:
  *         description: Đăng ký thành công
  */
-router.post('/register', authController.register);
+router.post('/register', validate(registerSchema), authController.register);
 /**
  * @swagger
  * /api/v1/auth/login:
@@ -48,7 +51,7 @@ router.post('/register', authController.register);
  *       200:
  *         description: Đăng nhập thành công
  */
-router.post('/login', authController.login);
+router.post('/login', validate(loginSchema), authController.login);
 router.get('/logout', authController.logout)
 router.post('/refresh-token', authController.refreshToken)
 router.get('/me', protect, authController.getMe);

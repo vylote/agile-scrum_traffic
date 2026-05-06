@@ -3,22 +3,26 @@ import { AdminMenu } from "../../components/Admin/Menu";
 import { AdminHeader } from "../../components/Admin/AdminHeader";
 import { PartnerSidebar } from "../../components/Admin/PartnerSidebar";
 import AddPartnerModal from "../../components/Admin/AddPartnerModal";
-import { Plus, Filter, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  ChevronLeft, 
+  ChevronRight,
+  X,
+  AlertCircle,
+  CheckCircle2
+} from "lucide-react";
 import api from "../../services/api";
 
 export const Partners = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState(null);
   
-  // partners: danh sách 5 đội của trang hiện tại (để hiển thị bảng)
   const [partners, setPartners] = useState([]);
-  
-  // allTeams: danh sách TOÀN BỘ đội (để Modal tính toán STT không bị trùng)
   const [allTeams, setAllTeams] = useState([]);
-  
   const [loading, setLoading] = useState(true);
   
-  // Lưu thông tin phân trang từ Backend
   const [pagination, setPagination] = useState({
     total: 0,
     totalPages: 1,
@@ -26,19 +30,27 @@ export const Partners = () => {
     limit: 5
   });
 
-  // 1. Fetch danh sách đội (có tham số page)
+  // 🔥 STATE LƯU TRỮ TOAST
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  // 🔥 HÀM GỌI TOAST TỰ ĐỘNG TẮT
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: "success" });
+    }, 3000);
+  };
+
+  // 1. Fetch danh sách đội
   const fetchTeams = async (page = 1) => {
     try {
       setLoading(true);
-      // Gọi danh sách phân trang cho Table (Backend đã fix limit = 5)
       const res = await api.get(`/rescue-teams?page=${page}`);
       const { data, pagination: meta } = res.data.result;
       
       setPartners(data || []);
       setPagination(meta);
 
-      // 🔥 QUAN TRỌNG: Gọi thêm 1 bản không phân trang (limit cực lớn) 
-      // để Modal có đủ dữ liệu tính STT chính xác
       const resAll = await api.get("/rescue-teams?page=1&limit=1000");
       setAllTeams(resAll.data.result.data || []);
       
@@ -58,15 +70,62 @@ export const Partners = () => {
     try {
       await api.post("/rescue-teams", payload);
       setIsModalOpen(false);
-      fetchTeams(pagination.currentPage); // Load lại trang hiện tại
+      fetchTeams(pagination.currentPage); 
+      
+      // 🔥 BẮN TOAST MÀU XANH BÁO THÀNH CÔNG
+      showToast("Khởi tạo đội cứu hộ thành công!", "success");
     } catch (error) {
-      const msg = error.response?.data?.message || "Không thể tạo đội";
-      alert("Lỗi: " + msg);
+      // 🔥 HỨNG LỖI TỪ JOI VÀ BẮN TOAST MÀU ĐỎ
+      const errorMsg = error.response?.data?.error?.message || "Không thể tạo đội cứu hộ.";
+      showToast(errorMsg, "error");
     }
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden relative">
+      
+      {/* 🔥 KHU VỰC HIỂN THỊ TOAST (NỔI TRÊN CÙNG) */}
+      {toast.show && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-[450px] animate-in slide-in-from-top-5 fade-in duration-300">
+          <div className={`border shadow-xl rounded-2xl p-4 flex items-start gap-3 ${
+            toast.type === "error" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
+          }`}>
+            {toast.type === "error" ? (
+               <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            ) : (
+               <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+            )}
+            
+            <div className="flex-1">
+              <div className={`text-[14px] font-medium leading-tight ${
+                 toast.type === "error" ? "text-red-600" : "text-green-700"
+              }`}>
+                {toast.message.includes('|') ? (
+                   <ul className="list-none flex flex-col gap-1 mt-0.5">
+                     {toast.message.split(' | ').map((err, idx) => (
+                       <li key={idx} className="flex items-start gap-1.5">
+                          <span className="opacity-70 mt-0.5">*</span> {err}
+                       </li>
+                     ))}
+                   </ul>
+                ) : (
+                   toast.message
+                )}
+              </div>
+            </div>
+            
+            <button 
+               onClick={() => setToast({ show: false, message: "", type: "success" })} 
+               className={`shrink-0 p-1 rounded-full transition-colors ${
+                 toast.type === "error" ? "active:bg-red-100" : "active:bg-green-100"
+               }`}
+            >
+              <X className={`w-4 h-4 ${toast.type === "error" ? "text-red-400" : "text-green-500"}`} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <AdminMenu />
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <AdminHeader title="Đối tác cứu hộ" subtitle="Quản lý mạng lưới đội cứu hộ thực tế" />
@@ -77,7 +136,6 @@ export const Partners = () => {
             {/* Toolbar */}
             <div className="p-5 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900">
-                {/* 🔥 Hiển thị tổng số thật từ Database thay vì partners.length */}
                 Tất cả đối tác ({pagination.total})
               </h3>
               <div className="flex gap-3">
@@ -161,13 +219,17 @@ export const Partners = () => {
           </div>
         </div>
 
-        <PartnerSidebar partner={selectedPartner} onClose={() => setSelectedPartner(null)} />
+        <PartnerSidebar 
+           partner={selectedPartner} 
+           onClose={() => setSelectedPartner(null)} 
+           onSuccess={() => fetchTeams(pagination.currentPage)} 
+           showToast={showToast} 
+        />
         
         <AddPartnerModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onAdd={handleAddNewPartner}
-          // 🔥 Truyền TOÀN BỘ danh sách đội để Modal tính mã chính xác không lo trùng
           existingTeams={allTeams} 
         />
       </main>
