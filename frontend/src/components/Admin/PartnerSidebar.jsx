@@ -23,14 +23,12 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
   const [submitting, setSubmitting] = useState(false);
   
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-  
   const showModalToast = (message, type = "error") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: "", type: "error" }), 3500);
   };
 
   useEffect(() => {
-    // 🔥 Đã di chuyển hàm fetchAvailableUsers vào bên trong useEffect
     const fetchAvailableUsers = async () => {
       setLoading(true);
       try {
@@ -51,7 +49,7 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
       setSearchQuery("");
       setToast({ show: false, message: "", type: "success" });
     }
-  }, [isOpen]); // Không còn cảnh báo missing dependency nữa
+  }, [isOpen]);
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,6 +78,7 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
       showModalToast("Vui lòng chọn ít nhất một nhân sự để thêm vào đội.", "error");
       return;
     }
+
     setSubmitting(true);
 
     try {
@@ -88,14 +87,17 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
         role
       }));
 
+      // Gọi API - Mọi logic kiểm tra số lượng và Leader đều do Backend lo
       await api.patch(`/rescue-teams/${teamId}/members/add`, { newMembers });
-      showModalToast(`Đã thêm ${selectedUserIds.length} nhân sự vào đội thành công!`, "success");
       
+      showModalToast(`Đã thêm ${selectedUserIds.length} nhân sự vào đội thành công!`, "success");
       setTimeout(() => {
         onSuccess?.();
         onClose();
       }, 1000);
+
     } catch (err) {
+      // 🔥 BẮT LỖI TỪ CONTROLLER NÉM RA (Bao gồm lỗi Đã có LEADER)
       const errorMsg = err.response?.data?.error?.message || "Lỗi khi gán thành viên vào đội.";
       showModalToast(errorMsg, "error");
     } finally {
@@ -110,7 +112,6 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-[580px] bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
         
-        {/* TOAST CỦA MODAL */}
         {toast.show && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[90%] z-[120]">
             <div className={`p-3 border rounded-xl shadow-lg flex items-center gap-2 ${toast.type === "error" ? "bg-red-50 border-red-200 text-red-600" : "bg-green-50 border-green-200 text-green-700"}`}>
@@ -205,7 +206,6 @@ const AddPersonnelModal = ({ isOpen, onClose, teamName, teamId, onSuccess }) => 
   );
 };
 
-// 🔥 Nhận hàm showToast từ cha (Partners.jsx) truyền xuống
 export const PartnerSidebar = ({ partner, onClose, onSuccess, showToast }) => {
   const [activeTab, setActiveTab] = useState("organization");
   const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
@@ -232,7 +232,6 @@ export const PartnerSidebar = ({ partner, onClose, onSuccess, showToast }) => {
     }
   }, [fetchMembers, partner?._id]);
 
-  // 🔥 THÊM: HÀM GỠ THÀNH VIÊN KHỎI ĐỘI
   const handleRemoveMember = async (userId, userName) => {
     if (!window.confirm(`Bạn muốn gỡ "${userName}" khỏi đội ${partner.name}?`)) return;
     
@@ -241,11 +240,10 @@ export const PartnerSidebar = ({ partner, onClose, onSuccess, showToast }) => {
         userIdsToRemove: [userId]
       });
       
-      // Dùng showToast được truyền từ cha xuống
       if (showToast) showToast(`Đã gỡ nhân viên "${userName}" thành công!`, "success");
       
-      fetchMembers(); // Tự tải lại danh sách trong Sidebar
-      onSuccess?.();  // Tải lại Table bên ngoài để update sĩ số
+      fetchMembers(); 
+      onSuccess?.();  
     } catch (error) {
       const errorMsg = error.response?.data?.error?.message || "Lỗi hệ thống khi gỡ thành viên.";
       if (showToast) showToast(errorMsg, "error");
@@ -295,17 +293,31 @@ export const PartnerSidebar = ({ partner, onClose, onSuccess, showToast }) => {
               {loading ? <p className="text-center py-10 text-gray-400 text-xs italic">Đang tải dữ liệu...</p> : (
                 staffMembers.map((m, idx) => (
                   <div key={m.userId?._id || idx} className="flex items-center justify-between p-4 bg-white border rounded-2xl group hover:border-blue-200 transition-all shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold uppercase">{m.userId?.name?.charAt(0)}</div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">{m.userId?.name || "N/A"}</p>
-                        <p className="text-[10px] text-gray-400 font-medium uppercase">{m.role} • {m.userId?.phone}</p>
+                    {/* Đảm bảo giao diện không tràn, Badge tách biệt */}
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold uppercase shrink-0">
+                        {m.userId?.name?.charAt(0)}
+                      </div>
+                      <div className="flex flex-col overflow-hidden">
+                        <p className="text-sm font-bold text-gray-900 truncate pr-2">
+                           {m.userId?.name || "N/A"} 
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap uppercase ${
+                             m.role === "LEADER" ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {m.role === "LEADER" ? "Đội trưởng" : "Thành viên"}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-medium truncate">
+                            • {m.userId?.phone}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    {/* 🔥 NÚT XÓA THÀNH VIÊN */}
+                    
                     <button 
                       onClick={() => handleRemoveMember(m.userId._id, m.userId.name)}
-                      className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0"
                     >
                       <Trash2 size={16}/>
                     </button>
@@ -316,7 +328,13 @@ export const PartnerSidebar = ({ partner, onClose, onSuccess, showToast }) => {
           )}
         </div>
         
-        <AddPersonnelModal isOpen={isPersonnelModalOpen} onClose={() => setIsPersonnelModalOpen(false)} teamName={partner.name} teamId={partner._id} onSuccess={() => { fetchMembers(); onSuccess?.(); }} />
+        <AddPersonnelModal 
+           isOpen={isPersonnelModalOpen} 
+           onClose={() => setIsPersonnelModalOpen(false)} 
+           teamName={partner.name} 
+           teamId={partner._id} 
+           onSuccess={() => { fetchMembers(); onSuccess?.(); }} 
+        />
       </aside>
     </div>
   );

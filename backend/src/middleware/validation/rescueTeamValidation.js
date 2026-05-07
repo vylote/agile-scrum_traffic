@@ -8,6 +8,10 @@ exports.createRescueTeamSchema = Joi.object({
         'any.only': `Loại đội không hợp lệ. Phải thuộc: ${ALL_RESCUE_TYPES.join(', ')}`
     }),
     zone: Joi.string().required().messages({ 'string.empty': 'Khu vực hoạt động là bắt buộc.' }),
+
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required(),
+    
     capabilities: Joi.array().items(Joi.string()).optional()
 });
 

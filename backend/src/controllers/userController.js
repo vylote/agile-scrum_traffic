@@ -50,7 +50,7 @@ exports.createUser = async (req, res, next) => {
 exports.getAllUsers = async (req, res, next) => {
     try {
         let { page, role, search } = req.query;
-        const limit = 10; // Vy nên tăng lên 10 cho khớp với giao diện máy tính
+        const limit = 10; 
         const currentPage = Math.max(1, parseInt(page) || 1);
         const skip = (currentPage - 1) * limit;
 
@@ -66,11 +66,17 @@ exports.getAllUsers = async (req, res, next) => {
         }
 
         if (search) {
-            const searchRegex = { $regex: search, $options: 'i' };
+            const searchRegex = { $regex: search, $options: 'i' }; // Tìm không phân biệt hoa thường
+
+            const matchingTeams = await RescueTeam.find({ code: searchRegex }).select('_id');
+            const teamIds = matchingTeams.map(team => team._id);
+
+            // 2. Nhét kết quả vào lệnh tìm kiếm của User
             filter.$or = [
                 { name: searchRegex },
                 { email: searchRegex },
-                { username: searchRegex }
+                { username: searchRegex },
+                { rescueTeam: { $in: teamIds } } 
             ];
         }
 

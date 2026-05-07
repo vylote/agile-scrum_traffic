@@ -1,12 +1,9 @@
 import React from "react";
-import { ExportButton } from "./ExportButton"; // Vẫn giữ ExportButton độc lập
 import ellipse1 from "../../assets/images/avatar.jpg"; // Import ảnh avatar 1 lần ở đây
 
 export const AdminHeader = ({ 
   title, 
   subtitle, 
-  onExport, 
-  showExport = true // Cho phép linh hoạt ẩn/hiện nút export nếu muốn
 }) => {
   return (
     <header className="h-[90px] flex items-center justify-between px-8 bg-transparent shrink-0 mt-2">
@@ -20,13 +17,7 @@ export const AdminHeader = ({
         </p>
       </div>
       
-      {/* Bên phải: Cụm Actions (Export + Avatar) */}
       <div className="flex items-center gap-5">
-        {showExport && (
-          <ExportButton onClick={onExport || (() => alert("Đang xuất dữ liệu..."))} />
-        )}
-        
-        {/* Avatar Admin dùng chung toàn hệ thống */}
         <img 
           src={ellipse1} 
           alt="Admin Profile" 
