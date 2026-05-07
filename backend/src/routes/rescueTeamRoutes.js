@@ -187,5 +187,6 @@ router.patch('/:id/location', restrictTo(USER_ROLES.RESCUE), validate(updateTeam
 router.patch('/:id/members/add', restrictTo(USER_ROLES.ADMIN), rescueTeamController.addMembers);
 router.get('/:id/members',restrictTo(USER_ROLES.DISPATCHER, USER_ROLES.ADMIN, USER_ROLES.RESCUE), rescueTeamController.getRescueTeamMembers)
 router.patch('/:id/status', rescueTeamController.updateStatus);
+router.delete('/:id', restrictTo(USER_ROLES.ADMIN), rescueTeamController.deleteRescueTeam);
 
 module.exports = router;

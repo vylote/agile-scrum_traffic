@@ -19,7 +19,7 @@ const ZONE_MAP = {
   "Đống Đa": "DD",
   "Ba Đình": "BD",
   "Hà Đông": "HD",
-  Khác: "VN",
+  "Khác": "VN",
 };
 
 const initialState = {
@@ -29,19 +29,17 @@ const initialState = {
   capabilities: "Cứu hộ cơ bản",
 };
 
-const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
+// 🔥 Đã xóa prop `isOpen` đi vì Parent tự lo việc ẩn hiện rồi
+const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
   const [formData, setFormData] = useState(initialState);
 
-  if (!isOpen) return null;
-
-  // --- 1. TÍNH TOÁN MÃ VÀ SỐ THỨ TỰ (Derived State) ---
+  // --- 1. TÍNH TOÁN SMART CODE TỰ ĐỘNG ---
   const typePart = TYPE_PREFIX_MAP[formData.type] || "GEN";
   const zonePart = ZONE_MAP[formData.zone] || "XX";
   const prefix = `${typePart}-${zonePart}-`;
 
-  // Tìm các đội đã có cùng Loại và Vùng trong danh sách truyền từ cha vào
   const matchedTeams = existingTeams.filter((team) =>
-    team.code?.startsWith(prefix),
+    team.code && team.code.toUpperCase().startsWith(prefix.toUpperCase())
   );
 
   let nextSequence = "01";
@@ -49,7 +47,9 @@ const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
     const usedNumbers = matchedTeams
       .map((team) => {
         const parts = team.code.split("-");
-        return parseInt(parts[parts.length - 1], 10);
+        const lastPart = parts[parts.length - 1]; 
+        const numericPart = lastPart.replace(/\D/g, ""); // Chỉ lấy số, đề phòng lỗi
+        return parseInt(numericPart, 10);
       })
       .filter((num) => !isNaN(num));
 
@@ -62,40 +62,34 @@ const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
   const generatedCode = `${prefix}${nextSequence}`;
 
   // --- 2. XỬ LÝ SỰ KIỆN ---
-  const handleInternalClose = () => {
-    setFormData(initialState);
-    onClose();
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Tọa độ mặc định (FR-18)
     const defaultCoords = {
       "Sóc Sơn": { lat: 21.2583, lng: 105.8125 },
       "Cầu Giấy": { lat: 21.0362, lng: 105.7906 },
+      "Đống Đa": { lat: 21.0128, lng: 105.8277 },
+      "Ba Đình": { lat: 21.0336, lng: 105.8340 },
+      "Hà Đông": { lat: 20.9716, lng: 105.7709 },
+      "Khác": { lat: 21.0285, lng: 105.8542 }
     };
-    const coords = defaultCoords[formData.zone] || {
-      lat: 21.0285,
-      lng: 105.8542,
-    };
+    
+    const coords = defaultCoords[formData.zone] || defaultCoords["Khác"];
 
     onAdd({
       ...formData,
-      code: generatedCode, // Gửi mã thông minh lên Server
-      latitude: coords.lat,
+      code: generatedCode, 
+      latitude: coords.lat, // Truyền đúng latitude và longitude để Joi không cắn
       longitude: coords.lng,
       capabilities: formData.capabilities.split(",").map((s) => s.trim()),
       members: [],
     });
-
-    setFormData(initialState);
   };
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-[#1e2a5e]/40 backdrop-blur-sm"
-        onClick={handleInternalClose}
+        onClick={onClose}
       />
 
       <div className="relative w-full max-w-[550px] bg-white rounded-[24px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
@@ -105,7 +99,7 @@ const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
               <ShieldCheck className="text-blue-500" size={28} /> Khởi tạo Đội
             </h1>
             <button
-              onClick={handleInternalClose}
+              onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition-all"
             >
               <X size={24} className="text-gray-400" />
@@ -120,7 +114,6 @@ const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
               <input
                 type="text"
                 className="mt-1.5 px-4 py-3 w-full rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 outline-none font-semibold transition-all"
-                required
                 placeholder="Nhập tên đối tác..."
                 value={formData.name}
                 onChange={(e) =>
@@ -176,7 +169,7 @@ const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
                   <label className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1">
                     <Zap size={10} fill="currentColor" /> Mã định danh đề xuất
                   </label>
-                  <p className="text-3xl font-mono font-black text-[#1e2a5e] tracking-tighter">
+                  <p className="text-3xl font-mono font-black text-[#1e2a5e] tracking-tighter mt-0.5">
                     {generatedCode}
                   </p>
                 </div>
@@ -185,17 +178,17 @@ const AddPartnerModal = ({ isOpen, onClose, onAdd, existingTeams = [] }) => {
                   <label className="block text-[8px] font-bold text-gray-400 uppercase">
                     STT tiếp theo
                   </label>
-                  <span className="text-xl font-mono font-black text-blue-600">
+                  <span className="text-xl font-mono font-black text-blue-600 block mt-1 leading-none">
                     {nextSequence}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-4 border-t mt-6 border-gray-100">
               <button
                 type="button"
-                onClick={handleInternalClose}
+                onClick={onClose}
                 className="flex-1 py-3 text-sm font-bold text-gray-400 hover:text-gray-600"
               >
                 Hủy bỏ

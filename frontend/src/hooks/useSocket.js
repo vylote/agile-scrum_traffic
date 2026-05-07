@@ -12,7 +12,6 @@ export const useSocket = () => {
         if (!socket.connected) socket.connect();
 
         if (user.role === USER_ROLES.DISPATCHER || user.role === USER_ROLES.ADMIN) {
-            socket.emit("join_zone", "room:dispatchers");
             socket.emit("dispatcher:register");
         }
 

@@ -5,11 +5,10 @@ import {
   Filter,
   Download,
   FileSpreadsheet,
-  Calendar,
   Plus,
   Loader2,
   FileSearch,
-  Trash2 // Thêm icon thùng rác
+  Trash2
 } from "lucide-react";
 import api from "../../services/api";
 import { toast } from "react-hot-toast";
@@ -19,7 +18,7 @@ export const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // ─── 1. LẤY LỊCH SỬ BÁO CÁO TỪ DB ───────────────────────────────────────
+  // 1. LẤY LỊCH SỬ BÁO CÁO TỪ DB
   const fetchReports = async () => {
     try {
       setLoading(true);
@@ -37,26 +36,35 @@ export const Reports = () => {
     fetchReports();
   }, []);
 
-  // ─── 2. HỖ TRỢ TẢI FILE / MỞ CỬA SỔ EXPLORER ───────────────────────────
+  // 2. TẢI FILE EXCEL
   const downloadFile = (url) => {
+    // Gọi URL tĩnh từ Backend Node.js
     const fullUrl = `http://localhost:5000${url}`;
-    // Mở ở tab mới sẽ tự động trigger cửa sổ "Save As..." của trình duyệt
-    window.open(fullUrl, "_blank");
+    
+    // Mở ở tab ẩn để ép trình duyệt bật cửa sổ Save As...
+    const link = document.createElement('a');
+    link.href = fullUrl;
+    link.target = '_blank';
+    // Ép download nếu trình duyệt hỗ trợ
+    link.download = url.split('/').pop() || 'report.xlsx'; 
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  // ─── 3. KÍCH HOẠT TẠO & TẢI XUỐNG LUÔN (TỪ HEADER) ──────────────────────
+  // 3. KHỞI TẠO BÁO CÁO MỚI (CHỈ CÓ NÚT Ở ĐÂY)
   const handleExport = async () => {
     try {
       setIsGenerating(true);
-      toast.loading("Đang khởi tạo dữ liệu Excel...", { id: "export-loading" });
+      toast.loading("Đang tổng hợp dữ liệu Excel...", { id: "export-loading" });
       
       const res = await api.post("/reports/generate-incidents");
       
       if (res.data.success) {
-        toast.success("Báo cáo đã tạo thành công!", { id: "export-loading" });
-        fetchReports(); // Cập nhật lại bảng lịch sử
+        toast.success("Đã tạo báo cáo thành công!", { id: "export-loading" });
+        fetchReports(); // Cập nhật lại bảng
 
-        // 🔥 TỰ ĐỘNG BẬT CỬA SỔ LƯU FILE KHI VỪA TẠO XONG
+        // 🔥 BẬT CỬA SỔ LƯU FILE LUÔN NGAY KHI TẠO XONG
         downloadFile(res.data.result.url);
       }
     } catch (error) {
@@ -66,15 +74,15 @@ export const Reports = () => {
     }
   };
 
-  // ─── 4. XÓA BÁO CÁO ─────────────────────────────────────────────────────
+  // 4. XÓA BÁO CÁO
   const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa báo cáo này vĩnh viễn?")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa báo cáo này vĩnh viễn khỏi máy chủ?")) return;
     
     try {
-      toast.loading("Đang xóa...", { id: "delete-report" });
+      toast.loading("Đang dọn dẹp file...", { id: "delete-report" });
       await api.delete(`/reports/${id}`);
       toast.success("Đã xóa báo cáo", { id: "delete-report" });
-      fetchReports(); // Tải lại danh sách
+      fetchReports(); 
     } catch (error) {
       toast.error("Lỗi khi xóa báo cáo", { id: "delete-report" });
     }
@@ -84,10 +92,10 @@ export const Reports = () => {
     <div className="flex h-screen w-full bg-[#F5F6FA] font-sans overflow-hidden">
       <AdminMenu />
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* 🔥 HEADER ĐÃ GỌN GÀNG, KHÔNG CÒN NÚT EXPORT */}
         <AdminHeader 
           title="Trích xuất dữ liệu hệ thống"
-          subtitle="Quản lý lịch sử báo cáo"
-          onExport={handleExport} // Truyền function handleExport vào header
+          subtitle="Quản lý lịch sử báo cáo định kỳ"
         />
         
         <div className="flex-1 overflow-y-auto px-8 pb-8 no-scrollbar">
@@ -101,27 +109,28 @@ export const Reports = () => {
                 </h3>
                 <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">
                   <div className="w-1 h-1 bg-blue-600 rounded-full animate-pulse" />
-                  Hệ thống Online
+                  Sẵn sàng
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
                 <button className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl font-bold text-xs transition-all border border-gray-100 uppercase tracking-widest">
                   <Filter className="w-4 h-4" />
-                  Lọc kết quả
+                  Lọc
                 </button>
+                {/* 🔥 NÚT TẠO BÁO CÁO NẰM CHÍNH THỨC Ở ĐÂY */}
                 <button 
                   onClick={handleExport}
                   disabled={isGenerating}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0088FF] hover:bg-blue-600 text-white rounded-xl font-black text-xs transition-all shadow-lg shadow-blue-100 active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0088FF] hover:bg-blue-600 text-white rounded-xl font-black text-xs transition-all shadow-lg shadow-blue-100 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
                 >
                   {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  TẠO BÁO CÁO MỚI
+                  {isGenerating ? "ĐANG KẾT XUẤT..." : "TẠO BÁO CÁO MỚI"}
                 </button>
               </div>
             </div>
 
-            {/* Bảng Dữ Liệu Thật */}
+            {/* Bảng Dữ Liệu */}
             <div className="flex-1">
               {loading ? (
                 <div className="flex flex-col items-center justify-center h-[400px] gap-3">
@@ -177,26 +186,27 @@ export const Reports = () => {
                           <td className="px-8 py-5 text-gray-400 font-medium text-xs">
                             {report.size}
                           </td>
-                          <td className="px-8 py-5 flex items-center justify-end gap-2">
-                            {/* Nút Tải Xuống */}
-                            <button 
-                              onClick={() => downloadFile(report.url)}
-                              className="inline-flex items-center gap-2 px-3 py-2 text-[#0088FF] hover:bg-blue-100 font-black text-[11px] rounded-xl transition-all uppercase tracking-widest border border-transparent hover:border-blue-50"
-                              title="Tải lại file Excel này"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              Tải xuống
-                            </button>
-                            
-                            {/* Nút Xóa Báo Cáo */}
-                            <button 
-                              onClick={() => handleDelete(report._id)}
-                              className="inline-flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-50 font-black text-[11px] rounded-xl transition-all uppercase tracking-widest border border-transparent hover:border-red-100"
-                              title="Xóa báo cáo"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Xóa
-                            </button>
+                          <td className="px-8 py-5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Nút Tải Xuống */}
+                              <button 
+                                onClick={() => downloadFile(report.url)}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 text-[#0088FF] hover:bg-blue-100 font-black text-[11px] rounded-xl transition-all uppercase tracking-widest border border-transparent hover:border-blue-50"
+                                title="Tải lại file Excel này"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                Tải xuống
+                              </button>
+                              
+                              {/* Nút Xóa Báo Cáo */}
+                              <button 
+                                onClick={() => handleDelete(report._id)}
+                                className="inline-flex items-center justify-center p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                title="Xóa báo cáo"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

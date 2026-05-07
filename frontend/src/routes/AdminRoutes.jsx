@@ -6,7 +6,10 @@ import { Reports } from '../pages/Admin/Reports';
 import { AdminSettings } from '../pages/Admin/AdminSettings'
 import { AdminHeatmap } from '../pages/Admin/AdminHeatmap'
 
+import { useSocket } from '../hooks/useSocket';
+
 export const AdminRoutes = () => {
+  useSocket();
   return (
     <Routes>
       <Route path="dashboard" element={<AdminDashboard />} />

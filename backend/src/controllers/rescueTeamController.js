@@ -195,8 +195,19 @@ exports.addMembers = async (req, res, next) => {
         const team = await RescueTeam.findById(id).session(session);
         if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
 
-        if (team.members.length + newMembers.length > 10) {
-            return next(new AppError(ErrorCodes.INVALID_INPUT, "Số lượng thành viên vượt quá giới hạn 10 người cho một đội."));
+        let businessErrors = [];
+
+        // Đếm số lượng Đội trưởng hiện có và số lượng chuẩn bị thêm
+        const currentLeadersCount = team.members.filter(m => m.role === 'LEADER').length;
+        const newLeadersCount = newMembers.filter(m => m.role === 'LEADER').length;
+
+        if (currentLeadersCount + newLeadersCount > 1) {
+            businessErrors.push("Đội cứu hộ này đã có Đội trưởng. Chỉ được phép có tối đa 1 Đội trưởng (LEADER).");
+        }
+
+        // Nếu phát hiện vi phạm luật -> Ném lỗi ra cho Frontend (dùng dấu | để sau này dễ thêm luật)
+        if (businessErrors.length > 0) {
+            return next(new AppError(ErrorCodes.INVALID_INPUT, businessErrors.join(' | ')));
         }
 
         let validMembers = [];
@@ -391,6 +402,44 @@ exports.updateStatus = async (req, res, next) => {
         });
 
     } catch (err) {
+        next(err);
+    }
+};
+
+exports.deleteRescueTeam = async (req, res, next) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return next(new AppError(ErrorCodes.INVALID_ID_FORMAT));
+        }
+
+        const team = await RescueTeam.findById(id).session(session);
+        if (!team) return next(new AppError(ErrorCodes.RESCUE_TEAM_NOT_FOUND));
+
+        // 1. Giải phóng tất cả thành viên trong đội này (set rescueTeam = null)
+        if (team.members && team.members.length > 0) {
+            const userIds = team.members.map(m => m.userId);
+            await User.updateMany(
+                { _id: { $in: userIds } },
+                { rescueTeam: null },
+                { session }
+            );
+        }
+
+        // 2. Xóa đội cứu hộ
+        await RescueTeam.findByIdAndDelete(id).session(session);
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, null, "Đã xóa đội cứu hộ thành công.");
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
         next(err);
     }
 };
