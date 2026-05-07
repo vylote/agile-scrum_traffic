@@ -7,6 +7,8 @@ import { logout } from "../../store/slices/authSlice";
 import StatusBar from "../../components/RescueTeam/StatusBar";
 import TabBar from "../../components/RescueTeam/TabBar";
 
+import { useSocket } from "../../hooks/useSocket";
+
 const UserProfile = ({ name = "Nguyễn Văn A", employeeId = "0001", avatarUrl = "https://api.builder.io/api/v1/image/assets/TEMP/0652c9b603670ade7b0ce94bb139afeed3874bbd" }) => (
   <section className="flex flex-col items-center pt-8 pb-4">
     <img
@@ -59,12 +61,18 @@ const MenuItem = ({label, onClick, hasBorder = false }) => (
 export const Settings = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const socket = useSocket();
 
   const handleLogout = async (e) => {
     e.preventDefault();
     try {
       await api.get("auth/logout");
       dispatch(logout());
+
+      if (socket.connected) {
+        socket.disconnect();
+        console.log("Đã ngắt Socket để dọn dẹp phiên làm việc cũ.");
+      }
       navigate("/login"); 
     } catch (err) {
       console.error("Lỗi khi đăng xuất:", err);
