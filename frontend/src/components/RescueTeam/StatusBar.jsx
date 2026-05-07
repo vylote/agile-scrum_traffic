@@ -9,14 +9,6 @@ const StatusBar = ({ time = "9:41" }) => (
          {time}
        </time>
     </div>
-
-    {/* Phải: Cột sóng, Wifi, Pin */}
-    <div className="flex items-center gap-1.5 drop-shadow-md pointer-events-auto">
-      <img src="https://api.builder.io/api/v1/image/assets/TEMP/504fc8a8091145dd97ed68dbbfb274ee330bd659" className="w-[18px] h-auto" alt="Signal" />
-      <img src="https://api.builder.io/api/v1/image/assets/TEMP/3bef92dac319c014a0e2cf7b87336d1813c53dc3" className="w-[16px] h-auto" alt="WiFi" />
-      <img src="https://api.builder.io/api/v1/image/assets/TEMP/3ec12b105148e09b3602fe62fa1da2398cfbae86" className="w-[24px] h-auto" alt="Battery" />
-    </div>
-
   </header>
 );
 

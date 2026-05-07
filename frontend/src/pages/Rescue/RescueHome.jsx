@@ -436,15 +436,18 @@ export const RescueHome = () => {
 
   // ─── EFFECTS: GPS TRACKING ────────────────────────────────────────────────
 
+  const currentPosRef = useRef(currentPos);
+  useEffect(() => {
+    currentPosRef.current = currentPos;
+  }, [currentPos]);
+
   useEffect(() => {
     if (!teamId || !socket || IS_SIMULATION_MODE) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        api
-          .patch(`/rescue-teams/${teamId}/location`, { latitude, longitude })
-          .catch(() => {});
+        api.patch(`/rescue-teams/${teamId}/location`, { latitude, longitude }).catch(() => {});
         socket.emit("rescue:updateLocation", {
           teamId,
           lat: latitude,
@@ -455,15 +458,11 @@ export const RescueHome = () => {
       },
       (err) => {
         if (err.code === 1) console.warn("GPS: Người dùng từ chối cấp quyền.");
-        if (err.code === 2)
-          console.warn(
-            "GPS: Tạm thời không lấy được vị trí (Sensor đang chuyển đổi...).",
-          );
-        if (err.code === 3) console.warn("GPS: Hết thời gian chờ (Timeout).");
+        if (err.code === 2) console.warn("GPS: Đang tìm tín hiệu vệ tinh...");
       },
       {
         enableHighAccuracy: true,
-        distanceFilter: 10,
+        distanceFilter: 10, // chỉ bắn khi di chuyển 10 mét
         timeout: 10000,
         maximumAge: 0,
       },
@@ -471,6 +470,25 @@ export const RescueHome = () => {
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, [teamId, socket, teamStatus, user?.rescueTeam?.name]);
+
+  useEffect(() => {
+    if (!teamId || IS_SIMULATION_MODE) return;
+
+    const heartbeatInterval = setInterval(() => {
+      const pos = currentPosRef.current;
+      
+      if (pos && typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+        api.patch(`/rescue-teams/${teamId}/location`, { 
+          latitude: pos.lat, 
+          longitude: pos.lng 
+        }).catch(() => {});
+        
+        console.log(`Heartbeat: Đã duy trì trạng thái Online cho đội ${teamId}`);
+      }
+    }, 60000); // 60 giây
+
+    return () => clearInterval(heartbeatInterval);
+  }, [teamId]);
 
   // ─── HANDLERS ────────────────────────────────────────────────────────────
 

@@ -16,7 +16,7 @@ exports.createRescueTeamSchema = Joi.object({
 });
 
 exports.updateTeamLocationSchema = Joi.object({
-    lat: Joi.number().min(-90).max(90).required(),
-    lng: Joi.number().min(-180).max(180).required(),
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required(),
     status: Joi.string().valid(...ALL_RESCUE_STATUS).optional()
 });
