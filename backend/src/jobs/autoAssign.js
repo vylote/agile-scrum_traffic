@@ -13,6 +13,10 @@ const autoDispatchQueue = new Queue('auto-dispatch', {
 });
 
 // chạy tối đa 5 job song song
+/* Giả sử có một vụ tai nạn liên hoàn, 10 người dân rút điện thoại ra bấm báo cáo SOS cùng một lúc. Nếu Node.js xử 
+lý tuần tự từng người thì hệ thống sẽ bị treo hoặc rất chậm. Khi đặt là 5, Bull Queue sẽ cho phép 5 tiến trình 
+tìm kiếm đội cứu hộ chạy song song cùng một lúc. 5 vụ còn lại sẽ nằm trong hàng đợi (Queue), cứ 1 vụ xử lý xong 
+thì vụ tiếp theo mới được đẩy vào chạy. Nó giúp Server không bị quá tải CPU. */
 autoDispatchQueue.process(5, async (job) => {
     const { incidentId, lastTargetTeamId } = job.data;
 
@@ -23,6 +27,7 @@ autoDispatchQueue.process(5, async (job) => {
 
         const startTime = incident.createdAt.getTime();
         const now = Date.now();
+        //toFixed dùng để làm tròn 0.54321 giây. Gọi .toFixed(1) nó sẽ cắt gọn lại thành chuỗi "0.5"
         const elapsed = ((now - startTime) / 1000).toFixed(1); //elapse: thời gian đã trôi qua
         logPrefix = `[T+${elapsed}s][Vụ:${incidentId}]`;
 
@@ -34,9 +39,14 @@ autoDispatchQueue.process(5, async (job) => {
         //ĐIỀU PHỐI TẦNG 
         // Blacklist đội vừa timeout
         if (lastTargetTeamId) {
-            console.log(`${logPrefix} Timeout: Thu hồi UI và Blacklist đội [${lastTargetTeamId}]`);
+            console.log(`${logPrefix} Timeout: Thu hồi đơn và Blacklist đội [${lastTargetTeamId}]`);
             
             // Mở khóa bằng Atomic Update
+            /* Hệ thống nói với MongoDB: *"Hãy tìm đúng cái đơn có ID này, ĐANG GÁN cho Đội này, và ĐANG Ở trạng thái PENDING.
+            Nếu thỏa mãn cả 3 điều kiện, thì mới gỡ tên đội đó ra"*. Việc này ngăn chặn lỗi **Race Condition**: Lỡ như 
+            đúng giây thứ 30.000, Đội cứu hộ bấm "Nhận đơn", nhưng cùng tích tắc đó Worker thức dậy định thu hồi đơn. 
+            Nhờ Atomic Update, kẻ nào chạy đến Database trước sẽ khóa cửa lại, kẻ đến sau sẽ bị báo lỗi và không thể làm
+             sai lệch dữ liệu. */
             incident = await Incident.findOneAndUpdate(
                 { _id: incidentId, assignedTeam: lastTargetTeamId, status: INCIDENT_STATUS.PENDING }, 
                 { 
