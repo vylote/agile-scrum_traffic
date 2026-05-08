@@ -73,13 +73,13 @@ export const Dashboard = () => {
 
     socket.on('incident:new', handleRealtimeUpdate);
     socket.on('incident:updated', handleRealtimeUpdate);
-    socket.on('delete_incident', handleRealtimeUpdate);
+    socket.on('incident:delete', handleRealtimeUpdate);
     socket.on('rescue:location', handleRealtimeUpdate);
 
     return () => {
         socket.off('incident:new', handleRealtimeUpdate);
         socket.off('incident:updated', handleRealtimeUpdate);
-        socket.off('delete_incident', handleRealtimeUpdate);
+        socket.off('incident:delete', handleRealtimeUpdate);
         socket.off('rescue:location', handleRealtimeUpdate);
     };
   }, [fetchDashboardData]);

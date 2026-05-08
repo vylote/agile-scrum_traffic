@@ -423,13 +423,13 @@ export const Incident = () => {
 
     socket.on("dispatcher:manual_intervention_required", handleManualNeeded);
     socket.on("incident:new", handleNewIncident);
-    socket.on("delete_incident", handleDelete);
+    socket.on("incident:delete", handleDelete);
     socket.on("incident:updated", handleUpdated);
 
     return () => {
       socket.off("dispatcher:manual_intervention_required", handleManualNeeded);
       socket.off("incident:new", handleNewIncident);
-      socket.off("delete_incident", handleDelete);
+      socket.off("incident:delete", handleDelete);
       socket.off("incident:updated", handleUpdated);
     };
   }, [socket, page]);

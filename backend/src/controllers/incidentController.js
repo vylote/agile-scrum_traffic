@@ -184,7 +184,7 @@ exports.deleteIncident = async (req, res, next) => {
         }
 
         const io = req.app.get('io');
-        if (io) io.emit('delete_incident', { incidentId: id });
+        if (io) io.emit('incident:delete', { incidentId: id });
 
         return sendSuccess(res, SuccessCodes.DEFAULT_SUCCESS, deleteDoc);
     } catch (err) {
