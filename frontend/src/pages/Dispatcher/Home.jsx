@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Menu } from "../../components/Dispatcher/Menu";
-import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import Map from "../../components/Public/Map";
 import { useSocket } from "../../hooks/useSocket";
 import api from "../../services/api";
@@ -234,9 +233,7 @@ export const Home = () => {
               Giám sát hệ thống • {allIncidents.length} sự cố đang mở
             </p>
           </div>
-          <div className="w-[400px]">
-            <SearchBar className="w-full" property1="default" />
-          </div>
+
         </header>
 
         <div className="flex-1 overflow-y-auto px-8 pb-8 flex flex-col lg:flex-row gap-6 no-scrollbar">

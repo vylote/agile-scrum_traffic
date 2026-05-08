@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Menu } from "../../components/Dispatcher/Menu";
-import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import { Search, Loader2, Info } from "lucide-react";
 import api from "../../services/api";
 import { IncidentChat } from "../../components/Public/IncidentChat"; 
@@ -148,9 +147,6 @@ export const CallCenter = () => {
             <p className="text-sm text-gray-500">
               Hỗ trợ khẩn cấp • {activeIncidents.length} sự cố đang kết nối
             </p>
-          </div>
-          <div className="w-[400px]">
-            <SearchBar className="w-full" />
           </div>
         </header>
 

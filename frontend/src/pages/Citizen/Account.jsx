@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux"; // 🔥 Import thêm useSelector
 import {X,Car,PhoneCall,Bell,ShieldCheck,LogOut,ChevronRight} from "lucide-react";
 import ellipse1 from "../../assets/images/avatar.jpg"; 
 import api from "../../services/api";
@@ -8,20 +8,24 @@ import { logout } from "../../store/slices/authSlice";
 export const CitizenAccount = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  
+  // 🔥 Lấy thông tin user hiện tại từ Redux Store
+  const { user } = useSelector((state) => state.auth);
 
   const handleLogout = async (e) => {
       e.preventDefault()
       try {
         await api.get("auth/logout")
         dispatch(logout())
-        // setTimeout(() => {
-        //   navigate("/login");
-        // }, 2000);
+        // Không cần rút socket ở đây vì Citizen không dùng Socket.io
         navigate("/login")
       } catch (err) {
         console.error("loi dang xuat: ",err)
       } 
     }
+
+  // Đảm bảo không bị văng lỗi nếu user chưa load kịp
+  if (!user) return null; 
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-10">
@@ -48,7 +52,7 @@ export const CitizenAccount = () => {
         </button>
       </div>
 
-      {/* 3. PROFILE INFO (Avatar & Tên) */}
+      {/* 3. PROFILE INFO (Avatar & Tên thật lấy từ DB) */}
       <div className="flex flex-col items-center justify-center mb-8 mt-2">
         <div className="relative">
           <img
@@ -56,13 +60,25 @@ export const CitizenAccount = () => {
             alt="User Avatar"
             className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-sm"
           />
-          {/* Dấu chấm xanh online (tùy chọn) */}
+          {/* Dấu chấm xanh online */}
           <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-[3px] border-white rounded-full"></div>
         </div>
-        <h2 className="text-[22px] font-bold text-black mt-3">Nguyễn Văn A</h2>
+        
+        {/* 🔥 Gắn dữ liệu thật vào đây */}
+        <h2 className="text-[22px] font-bold text-black mt-3">
+            {user.name || "Người dùng TIMS"}
+        </h2>
+        
         <span className="text-[15px] text-gray-500 font-medium mt-0.5">
-          0912 345 678
+            {user.phone ? user.phone.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3') : "Chưa cập nhật số ĐT"}
         </span>
+
+        {/* Chỉ hiện Email nếu có */}
+        {user.email && (
+            <span className="text-[13px] text-gray-400 mt-1">
+                {user.email}
+            </span>
+        )}
       </div>
 
       <div className="px-6 space-y-6">
@@ -72,7 +88,6 @@ export const CitizenAccount = () => {
             Thông tin cứu hộ
           </h3>
           <div className="bg-white rounded-[20px] overflow-hidden shadow-sm border border-gray-100">
-            {/* Item 1: Phương tiện của tôi */}
             <button className="w-full flex items-center px-4 py-3.5 bg-white active:bg-gray-50 transition-colors border-b border-gray-100">
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mr-4">
                 <Car className="w-5 h-5" />
@@ -83,7 +98,6 @@ export const CitizenAccount = () => {
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </button>
 
-            {/* Item 2: Liên hệ khẩn cấp */}
             <button className="w-full flex items-center px-4 py-3.5 bg-white active:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mr-4">
                 <PhoneCall className="w-5 h-5" />
@@ -96,13 +110,12 @@ export const CitizenAccount = () => {
           </div>
         </section>
 
-        {/* GROUP 2: ỨNG DỤNG (Đã fix lỗi copy-paste của Designer) */}
+        {/* GROUP 2: ỨNG DỤNG */}
         <section>
           <h3 className="text-[#8E8E93] text-[13px] font-bold uppercase ml-4 mb-2">
             Ứng dụng
           </h3>
           <div className="bg-white rounded-[20px] overflow-hidden shadow-sm border border-gray-100">
-            {/* Item 1: Cài đặt thông báo */}
             <button className="w-full flex items-center px-4 py-3.5 bg-white active:bg-gray-50 transition-colors border-b border-gray-100">
               <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mr-4">
                 <Bell className="w-5 h-5" />
@@ -113,7 +126,6 @@ export const CitizenAccount = () => {
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </button>
 
-            {/* Item 2: Chính sách bảo mật */}
             <button className="w-full flex items-center px-4 py-3.5 bg-white active:bg-gray-50 transition-colors">
               <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center mr-4">
                 <ShieldCheck className="w-5 h-5" />

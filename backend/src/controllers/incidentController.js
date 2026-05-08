@@ -20,10 +20,6 @@ exports.createIncident = async (req, res, next) => {
     try {
         const { title, description, latitude, longitude, type, severity } = req.body;
 
-        // if (!latitude || !longitude) {
-        //     return next(new AppError(ErrorCodes.INCIDENT_MISSING_COORDINATES));
-        // }
-
         const geoData = await geoService.reverseGeocode(latitude, longitude);
         const address = geoData.display_name;
         const detectedZone = geoData.zone_detected;
@@ -198,22 +194,18 @@ exports.deleteIncident = async (req, res, next) => {
 
 exports.getAllIncidents = async (req, res, next) => {
     try {
-        const { page, type, severity, status, zone, assignedTeam } = req.query
+        const { page, type, severity, status, zone, assignedTeam, search } = req.query
 
-        let limit;
-        if (req.user.role === USER_ROLES.CITIZEN) {
-            limit = 100; // Người dân: cho xem nhiều để cuộn (scroll)
-        } else {
-            limit = 10;  // Dispatcher/Admin: cố định 10 dòng để giữ Layout Desktop chuẩn
-        }
+        let limit = req.user.role === USER_ROLES.CITIZEN ? 100 : 10;
         const currentPage = parseInt(page) || 1;
         const skip = (currentPage - 1) * limit
 
         const filter = {}
         if (type) filter.type = type
         if (severity) filter.severity = severity
-        if (zone) filter.zone = zone
         if (assignedTeam) filter.assignedTeam = assignedTeam;
+
+        if (zone) filter.zone = { $regex: new RegExp(zone, 'i') };
 
         if (status) {
             if (status.includes(',')) {
@@ -228,6 +220,15 @@ exports.getAllIncidents = async (req, res, next) => {
 
         if (req.user.role === USER_ROLES.CITIZEN) {
             filter.reportedBy = req.user._id;
+        }
+
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            filter.$or = [
+                { code: searchRegex },
+                { title: searchRegex },
+                { description: searchRegex } // Nơi chứa biển số xe
+            ];
         }
 
         const total = await Incident.countDocuments(filter)

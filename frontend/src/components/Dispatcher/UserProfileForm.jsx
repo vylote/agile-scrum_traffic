@@ -1,21 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogOut } from 'lucide-react'; 
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import api from '../../services/api'
-import { logout } from '../../store/slices/authSlice'
+import { useDispatch, useSelector } from 'react-redux'; // 🔥 Import useSelector
+import api from '../../services/api';
+import { logout } from '../../store/slices/authSlice';
+import { useSocket } from '../../hooks/useSocket'; // 🔥 Import useSocket để ngắt kết nối
 
-//   Thêm onLogout vào tham số của component
 export const UserProfileForm = () => {
-  const navigate = useNavigate()
-  const dispatch = useDispatch()
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const socket = useSocket();
 
+  // 🔥 Lấy thông tin user từ Redux Store
+  const { user } = useSelector((state) => state.auth);
+
+  // Khởi tạo state với dữ liệu mặc định (tránh lỗi null)
   const [formData, setFormData] = useState({
-    fullName: 'Nguyễn Văn A',
-    employeeId: '0001',
-    phone: '0110101111',
-    email: 'adsfa@gmail.com'
+    fullName: '',
+    employeeId: '',
+    phone: '',
+    email: ''
   });
+
+  // 🔥 Đổ dữ liệu từ Redux vào form khi component được mount hoặc khi user thay đổi
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.name || '',
+        // Nếu user có _id thì lấy 6 số cuối của _id làm mã nhân sự mô phỏng (tùy ý bạn)
+        employeeId: user._id ? user._id.slice(-6).toUpperCase() : 'N/A', 
+        phone: user.phone || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -27,21 +45,35 @@ export const UserProfileForm = () => {
   const handleSave = () => {
     console.log('Đang lưu thay đổi:', formData);
     // Sau này bạn gọi API ở đây: await api.put('/users/update', formData)
+    // Sau khi cập nhật thành công, có thể dispatch action để update lại Redux store
   };
 
   const handleLogout = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await api.get("auth/logout")
-      dispatch(logout())
-      navigate("/login")
+      // 🔥 1. Ngắt kết nối Socket của Dispatcher trước
+      if (socket && socket.connected) {
+          socket.disconnect();
+          console.log("Đã ngắt Socket của Dispatcher để dọn dẹp phiên làm việc cũ.");
+      }
+
+      // 2. Gọi API đăng xuất
+      await api.get("auth/logout");
+      
+      // 3. Xóa Redux và Local Storage
+      dispatch(logout());
+      
+      // 4. Bay về trang login
+      navigate("/login");
     } catch (err) {
-      console.error("loi dang xuat: ", err)
+      console.error("Lỗi khi đăng xuất:", err);
     }
-  }
+  };
+
+  if (!user) return null; // Không render nếu chưa có user
 
   return (
-    <section className="flex-1 p-8 bg-white rounded-xl border border-gray-200 shadow-sm max-md:p-5">
+    <section className="flex-1 p-8 bg-white rounded-xl border border-gray-200 shadow-sm max-md:p-5 animate-in fade-in duration-300">
       <h2 className="mb-8 text-xl font-bold text-gray-900">
         Hồ sơ điều phối viên
       </h2>
@@ -79,7 +111,7 @@ export const UserProfileForm = () => {
               type="text"
               value={formData.employeeId}
               disabled
-              className="px-4 py-3 w-full text-sm text-gray-500 bg-gray-100 rounded-lg border border-gray-300 cursor-not-allowed"
+              className="px-4 py-3 w-full text-sm text-gray-500 bg-gray-100 rounded-lg border border-gray-300 cursor-not-allowed font-mono uppercase tracking-wider"
             />
           </div>
         </div>
@@ -105,7 +137,6 @@ export const UserProfileForm = () => {
           </div>
         </div>
 
-        {/*   CHỈNH SỬA Ở ĐÂY: Thêm div flex chứa 2 nút */}
         <div className="flex justify-end items-center gap-4 pt-6 border-t border-gray-100">
           
           {/* Nút Đăng xuất */}

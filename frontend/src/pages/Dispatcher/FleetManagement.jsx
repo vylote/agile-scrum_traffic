@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Menu } from "../../components/Dispatcher/Menu";
-import { SearchBar } from "../../components/Dispatcher/SearchBar";
 import {
   MessageSquare,
   MapPin,
@@ -141,9 +140,6 @@ export const FleetManagement = () => {
             <p className="text-sm text-gray-500">
               Hệ thống giám sát {pagination.total} đội cứu hộ
             </p>
-          </div>
-          <div className="w-[400px]">
-            <SearchBar className="w-full" />
           </div>
         </header>
 

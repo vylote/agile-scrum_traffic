@@ -1,26 +1,35 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux"; // 🔥 Import thêm useSelector
 import { Map, AlertCircle, Truck, Phone, Settings } from "lucide-react";
 import ellipse1 from "../../assets/images/avatar.jpg";
 import api from "../../services/api";
 import { useSocket } from "../../hooks/useSocket";
 import { INCIDENT_STATUS } from "../../utils/constants/incidentConstants";
 
+// 🔥 CẬP NHẬT USER PROFILE ĐỂ LẤY DỮ LIỆU ĐỘNG
 const UserProfile = () => {
   const navigate = useNavigate();
+  // Lấy dữ liệu user từ Redux Store
+  const { user } = useSelector((state) => state.auth);
+
+  if (!user) return null; // Tránh lỗi null khi chưa load kịp
+
   return (
     <footer
       onClick={() => navigate("/dispatcher/settings")}
       className="p-6 border-t border-gray-200 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition-colors"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0"> {/* Thêm min-w-0 để cắt chữ nếu dài quá */}
         <img
-          src={ellipse1}
+          src={user.avatar || "https://placehold.co/120x120/d1d5db/d1d5db"} // Dùng ảnh ảo nếu chưa có ảnh
           alt="User avatar"
           className="object-cover shrink-0 w-10 h-10 rounded-full"
         />
-        <div className="flex flex-col">
-          <h3 className="text-sm font-bold text-gray-900">Điều phối viên A</h3>
+        <div className="flex flex-col min-w-0">
+          <h3 className="text-sm font-bold text-gray-900 truncate">
+             {user.name || "Điều phối viên"}
+          </h3>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
             <span className="text-xs text-gray-500 italic">Online</span>
@@ -29,7 +38,7 @@ const UserProfile = () => {
       </div>
       <button
         aria-label="User menu"
-        className="text-gray-400 hover:text-gray-600 transition-colors"
+        className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
       >
         <Settings className="w-5 h-5" />
       </button>
@@ -44,7 +53,7 @@ const NavigationMenu = () => {
 
   const [incidentCount, setIncidentCount] = useState(0);
   
-  // 🔥 FIX LỖI ESLINT: Khởi tạo dữ liệu trực tiếp từ LocalStorage ngay lần render đầu tiên
+  // Khởi tạo dữ liệu trực tiếp từ LocalStorage ngay lần render đầu tiên
   const [globalUnreadCount, setGlobalUnreadCount] = useState(() => {
     try {
       const storedCounts = JSON.parse(localStorage.getItem('unreadChatCounts')) || {};
@@ -135,7 +144,6 @@ const NavigationMenu = () => {
     };
   }, [socket]);
 
-
   const menuItems = [
     {
       path: "/dispatcher/dashboard",
@@ -157,7 +165,7 @@ const NavigationMenu = () => {
       path: "/dispatcher/call-center",
       icon: <Phone className="w-5 h-5" />,
       label: "Liên lạc tổng đài",
-      badge: globalUnreadCount, // 🔥 Gán số lượng tin nhắn chưa đọc vào Menu này
+      badge: globalUnreadCount,
     },
   ];
 
@@ -169,7 +177,6 @@ const NavigationMenu = () => {
           <Link
             key={index}
             to={item.path}
-            // 🔥 ĐÃ XÓA SỰ KIỆN onClick. Bấm vào Menu không tự ý xóa chấm đỏ nữa!
             className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive
                 ? "bg-blue-50 text-blue-600 font-bold"
@@ -205,6 +212,7 @@ export const Menu = () => {
         </div>
         <NavigationMenu />
       </div>
+      {/* Gọi UserProfile động ra */}
       <UserProfile />
     </aside>
   );
