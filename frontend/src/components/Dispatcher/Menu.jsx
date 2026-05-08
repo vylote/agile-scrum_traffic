@@ -130,7 +130,7 @@ const NavigationMenu = () => {
     socket.on("incident:new", handleNew);
     socket.on("alert:sos", handleNew);
     socket.on("incident:updated", handleUpdate);
-    socket.on("delete_incident", handleDelete);
+    socket.on("incident:delete", handleDelete);
     
     socket.emit('dispatcher:register');
     socket.on('chat:notify_dispatcher', handleNotify);
@@ -139,7 +139,7 @@ const NavigationMenu = () => {
       socket.off("incident:new", handleNew);
       socket.off("alert:sos", handleNew);
       socket.off("incident:updated", handleUpdate);
-      socket.off("delete_incident", handleDelete);
+      socket.off("incident:delete", handleDelete);
       socket.off('chat:notify_dispatcher', handleNotify);
     };
   }, [socket]);

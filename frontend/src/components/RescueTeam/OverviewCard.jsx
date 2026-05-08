@@ -1,58 +1,14 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo } from "react";
 import {
   Phone,
   Car,
   MapPin,
-  X,
   ShieldAlert,
-  Zap,
   AlertTriangle,
   Clock,
   ShieldCheck,
 } from "lucide-react";
 import { getHaversineDistance } from "../../utils/geoUtils";
-
-// ─── Component Thanh đếm ngược 30s ──────────────────────────────────────────
-const CountdownProgressBar = ({ expiresAt, onZero }) => {
-  const [timeLeft, setTimeLeft] = useState(30);
-
-  useEffect(() => {
-    if (!expiresAt) return;
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, (expiresAt - Date.now()) / 1000);
-      setTimeLeft(remaining);
-      if (remaining === 0) {
-        clearInterval(interval);
-        if (onZero) onZero();
-      }
-    }, 100);
-    return () => clearInterval(interval);
-  }, [expiresAt, onZero]);
-
-  const progress = (timeLeft / 30) * 100;
-  const isDanger = timeLeft <= 10;
-
-  return (
-    <div className="w-full mt-4">
-      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-wider mb-1.5">
-        <span className={isDanger ? "text-red-500 animate-pulse" : "text-gray-500"}>
-          {isDanger ? "Sắp hết hạn phản hồi!" : "Tự động từ chối sau:"}
-        </span>
-        <span className={`text-sm ${isDanger ? "text-red-600" : "text-blue-600"}`}>
-          {Math.ceil(timeLeft)}s
-        </span>
-      </div>
-      <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden shadow-inner">
-        <div
-          className={`h-full transition-all duration-100 ease-linear ${isDanger ? "bg-red-50" : "bg-blue-50"} overflow-hidden relative`}
-          style={{ width: `${progress}%` }}
-        >
-          <div className={`absolute inset-0 ${isDanger ? "bg-red-500" : "bg-[#0088FF]"}`} />
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const NormalOverviewCard = () => (
   <div className="bg-white rounded-[24px] p-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-gray-100 mb-2 pointer-events-auto">
@@ -77,11 +33,8 @@ const IncidentCard = ({
   onAccept,
   onArrive,
   onComplete,
-  onReject,
   myRole,
   currentPos,
-  expiresAt,
-  etaMinutes,
 }) => {
   const isLeader = myRole === "LEADER";
 
@@ -101,28 +54,6 @@ const IncidentCard = ({
   let cardConfig = {};
 
   switch (status) {
-    case "incoming":
-      cardConfig = {
-        headerTitle: "LỆNH ĐIỀU ĐỘNG TỰ ĐỘNG",
-        headerColor: "text-[#0088FF]",
-        buttons: (
-          <div className="w-full flex flex-col">
-            {isLeader ? (
-              <div className="flex gap-2 w-full">
-                <button onClick={() => onAccept(incident)} className="flex-[2] bg-[#0088FF] text-white py-3.5 rounded-xl font-black text-sm active:scale-95 shadow-lg flex items-center justify-center gap-2"><Zap size={16} /> NHẬN CA NÀY</button>
-                <button onClick={onReject} className="flex-[1] bg-red-50 text-red-500 border border-red-100 py-3.5 rounded-xl font-bold text-xs active:scale-95">BỎ QUA</button>
-              </div>
-            ) : (
-              <div className="w-full py-4 bg-blue-50 text-[#0088FF] rounded-xl font-bold text-xs flex items-center justify-center gap-2 border border-blue-100">
-                <Clock size={16} className="animate-spin" /> ĐANG CHỜ ĐỘI TRƯỞNG PHẢN HỒI...
-              </div>
-            )}
-            <CountdownProgressBar expiresAt={expiresAt} />
-          </div>
-        ),
-      };
-      break;
-
     case "new_incident":
       cardConfig = {
         headerTitle: "SỰ CỐ MỚI TRONG KHU VỰC",
@@ -130,7 +61,7 @@ const IncidentCard = ({
         buttons: (
           <div className="flex gap-2 w-full">
             {isLeader ? (
-              <button onClick={() => onAccept(incident)} className="flex-[2] bg-[#1e2a5e] text-white py-3.5 rounded-xl font-bold text-xs active:scale-95">CHẤP NHẬN CỨU HỘ</button>
+              <button onClick={() => onAccept(incident)} className="flex-[2] bg-[#1e2a5e] text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 shadow-lg">CHẤP NHẬN CỨU HỘ</button>
             ) : (
               <div className="flex-[2] bg-amber-50 text-amber-600 py-3.5 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 border border-amber-100"><ShieldAlert size={14} /> CHỜ ĐỘI TRƯỞNG NHẬN ĐƠN</div>
             )}
@@ -193,28 +124,28 @@ const IncidentCard = ({
   }
 
   return (
-    <div className={`bg-white rounded-[32px] p-5 shadow-2xl border w-full relative pointer-events-auto overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-500 ${status === "incoming" ? "border-blue-400 ring-4 ring-blue-500/20" : "border-gray-100"}`}>
+    <div className="bg-white rounded-[32px] p-5 shadow-2xl border w-full relative pointer-events-auto overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-500 border-gray-100">
       {cardConfig.headerTitle && (
         <h2 className={`text-center text-[10px] font-black mb-4 uppercase tracking-[0.2em] flex justify-center items-center gap-1.5 ${cardConfig.headerColor}`}>
-          {status === "incoming" && <AlertTriangle size={14} />} {cardConfig.headerTitle}
+          <AlertTriangle size={14} /> {cardConfig.headerTitle}
         </h2>
       )}
 
       <div className="bg-gray-50/80 rounded-[20px] p-4 mb-4 flex items-center justify-between border border-gray-100">
         <div className="flex gap-3.5 items-center">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${status === "incoming" ? "bg-blue-100" : "bg-red-100"}`}>
-            {status === "new_incident" || status === "incoming" ? (
-              <Car className={`w-6 h-6 ${status === "incoming" ? "text-[#0088FF]" : "text-red-500"} animate-pulse`} />
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${status === "new_incident" ? "bg-blue-100" : "bg-red-100"}`}>
+            {status === "new_incident" ? (
+              <Car className="w-6 h-6 text-[#0088FF] animate-pulse" />
             ) : (
               <ShieldAlert className="text-red-500 w-6 h-6" />
             )}
           </div>
           <div>
-            <p className="font-black text-gray-900 text-[15px] leading-tight uppercase line-clamp-1 max-w-[180px]">{status === "new_incident" || status === "incoming" ? title : reporterName}</p>
-            <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">{status === "incoming" ? `Di chuyển: ~${etaMinutes} phút` : "Thông tin liên hệ"}</p>
+            <p className="font-black text-gray-900 text-[15px] leading-tight uppercase line-clamp-1 max-w-[180px]">{status === "new_incident" ? title : reporterName}</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">Thông tin liên hệ</p>
           </div>
         </div>
-        {(status !== "new_incident" && status !== "incoming") && incident?.reportedBy?.phone && (
+        {(status !== "new_incident") && incident?.reportedBy?.phone && (
           <a href={`tel:${incident.reportedBy.phone}`} className="w-10 h-10 rounded-full bg-[#34c759] flex items-center justify-center shadow-lg active:scale-90 transition-transform"><Phone className="w-5 h-5 text-white" /></a>
         )}
       </div>
