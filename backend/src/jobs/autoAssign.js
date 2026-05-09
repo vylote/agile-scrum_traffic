@@ -8,9 +8,7 @@ const notificationService = require('../services/notificationService');
 const { INCIDENT_STATUS } = require('../utils/constants/incidentConstants');
 const { TEAM_ROLES } = require('../utils/constants/rescueConstants');
 
-const autoDispatchQueue = new Queue('auto-dispatch', {
-    redis: { host: redisConfig.host, port: redisConfig.port }
-});
+const autoDispatchQueue = new Queue('auto-dispatch', redisConfig.url);
 
 // chạy tối đa 5 job song song
 /* Giả sử có một vụ tai nạn liên hoàn, 10 người dân rút điện thoại ra bấm báo cáo SOS cùng một lúc. Nếu Node.js xử 

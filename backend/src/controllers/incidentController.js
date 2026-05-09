@@ -65,7 +65,7 @@ exports.createIncident = async (req, res, next) => {
         }
 
         const dispatchQueue = require('../jobs/autoAssign');
-        await dispatchQueue.add({
+        dispatchQueue.add({
             incidentId: newIncident._id
         }, {
             delay: 1000, // Chờ 1 giây để đảm bảo DB đã lưu xong và Socket đã phát
@@ -131,7 +131,7 @@ exports.createSOS = async (req, res, next) => {
 
         // THÊM ĐOẠN NÀY ĐỂ GỌI XE TỰ ĐỘNG CHO SOS:
         const dispatchQueue = require('../jobs/autoAssign');
-        await dispatchQueue.add({
+        dispatchQueue.add({
             incidentId: sosIncident._id
         }, {
             delay: 500,  // Chạy nhanh hơn bình thường (0.5s)
