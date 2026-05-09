@@ -7,6 +7,13 @@ const SuccessCodes = require('../utils/constants/successCodes');
 const { sendSuccess } = require('../utils/response');
 const { USER_ROLES } = require('../utils/constants/userConstants');
 
+const BASE_COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: true, // Luôn để true để hoạt động trên HTTPS (Vercel/Railway)
+    sameSite: 'none', // Bắt buộc để Frontend và Backend khác domain có thể trao đổi cookie
+    path: '/', // Đảm bảo cookie có hiệu lực cho tất cả các đường dẫn /api/v1/...
+};
+
 exports.register = async (req, res, next) => {
     try {
         const { username, password, name, email, phone } = req.body;
@@ -79,19 +86,13 @@ exports.login = async (req, res, next) => {
             { expiresIn: '7d', algorithm: 'HS256' }
         );
 
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', 
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' 
-        };
-
         const accessTokenOptions = {
-            ...cookieOptions,
+            ...BASE_COOKIE_OPTIONS,
             expires: new Date(Date.now() + 15 * 60 * 1000)
         };
-        
+
         const refreshTokenOptions = {
-            ...cookieOptions,
+            ...BASE_COOKIE_OPTIONS,
             expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         };
 
@@ -135,11 +136,9 @@ exports.refreshToken = async (req, res, next) => {
         );
 
         const options = {
-            expires: new Date(Date.now() + 15 *60* 1000),
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-        }
+            ...BASE_COOKIE_OPTIONS,
+            expires: new Date(Date.now() + 15 * 60 * 1000),
+        };
 
         res.cookie('token', newAccessToken, options);
 
@@ -154,13 +153,8 @@ exports.refreshToken = async (req, res, next) => {
 };
 
 exports.logout = (req, res) => {
-    const options = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    }
-    res.clearCookie('token', options);
-    res.clearCookie('refreshToken', options);
+    res.clearCookie('token', BASE_COOKIE_OPTIONS);
+    res.clearCookie('refreshToken', BASE_COOKIE_OPTIONS);
     return sendSuccess(res, SuccessCodes.LOGOUT_SUCCESS);
 };
 

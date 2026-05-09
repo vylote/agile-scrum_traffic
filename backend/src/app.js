@@ -16,6 +16,7 @@ const AppError = require('./middleware/AppError.js')
 
 const app = express();
 
+app.set('trust proxy', 1);
 // Cấu hình Middleware cơ bản
 app.use(cookieParser());
 app.use(cors({
