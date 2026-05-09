@@ -79,20 +79,23 @@ exports.login = async (req, res, next) => {
             { expiresIn: '7d', algorithm: 'HS256' }
         );
 
-        const accessTokenOptions = {
-            expires: new Date(Date.now() + 15 *60* 1000),
+        const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', 
-            sameSite: 'lax' // chống CSRF
-        }
-        const refreshTokenOptions = {
-            expires: new Date(Date.now() + 7*24 * 60 * 60 * 1000),
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', 
-            sameSite: 'lax'
-        }
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' 
+        };
 
-        res.cookie('token', accessToken,  accessTokenOptions);
+        const accessTokenOptions = {
+            ...cookieOptions,
+            expires: new Date(Date.now() + 15 * 60 * 1000)
+        };
+        
+        const refreshTokenOptions = {
+            ...cookieOptions,
+            expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        };
+
+        res.cookie('token', accessToken, accessTokenOptions);
         res.cookie('refreshToken', refreshToken, refreshTokenOptions);
 
         return sendSuccess(res, SuccessCodes.LOGIN_SUCCESS, {
@@ -135,7 +138,7 @@ exports.refreshToken = async (req, res, next) => {
             expires: new Date(Date.now() + 15 *60* 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax'
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
         }
 
         res.cookie('token', newAccessToken, options);
@@ -154,7 +157,7 @@ exports.logout = (req, res) => {
     const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'lax'
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
     res.clearCookie('token', options);
     res.clearCookie('refreshToken', options);

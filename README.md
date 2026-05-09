@@ -49,7 +49,6 @@ MONGO_URI=mongodb://localhost:27017/incident_db?replicaSet=rs0&directConnection=
 MONGO_URI_TEST=mongodb://localhost:27017/incident_test_db
 JWT_SECRET=your_jwt_secret_key
 CLIENT_URL=http://localhost:5173
-GOOGLE_APPLICATION_CREDENTIALS="./config/firebase-service-account.json"
 ```
 
 ### Bước 2 — Khởi chạy Database & Cache (khuyên dùng)

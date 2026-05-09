@@ -9,7 +9,7 @@ node_modules/
 **/.env.production
 firebase-service-account.json
 **/firebase-service-account.json
-backend/src/config/firebase-service-account.json
+backend/src/config/firebase/firebase-service-account.json
 
 # 3. Kết quả kiểm thử (Testing outputs)
 coverage/
