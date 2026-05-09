@@ -12,6 +12,14 @@ export const RESCUE_TEAM_STATUS = {
     OFFLINE: 'OFFLINE'
 };
 
+export const TEAM_CAPABILITIES = {
+    FIRST_AID: 'FIRST_AID',
+    TOWING: 'TOWING',
+    FIRE_FIGHTING: 'FIRE_FIGHTING',
+    WATER_RESCUE: 'WATER_RESCUE',
+    GENERAL: 'GENERAL'
+};
 
 export const ALL_RESCUE_TYPES = Object.values(RESCUE_TEAM_TYPES)
 export const ALL_RESCUE_STATUS = Object.values(RESCUE_TEAM_STATUS)
+export const ALL_CAPABILITIES = Object.values(TEAM_CAPABILITIES);
