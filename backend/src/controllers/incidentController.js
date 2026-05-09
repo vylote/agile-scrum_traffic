@@ -27,7 +27,7 @@ exports.createIncident = async (req, res, next) => {
         console.log("full address from OSM: ", address);
         console.log("zone was cut for saving into db: ", detectedZone);
 
-        const photos = req.files ? req.files.map(file => file.filename) : [];
+        const photos = req.files ? req.files.map(file => file.path) : [];
 
         const initTimeLine = [{
             status: INCIDENT_STATUS.PENDING,
@@ -162,25 +162,17 @@ exports.deleteIncident = async (req, res, next) => {
         }
 
         if (deleteDoc.photos && deleteDoc.photos.length > 0) {
-            const deletePromise = deleteDoc.photos.map(async (imgName) => {
-                const filePath = path.join(__dirname, '../../uploads', imgName)
-
-                try {
-                    await fs.access(filePath)
-                    return fs.unlink(filePath)
-                } catch (err) {
-                    console.log(`file k ton tai: ${imgName}`)
-                    return null
-                }
-            })
-
-            // === là sao sánh k ép kiểu nó khác với == có ép kiểu
-            Promise.allSettled(deletePromise).then(result => {
-                result.forEach((result, index) => {
-                    if (result.status === 'fulfilled' && result.value !== null)
-                        console.log(`Da xoa xong anh: ${deleteDoc.photos[index]} `)
-                })
-            })
+            const cloudinary = require('cloudinary').v2;
+            
+            deleteDoc.photos.forEach(photoUrl => {
+                // Tách lấy public_id từ URL để xóa
+                // Ví dụ: .../incident_photos/abcxyz.jpg -> public_id là "incident_photos/abcxyz"
+                const parts = photoUrl.split('/');
+                const fileName = parts[parts.length - 1].split('.')[0];
+                const publicId = `incident_photos/${fileName}`;
+                
+                cloudinary.uploader.destroy(publicId).catch(err => console.error("Lỗi xóa Cloudinary:", err));
+            });
         }
 
         const io = req.app.get('io');
