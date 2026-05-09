@@ -52,6 +52,19 @@ JWT_REFRESH_SECRET=lien_he_vy
 CLIENT_URL=http://localhost:5173
 ```
 
+Tạo file `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000/api/v1
+VITE_FIREBASE_API_KEY="AIzaSyD61euRhXy2EW0COo9M869IeyeGt-n0Axo"
+VITE_FIREBASE_AUTH_DOMAIN="incident-management-e0ec1.firebaseapp.com"
+VITE_FIREBASE_PROJECT_ID="incident-management-e0ec1"
+VITE_FIREBASE_STORAGE_BUCKET="incident-management-e0ec1.firebasestorage.app"
+VITE_FIREBASE_MESSAGING_SENDER_ID="937030266561"
+VITE_FIREBASE_APP_ID="1:937030266561:web:01ea6bd694f257271d2e40"
+VITE_FIREBASE_MEASUREMENT_ID="G-8BFJEJNGTE"
+```
+
 ### Bước 2 — Khởi chạy Database & Cache (khuyên dùng)
 
 Chạy lệnh sau tại thư mục gốc để khởi động MongoDB (với Replica Set) và Redis:
