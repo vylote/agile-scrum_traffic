@@ -47,7 +47,8 @@ NODE_ENV=development
 PORT=5000
 MONGO_URI=mongodb://localhost:27017/incident_db?replicaSet=rs0&directConnection=true
 MONGO_URI_TEST=mongodb://localhost:27017/incident_test_db
-JWT_SECRET=your_jwt_secret_key
+JWT_SECRET=lien_he_vy
+JWT_REFRESH_SECRET=lien_he_vy
 CLIENT_URL=http://localhost:5173
 ```
 
