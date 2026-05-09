@@ -1,9 +1,19 @@
 import React, { useState } from "react";
-import { X, ShieldCheck, Zap } from "lucide-react";
+// ✅ Đã thêm icon Check vào đây
+import { X, ShieldCheck, Zap, Check } from "lucide-react"; 
 import {
   RESCUE_TEAM_TYPES,
   ALL_RESCUE_TYPES,
+  TEAM_CAPABILITIES,
 } from "../../utils/constants/rescueConstants";
+
+const CAPABILITY_LABELS = {
+  [TEAM_CAPABILITIES.FIRST_AID]: "Sơ cứu / Cấp cứu",
+  [TEAM_CAPABILITIES.TOWING]: "Cẩu kéo xe",
+  [TEAM_CAPABILITIES.FIRE_FIGHTING]: "Chữa cháy",
+  [TEAM_CAPABILITIES.WATER_RESCUE]: "Cứu hộ đường thủy",
+  [TEAM_CAPABILITIES.GENERAL]: "Đa dụng / Khác",
+};
 
 const TYPE_PREFIX_MAP = {
   [RESCUE_TEAM_TYPES.AMBULANCE]: "AMB",
@@ -19,17 +29,16 @@ const ZONE_MAP = {
   "Đống Đa": "DD",
   "Ba Đình": "BD",
   "Hà Đông": "HD",
-  "Khác": "VN",
+  "Khác": "VN", // ✅ Thêm ngoặc cho đồng bộ
 };
 
 const initialState = {
   name: "",
   type: RESCUE_TEAM_TYPES.TOW_TRUCK,
   zone: "Sóc Sơn",
-  capabilities: "Cứu hộ cơ bản",
+  capabilities: [],
 };
 
-// 🔥 Đã xóa prop `isOpen` đi vì Parent tự lo việc ẩn hiện rồi
 const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
   const [formData, setFormData] = useState(initialState);
 
@@ -38,8 +47,9 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
   const zonePart = ZONE_MAP[formData.zone] || "XX";
   const prefix = `${typePart}-${zonePart}-`;
 
-  const matchedTeams = existingTeams.filter((team) =>
-    team.code && team.code.toUpperCase().startsWith(prefix.toUpperCase())
+  const matchedTeams = existingTeams.filter(
+    (team) =>
+      team.code && team.code.toUpperCase().startsWith(prefix.toUpperCase()),
   );
 
   let nextSequence = "01";
@@ -47,8 +57,8 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
     const usedNumbers = matchedTeams
       .map((team) => {
         const parts = team.code.split("-");
-        const lastPart = parts[parts.length - 1]; 
-        const numericPart = lastPart.replace(/\D/g, ""); // Chỉ lấy số, đề phòng lỗi
+        const lastPart = parts[parts.length - 1];
+        const numericPart = lastPart.replace(/\D/g, "");
         return parseInt(numericPart, 10);
       })
       .filter((num) => !isNaN(num));
@@ -61,32 +71,53 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
 
   const generatedCode = `${prefix}${nextSequence}`;
 
+  const handleCapabilityChange = (cap) => {
+    setFormData((prev) => {
+      const isExist = prev.capabilities.includes(cap);
+      if (isExist) {
+        return {
+          ...prev,
+          capabilities: prev.capabilities.filter((c) => c !== cap),
+        };
+      } else {
+        return { ...prev, capabilities: [...prev.capabilities, cap] };
+      }
+    });
+  };
+
   // --- 2. XỬ LÝ SỰ KIỆN ---
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // ✅ Kiểm tra tên rỗng
+    if (!formData.name.trim()) {
+        return alert("Vui lòng nhập tên doanh nghiệp");
+    }
+
     const defaultCoords = {
       "Sóc Sơn": { lat: 21.2583, lng: 105.8125 },
       "Cầu Giấy": { lat: 21.0362, lng: 105.7906 },
       "Đống Đa": { lat: 21.0128, lng: 105.8277 },
-      "Ba Đình": { lat: 21.0336, lng: 105.8340 },
+      "Ba Đình": { lat: 21.0336, lng: 105.834 },
       "Hà Đông": { lat: 20.9716, lng: 105.7709 },
-      "Khác": { lat: 21.0285, lng: 105.8542 }
+      "Khác": { lat: 21.0285, lng: 105.8542 },
     };
-    
+
     const coords = defaultCoords[formData.zone] || defaultCoords["Khác"];
 
     onAdd({
       ...formData,
-      code: generatedCode, 
-      latitude: coords.lat, // Truyền đúng latitude và longitude để Joi không cắn
+      name: formData.name.trim(), // ✅ Trim dữ liệu
+      code: generatedCode,
+      latitude: coords.lat,
       longitude: coords.lng,
-      capabilities: formData.capabilities.split(",").map((s) => s.trim()),
       members: [],
     });
   };
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      {/* ... (Phần UI Overlay và Container giữ nguyên) ... */}
       <div
         className="absolute inset-0 bg-[#1e2a5e]/40 backdrop-blur-sm"
         onClick={onClose}
@@ -107,12 +138,14 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Input tên doanh nghiệp */}
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
                 Tên doanh nghiệp
               </label>
               <input
                 type="text"
+                required
                 className="mt-1.5 px-4 py-3 w-full rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 outline-none font-semibold transition-all"
                 placeholder="Nhập tên đối tác..."
                 value={formData.name}
@@ -122,6 +155,7 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
               />
             </div>
 
+            {/* Select Loại hình và Zone */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
@@ -162,7 +196,53 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
               </div>
             </div>
 
-            {/* HIỂN THỊ SMART CODE */}
+            {/* ✅ Checkboxes Năng lực */}
+            <div>
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                Năng lực chuyên môn (Capabilities)
+              </label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {Object.entries(CAPABILITY_LABELS).map(([value, label]) => (
+                  <label
+                    key={value}
+                    className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${
+                      formData.capabilities.includes(value)
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-100 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={formData.capabilities.includes(value)}
+                      onChange={() => handleCapabilityChange(value)}
+                    />
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center ${
+                        formData.capabilities.includes(value)
+                          ? "bg-blue-500 border-blue-500"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {formData.capabilities.includes(value) && (
+                        <Check size={12} className="text-white" />
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-bold ${
+                        formData.capabilities.includes(value)
+                          ? "text-blue-700"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Smart Code Display & Submit buttons ... */}
             <div className="bg-blue-50 p-5 rounded-2xl border-2 border-blue-100 relative overflow-hidden group">
               <div className="flex justify-between items-center relative z-10">
                 <div>
@@ -173,11 +253,8 @@ const AddPartnerModal = ({ onClose, onAdd, existingTeams = [] }) => {
                     {generatedCode}
                   </p>
                 </div>
-
                 <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-blue-100 text-center">
-                  <label className="block text-[8px] font-bold text-gray-400 uppercase">
-                    STT tiếp theo
-                  </label>
+                  <label className="block text-[8px] font-bold text-gray-400 uppercase">STT tiếp theo</label>
                   <span className="text-xl font-mono font-black text-blue-600 block mt-1 leading-none">
                     {nextSequence}
                   </span>
