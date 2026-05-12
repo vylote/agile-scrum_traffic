@@ -59,15 +59,6 @@ export const CitizenSOS = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FF3B30] font-sans text-white overflow-hidden">
-      {/* 1. STATUS BAR (Màu trắng trên nền đỏ) */}
-      <div className="flex justify-between items-center px-8 pt-5 pb-2">
-        <span className="text-white font-bold text-[17px]">9:41</span>
-        <img
-          src="https://storage.googleapis.com/tagjs-prod.appspot.com/v1/rVIdi7n1RR/hncc5whw_expires_30_days.png"
-          className="w-[95px] h-[22px] object-contain brightness-0 invert"
-          alt="status icons"
-        />
-      </div>
 
       {/* 2. NỘI DUNG CHÍNH (Được căn giữa màn hình) */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 gap-6 -mt-10">

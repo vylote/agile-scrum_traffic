@@ -29,15 +29,6 @@ export const CitizenAccount = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-10">
-      {/* 1. STATUS BAR */}
-      <div className="flex justify-between items-center px-8 pt-5 pb-2">
-        <span className="text-black font-bold text-[17px]">9:41</span>
-        <img
-          src="https://storage.googleapis.com/tagjs-prod.appspot.com/v1/rVIdi7n1RR/hncc5whw_expires_30_days.png"
-          className="w-[95px] h-[22px] object-contain"
-          alt="status icons"
-        />
-      </div>
 
       {/* 2. HEADER & NÚT ĐÓNG */}
       <div className="flex justify-between items-center px-6 mt-4 mb-6">
