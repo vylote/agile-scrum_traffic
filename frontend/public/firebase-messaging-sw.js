@@ -27,7 +27,7 @@ messaging.onBackgroundMessage((payload) => {
     
     const notificationOptions = {
         body: data.body || "Bạn có cập nhật mới về sự cố.",
-        icon: '/logo192.png',      // Đường dẫn ảnh icon (nằm trong public)
+        icon: '/pwa-192x192.png',      // Đường dẫn ảnh icon (nằm trong public)
         badge: '/favicon.ico',    // Icon nhỏ hiện trên thanh trạng thái Android
         tag: 'incident-alert',    // Các thông báo cùng tag sẽ ghi đè nhau, tránh làm phiền
         data: data,       // Chứa incidentId, trackingCode...
