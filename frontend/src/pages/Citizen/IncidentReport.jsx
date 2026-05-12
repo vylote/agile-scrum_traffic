@@ -203,12 +203,6 @@ export const IncidentReport = () => {
       )}
 
       <div className="bg-[#F2F2F7] sticky top-0 z-[100] backdrop-blur-md bg-opacity-95">
-        <div className="flex justify-between items-center px-8 pt-5 pb-2">
-          <span className="text-black font-bold text-[17px]">9:41</span>
-          <div className="flex gap-1.5 items-center">
-            <div className="w-5 h-3 border border-black rounded-sm relative after:content-[''] after:absolute after:right-[-3px] after:top-1/2 after:-translate-y-1/2 after:w-1 after:h-1 after:bg-black after:rounded-full"></div>
-          </div>
-        </div>
         <header className="flex items-center px-4 py-2">
           <button
             onClick={() => navigate(-1)}

@@ -4,7 +4,6 @@ import { ShieldOff, X, BellRing } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import Map from "../../components/Public/Map";
-import StatusBar from "../../components/RescueTeam/StatusBar";
 import UserProfile from "../../components/RescueTeam/UserProfile";
 import OverviewCard from "../../components/RescueTeam/OverviewCard";
 import TabBar from "../../components/RescueTeam/TabBar";
@@ -409,7 +408,6 @@ export const RescueHome = () => {
 
       <div className="absolute inset-0 z-20 flex flex-col pointer-events-none h-full">
         <div className="pointer-events-auto">
-          <StatusBar />
           <UserProfile isResting={isResting} onToggleRest={handleToggleRest} />
         </div>
 

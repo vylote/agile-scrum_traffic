@@ -144,13 +144,6 @@ export const CitizenNotifications = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] font-sans pb-24">
-      {/* STATUS BAR */}
-      <div className="flex justify-between items-center px-8 pt-5 pb-2">
-        <span className="text-black font-bold text-[17px]">9:41</span>
-        <div className="flex gap-1 items-center">
-          <div className="w-5 h-2.5 border border-black rounded-sm relative after:content-[''] after:absolute after:right-[-3px] after:top-1/2 after:-translate-y-1/2 after:w-1 after:h-1 after:bg-black after:rounded-full"></div>
-        </div>
-      </div>
 
       {/* TIÊU ĐỀ TRANG */}
       <div className="px-7 mt-6 mb-5 flex items-end justify-between">

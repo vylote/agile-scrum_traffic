@@ -24,7 +24,8 @@ const io = new Server(server, {
         origin: process.env.CLIENT_URL,
         credentials: true,
         methods: ["GET", "POST"]
-    }
+    },
+    transports: ['websocket', 'polling']
 });
 
 app.set('io', io);

@@ -4,7 +4,6 @@ import { Truck, AlertTriangle, Settings as SettingsIcon, ChevronRight, X } from 
 
 import api from "../../services/api";
 import { logout } from "../../store/slices/authSlice";
-import StatusBar from "../../components/RescueTeam/StatusBar";
 import TabBar from "../../components/RescueTeam/TabBar";
 import { useSocket } from "../../hooks/useSocket";
 
@@ -80,7 +79,6 @@ export const Settings = () => {
 
   return (
     <div className="relative mx-auto w-full h-screen max-w-[480px] bg-[#F5F6FA] overflow-hidden flex flex-col shadow-2xl">
-      <StatusBar time="11:30" />
 
       <main className="flex-1 overflow-y-auto hide-scrollbar flex flex-col">
         {/* 🔥 TRUYỀN DỮ LIỆU ĐỘNG VÀO ĐÂY */}
